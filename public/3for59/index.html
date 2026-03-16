@@ -6,7 +6,9 @@
 <title>3 Rooms Just £59 — Fresh For Less Carpet Cleaning</title>
 <meta name="description" content="Professional carpet cleaning — 3 rooms deep-cleaned for just £59. Stains, odours & allergens removed. Book online or call 0330 043 4811.">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<!-- Meta Pixel Code -->
+
+<!-- ========== META PIXEL ========== -->
+<!-- REPLACE '613073519035884' WITH YOUR 15-16 DIGIT PIXEL ID -->
 <script>
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -19,10 +21,8 @@ s.parentNode.insertBefore(t,s)}(window, document,'script',
 fbq('init', '613073519035884');
 fbq('track', 'PageView');
 </script>
-<noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=613073519035884&ev=PageView&noscript=1"
-/></noscript>
-<!-- End Meta Pixel Code -->
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=613073519035884&ev=PageView&noscript=1"/></noscript>
+<!-- ========== END META PIXEL ========== -->
 <style>
   :root {
     --deep-blue: #0f172a;
@@ -869,7 +869,32 @@ src="https://www.facebook.com/tr?id=613073519035884&ev=PageView&noscript=1"
     }
   })();
 
-  // Form submission via FormSubmit.co (same service as main site)
+  // ========== GOOGLE SHEETS LOGGING ==========
+  // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BELOW (between the quotes)
+  const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzvjrNLW293wswSlbOyhwFR660wlhkn8C517ktao4JeFcqVUdfrTmuTSPm6MiM5kdud/exec';
+
+  function logToGoogleSheet(data) {
+    if (GOOGLE_SHEET_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return; // skip if not configured
+    const payload = {
+      first: data.get('first'),
+      last: data.get('last'),
+      phone: data.get('phone'),
+      email: data.get('email'),
+      postcode: data.get('postcode'),
+      rooms: data.get('rooms'),
+      preferred_date: data.get('preferred_date'),
+      preferred_time: data.get('preferred_time'),
+      notes: data.get('notes') || ''
+    };
+    fetch(GOOGLE_SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(err => console.log('Sheet log failed:', err));
+  }
+
+  // ========== FORM SUBMISSION ==========
   function handleSubmit(e) {
     e.preventDefault();
     const form = e.target;
@@ -879,12 +904,25 @@ src="https://www.facebook.com/tr?id=613073519035884&ev=PageView&noscript=1"
     submitBtn.textContent = 'Sending...';
     submitBtn.disabled = true;
 
+    // 1) Send to email via FormSubmit.co
     fetch('https://formsubmit.co/ajax/contact@wirralcarpetcleaning.com', {
       method: 'POST',
       body: data
     })
     .then(response => response.json())
     .then(result => {
+      // 2) Log to Google Sheet (fire-and-forget)
+      logToGoogleSheet(data);
+
+      // 3) Fire Meta Pixel conversion event
+      if (typeof fbq === 'function') {
+        fbq('track', 'Lead', {
+          content_name: '3 for 59 Carpet Clean',
+          value: 59.00,
+          currency: 'GBP'
+        });
+      }
+
       document.getElementById('lead-form').style.display = 'none';
       document.getElementById('form-success').style.display = 'block';
     })
