@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Successful — Fresh For Less Carpet Cleaning</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- ========== META PIXEL ========== -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '613073519035884');
+fbq('track', 'PageView');
+fbq('track', 'Purchase', { currency: 'GBP', value: 0 });
+</script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=613073519035884&ev=PageView&noscript=1"/></noscript>
+<!-- ========== END META PIXEL ========== -->
+
+<style>
+  :root {
+    --deep-blue: #0f172a;
+    --mid-blue: #1e293b;
+    --sky: #3b99f5;
+    --aqua: #257bea;
+    --fresh-green: #22c55e;
+    --lime: #4ade80;
+    --cream: #f8fafc;
+    --white: #FFFFFF;
+    --text: #0f172a;
+    --muted: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    color: var(--text);
+    background: var(--cream);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topbar {
+    background: var(--deep-blue);
+    color: var(--white);
+    text-align: center;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .topbar a { color: var(--sky); text-decoration: none; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px;
+  }
+
+  .card {
+    background: var(--white);
+    border-radius: 20px;
+    padding: 40px 32px;
+    text-align: center;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+    border: 1px solid rgba(0,0,0,0.04);
+    animation: popIn 0.4s ease-out;
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .icon {
+    width: 64px;
+    height: 64px;
+    background: rgba(34,197,94,0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+  }
+  .icon svg { width: 32px; height: 32px; color: var(--fresh-green); }
+
+  .card h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  .card .message {
+    font-size: 15px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 28px;
+  }
+  .card .message strong { color: var(--text); }
+
+  .home-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 14px 28px;
+    background: var(--aqua);
+    color: var(--white);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+  .home-btn:hover { background: #1d6fd3; transform: translateY(-1px); }
+
+  .countdown {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 12px;
+  }
+
+  .contact {
+    margin-top: 24px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  .contact a { color: var(--aqua); text-decoration: none; font-weight: 600; }
+
+  .footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  Fresh For Less Carpet Cleaning &bull; <a href="tel:03300434811">0330 043 4811</a>
+</div>
+
+<div class="main">
+  <div class="card">
+    <div class="icon">
+      <svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+    </div>
+
+    <h1>Payment Successful</h1>
+
+    <div class="message" id="message">
+      <!-- Filled by JS based on payment type -->
+    </div>
+
+    <a href="/" class="home-btn">Return Home</a>
+    <div class="countdown" id="countdown">Redirecting in 6 seconds...</div>
+
+    <div class="contact">
+      Questions? Call us on <a href="tel:03300434811">0330 043 4811</a>
+    </div>
+  </div>
+</div>
+
+<div class="footer">&copy; 2026 Fresh For Less Carpet Cleaning</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const type = params.get('type');
+  const messageEl = document.getElementById('message');
+  const countdownEl = document.getElementById('countdown');
+
+  if (type === 'booking_fee') {
+    messageEl.innerHTML = 'Thank you for your <strong>&pound;20.00 booking fee</strong>. This will be deducted from your final payment.<br><br><strong>We will be in contact to confirm the date and time.</strong>';
+  } else {
+    messageEl.innerHTML = 'Thank you for your payment. We appreciate your business and look forward to making your home fresh and clean!';
+  }
+
+  // Countdown redirect
+  let seconds = 6;
+  const timer = setInterval(function() {
+    seconds--;
+    if (seconds <= 0) {
+      clearInterval(timer);
+      window.location.href = '/';
+    } else {
+      countdownEl.textContent = 'Redirecting in ' + seconds + ' second' + (seconds !== 1 ? 's' : '') + '...';
+    }
+  }, 1000);
+</script>
+
+</body>
+</html>
