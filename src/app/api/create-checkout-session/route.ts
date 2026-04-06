@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
     "https://www.freshforlesscarpetcleaning.co.uk";
 
   try {
+    // Stripe auto-enables available payment methods (card, Klarna, etc.)
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card", "klarna"],
       line_items: [
         {
           price_data: {
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Stripe error:", message);
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: message },
       { status: 500 }
     );
   }
