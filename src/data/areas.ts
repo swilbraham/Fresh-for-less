@@ -6,6 +6,132 @@ export interface Area {
   region: string;
 }
 
+const regionMeta: Record<string, { county: string; postcode: string }> = {
+  Wirral: { county: "Merseyside", postcode: "CH" },
+  Liverpool: { county: "Merseyside", postcode: "L" },
+  Chester: { county: "Cheshire", postcode: "CH" },
+  Warrington: { county: "Cheshire", postcode: "WA" },
+  Runcorn: { county: "Cheshire", postcode: "WA" },
+  "North Wales": { county: "North Wales", postcode: "LL" },
+};
+
+const slugPostcode: Record<string, string> = {
+  birkenhead: "CH41",
+  wallasey: "CH44",
+  bebington: "CH63",
+  heswall: "CH60",
+  "west-kirby": "CH48",
+  hoylake: "CH47",
+  neston: "CH64",
+  bromborough: "CH62",
+  moreton: "CH46",
+  "new-brighton": "CH45",
+  prenton: "CH43",
+  oxton: "CH43",
+  eastham: "CH66",
+  "ellesmere-port": "CH65",
+  irby: "CH61",
+  pensby: "CH61",
+  greasby: "CH49",
+  upton: "CH49",
+  "rock-ferry": "CH42",
+  tranmere: "CH42",
+  seacombe: "CH44",
+  liscard: "CH44",
+  leasowe: "CH46",
+  meols: "CH47",
+  "new-ferry": "CH62",
+  "port-sunlight": "CH62",
+  caldy: "CH48",
+  thurstaston: "CH61",
+  woodchurch: "CH49",
+  claughton: "CH41",
+  liverpool: "L1",
+  bootle: "L20",
+  crosby: "L23",
+  formby: "L37",
+  maghull: "L31",
+  kirkby: "L32",
+  huyton: "L36",
+  prescot: "L34",
+  knowsley: "L34",
+  halewood: "L26",
+  speke: "L24",
+  garston: "L19",
+  allerton: "L18",
+  woolton: "L25",
+  childwall: "L16",
+  wavertree: "L15",
+  toxteth: "L8",
+  aigburth: "L17",
+  "mossley-hill": "L18",
+  "west-derby": "L12",
+  "norris-green": "L11",
+  anfield: "L4",
+  everton: "L5",
+  kirkdale: "L4",
+  walton: "L4",
+  fazakerley: "L9",
+  aintree: "L9",
+  litherland: "L21",
+  seaforth: "L21",
+  waterloo: "L22",
+  chester: "CH1",
+  saltney: "CH4",
+  blacon: "CH1",
+  handbridge: "CH4",
+  christleton: "CH3",
+  tarvin: "CH3",
+  hoole: "CH2",
+  boughton: "CH3",
+  huntington: "CH3",
+  "vicars-cross": "CH3",
+  "upton-chester": "CH2",
+  "great-boughton": "CH3",
+  warrington: "WA1",
+  lymm: "WA13",
+  "stockton-heath": "WA4",
+  grappenhall: "WA4",
+  appleton: "WA4",
+  "great-sankey": "WA5",
+  penketh: "WA5",
+  burtonwood: "WA5",
+  padgate: "WA1",
+  woolston: "WA1",
+  birchwood: "WA3",
+  runcorn: "WA7",
+  widnes: "WA8",
+  halton: "WA7",
+  wrexham: "LL11",
+  flint: "CH6",
+  mold: "CH7",
+  deeside: "CH5",
+  queensferry: "CH5",
+  shotton: "CH5",
+  "connahs-quay": "CH5",
+  buckley: "CH7",
+  holywell: "CH8",
+  rhyl: "LL18",
+  prestatyn: "LL19",
+  "colwyn-bay": "LL29",
+  llandudno: "LL30",
+  bangor: "LL57",
+  conwy: "LL32",
+  caernarfon: "LL55",
+  ruthin: "LL15",
+  denbigh: "LL16",
+  abergele: "LL22",
+  pwllheli: "LL53",
+};
+
+export function getCountyForRegion(region: string): string {
+  return regionMeta[region]?.county ?? "UK";
+}
+
+export function getPostcodeForArea(area: Area): string {
+  return slugPostcode[area.slug] ?? regionMeta[area.region]?.postcode ?? "";
+}
+
 export const areas: Area[] = [
   // ─── WIRRAL ──────────────────────────────────────────
   {
@@ -61,7 +187,7 @@ export const areas: Area[] = [
     slug: "neston",
     description:
       "Looking for professional carpet cleaning in Neston? Fresh For Less provides expert carpet and upholstery cleaning across Neston and south Wirral. Our friendly team delivers exceptional results with fast turnaround times, using safe, eco-friendly cleaning solutions at prices you'll love.",
-    nearbyAreas: ["heswall", "ellesmere-port", "pensby", "burton", "bebington", "chester", "west-kirby"],
+    nearbyAreas: ["heswall", "ellesmere-port", "pensby", "irby", "bebington", "chester", "west-kirby"],
     region: "Wirral",
   },
   {
@@ -117,7 +243,7 @@ export const areas: Area[] = [
     slug: "ellesmere-port",
     description:
       "Looking for professional carpet cleaning in Ellesmere Port? Fresh For Less provides affordable, high-quality carpet and upholstery cleaning services throughout Ellesmere Port. Our professional team delivers outstanding results for both residential and commercial customers, using eco-friendly products and modern cleaning techniques.",
-    nearbyAreas: ["eastham", "bromborough", "neston", "chester", "hooton", "bebington", "birkenhead"],
+    nearbyAreas: ["eastham", "bromborough", "neston", "chester", "port-sunlight", "bebington", "birkenhead"],
     region: "Wirral",
   },
   {
@@ -415,7 +541,7 @@ export const areas: Area[] = [
     slug: "norris-green",
     description:
       "Looking for professional carpet cleaning in Norris Green? Fresh For Less delivers reliable carpet and upholstery cleaning across Norris Green. Our professional team provides outstanding deep-cleaning results using eco-friendly products, ensuring your home looks and feels wonderfully fresh at affordable rates.",
-    nearbyAreas: ["west-derby", "anfield", "fazakerley", "walton", "kirkby", "everton", "croxteth"],
+    nearbyAreas: ["west-derby", "anfield", "fazakerley", "walton", "kirkby", "everton", "huyton"],
     region: "Liverpool",
   },
   {
@@ -611,7 +737,7 @@ export const areas: Area[] = [
     slug: "stockton-heath",
     description:
       "Looking for professional carpet cleaning in Stockton Heath? Fresh For Less delivers exceptional carpet and upholstery cleaning throughout Stockton Heath and south Warrington. Our dedicated team provides reliable service with eco-friendly products, ensuring your carpets look their absolute best.",
-    nearbyAreas: ["warrington", "grappenhall", "appleton", "lymm", "great-sankey", "walton", "woolston"],
+    nearbyAreas: ["warrington", "grappenhall", "appleton", "lymm", "great-sankey", "padgate", "woolston"],
     region: "Warrington",
   },
   {

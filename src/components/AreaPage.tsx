@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import QuoteModal from "@/components/QuoteModal";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import AnimatedSection from "@/components/AnimatedSection";
-import { getAreaBySlug, getAreasByRegion, areas } from "@/data/areas";
+import { getAreaBySlug, getAreasByRegion, areas, getCountyForRegion, getPostcodeForArea } from "@/data/areas";
 
 const services = [
   {
@@ -133,6 +133,9 @@ export default function AreaPage({ slug }: { slug: string }) {
   const area = getAreaBySlug(slug);
   if (!area) return null;
 
+  const county = getCountyForRegion(area.region);
+  const postcode = getPostcodeForArea(area);
+
   const nearbyAreaData = area.nearbyAreas
     .map((s) => areas.find((a) => a.slug === s))
     .filter(Boolean) as typeof areas;
@@ -142,16 +145,33 @@ export default function AreaPage({ slug }: { slug: string }) {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     additionalType: "https://schema.org/ProfessionalService",
-    name: "Fresh For Less Carpet Cleaning",
-    description: `Professional carpet and upholstery cleaning in ${area.name}. Affordable prices, eco-friendly products, 100% satisfaction guarantee.`,
+    "@id": `https://www.freshforlesscarpetcleaning.co.uk/areas/${area.slug}#business`,
+    name: `Fresh For Less Carpet Cleaning — ${area.name}`,
+    description: `Professional carpet and upholstery cleaning in ${area.name}, ${county}. Affordable prices, eco-friendly products, 100% satisfaction guarantee.`,
     telephone: "0330 043 4811",
     email: "info@freshforlesscarpetcleaning.co.uk",
     url: `https://www.freshforlesscarpetcleaning.co.uk/areas/${area.slug}`,
-    priceRange: "£",
-    areaServed: {
-      "@type": "City",
-      name: area.name,
+    image: "https://www.freshforlesscarpetcleaning.co.uk/images/logo.png",
+    logo: "https://www.freshforlesscarpetcleaning.co.uk/images/logo.png",
+    priceRange: "££",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: area.name,
+      addressRegion: county,
+      postalCode: postcode,
+      addressCountry: "GB",
     },
+    areaServed: [
+      {
+        "@type": "City",
+        name: area.name,
+        containedInPlace: { "@type": "AdministrativeArea", name: area.region },
+      },
+      ...nearbyAreaData.map((nearby) => ({
+        "@type": "City",
+        name: nearby.name,
+      })),
+    ],
     openingHoursSpecification: {
       "@type": "OpeningHoursSpecification",
       dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
@@ -187,6 +207,35 @@ export default function AreaPage({ slug }: { slug: string }) {
     ],
   };
 
+  const localFaqs = [
+    {
+      q: `How much does carpet cleaning cost in ${area.name}?`,
+      a: `Our carpet cleaning prices in ${area.name} start from £39 for a single room. Most 3-bedroom homes are £99 for the whole house. We give a fixed, no-obligation quote before we start — no hidden fees.`,
+    },
+    {
+      q: `Do you cover ${postcode || area.name} postcodes?`,
+      a: `Yes — we cover all ${postcode ? `${postcode} postcodes and the wider ` : ""}${area.name} area, including ${nearbyAreaData.slice(0, 3).map((a) => a.name).join(", ") || area.region}. Same-week appointments are usually available.`,
+    },
+    {
+      q: `How long does a carpet take to dry after cleaning in ${area.name}?`,
+      a: `Most carpets in ${area.name} are touch-dry in 2–4 hours and fully dry within 6–12 hours. We use professional hot-water extraction with strong vacuum recovery to minimise drying time.`,
+    },
+    {
+      q: `Are your cleaning products safe for children and pets in ${area.name} homes?`,
+      a: `Yes — we use eco-friendly, non-toxic cleaning solutions in every ${area.name} home. They're safe for kids, pets, and people with allergies, and they leave no sticky residue.`,
+    },
+  ];
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: localFaqs.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+
   return (
     <>
       <Navbar onQuoteClick={openQuote} />
@@ -197,6 +246,10 @@ export default function AreaPage({ slug }: { slug: string }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
       <main>
         {/* ── Hero ─────────────────────────────────────── */}
@@ -257,7 +310,7 @@ export default function AreaPage({ slug }: { slug: string }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                 </svg>
-                Serving {area.region}
+                Serving {area.region}{postcode ? ` · ${postcode} postcodes` : ""}
               </span>
             </motion.div>
 
@@ -426,6 +479,41 @@ export default function AreaPage({ slug }: { slug: string }) {
                 </div>
               </div>
             </AnimatedSection>
+          </div>
+        </section>
+
+        {/* ── Local FAQ ─────────────────────────────────── */}
+        <section className="bg-slate-50 py-16 lg:py-24">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <AnimatedSection>
+              <div className="text-center">
+                <span className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-4 py-1.5 text-xs font-medium text-primary-700">
+                  Local FAQ
+                </span>
+                <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+                  Carpet Cleaning in {area.name} — Common Questions
+                </h2>
+                <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600">
+                  Honest answers to the questions our {area.name} customers ask most.
+                </p>
+              </div>
+            </AnimatedSection>
+
+            <div className="mt-10 space-y-4">
+              {localFaqs.map((faq, i) => (
+                <AnimatedSection key={faq.q} delay={i * 0.05}>
+                  <details className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all open:shadow-md">
+                    <summary className="flex cursor-pointer items-center justify-between gap-4 text-left text-base font-semibold text-slate-900 sm:text-lg">
+                      {faq.q}
+                      <svg className="h-5 w-5 flex-shrink-0 text-primary-600 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </summary>
+                    <p className="mt-4 text-sm leading-relaxed text-slate-600 sm:text-base">{faq.a}</p>
+                  </details>
+                </AnimatedSection>
+              ))}
+            </div>
           </div>
         </section>
 

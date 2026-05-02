@@ -11,37 +11,66 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.freshforlesscarpetcleaning.co.uk"),
-  title: "Fresh For Less Carpet Cleaning | Professional Carpet & Upholstery Cleaning",
+  title: {
+    default: "Carpet Cleaning Wirral, Liverpool & Chester | Fresh For Less",
+    template: "%s | Fresh For Less Carpet Cleaning",
+  },
   description:
-    "Professional carpet and upholstery cleaning services that deliver spotless results at prices you'll love. Trusted by 2,000+ families and businesses across the UK.",
+    "Professional carpet & upholstery cleaning across Wirral, Liverpool, Chester, Warrington & North Wales. Hot-water extraction, stain removal, pet-safe products. Free quotes from £39 — call 0330 043 4811.",
+  applicationName: "Fresh For Less Carpet Cleaning",
+  authors: [{ name: "Fresh For Less Carpet Cleaning" }],
   keywords: [
     "carpet cleaning",
+    "carpet cleaning wirral",
+    "carpet cleaning liverpool",
+    "carpet cleaning chester",
+    "carpet cleaning warrington",
+    "carpet cleaning north wales",
     "upholstery cleaning",
-    "professional cleaning",
-    "deep clean",
+    "sofa cleaning",
+    "rug cleaning",
     "stain removal",
-    "affordable carpet cleaning",
-    "carpet cleaner near me",
     "pet odour removal",
+    "carpet cleaner near me",
+    "professional carpet cleaning",
+    "affordable carpet cleaning",
     "commercial carpet cleaning",
+    "end of tenancy carpet cleaning",
+    "hot water extraction",
   ],
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  alternates: {
+    canonical: "https://www.freshforlesscarpetcleaning.co.uk",
+  },
+  formatDetection: {
+    telephone: true,
+    email: true,
+    address: true,
   },
   openGraph: {
     type: "website",
     locale: "en_GB",
     siteName: "Fresh For Less Carpet Cleaning",
-    title: "Fresh For Less Carpet Cleaning | Professional Results, Affordable Prices",
+    url: "https://www.freshforlesscarpetcleaning.co.uk",
+    title: "Carpet Cleaning Wirral, Liverpool & Chester | Fresh For Less",
     description:
-      "Professional carpet and upholstery cleaning trusted by 2,000+ families. Free no-obligation quotes, eco-friendly products, 100% satisfaction guarantee.",
+      "Professional carpet & upholstery cleaning trusted by 2,000+ families. Free no-obligation quotes, eco-friendly products, 100% satisfaction guarantee.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Fresh For Less Carpet Cleaning",
+    title: "Carpet Cleaning Wirral, Liverpool & Chester | Fresh For Less",
     description:
-      "Professional carpet cleaning at affordable prices. Free quotes, eco-friendly products, 100% satisfaction guarantee. Call 0330 043 4811.",
+      "Professional carpet cleaning across the North West from £39. Free quotes, eco-friendly products, 100% satisfaction guarantee. Call 0330 043 4811.",
   },
 };
 
@@ -49,13 +78,23 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
   additionalType: "https://schema.org/ProfessionalService",
+  "@id": "https://www.freshforlesscarpetcleaning.co.uk/#business",
   name: "Fresh For Less Carpet Cleaning",
   description:
-    "Professional carpet and upholstery cleaning services delivering spotless results at affordable prices.",
+    "Professional carpet and upholstery cleaning services across Wirral, Liverpool, Chester, Warrington and North Wales — spotless results at affordable prices.",
   telephone: "0330 043 4811",
   email: "info@freshforlesscarpetcleaning.co.uk",
   url: "https://www.freshforlesscarpetcleaning.co.uk",
-  priceRange: "£",
+  image: "https://www.freshforlesscarpetcleaning.co.uk/images/logo.png",
+  logo: "https://www.freshforlesscarpetcleaning.co.uk/images/logo.png",
+  priceRange: "££",
+  areaServed: [
+    { "@type": "AdministrativeArea", name: "Wirral" },
+    { "@type": "City", name: "Liverpool" },
+    { "@type": "City", name: "Chester" },
+    { "@type": "City", name: "Warrington" },
+    { "@type": "AdministrativeArea", name: "North Wales" },
+  ],
   openingHoursSpecification: {
     "@type": "OpeningHoursSpecification",
     dayOfWeek: [
