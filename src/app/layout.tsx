@@ -160,18 +160,6 @@ fbq('track', 'PageView');`}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         {children}
-        <Script
-          src="https://cleanerbot-kappa.vercel.app/embed.js"
-          data-tenant-id="cmmlqnyuy0000ky04u1rgt7kb"
-          strategy="afterInteractive"
-        />
-        <Script id="cleanerbot-listener" strategy="afterInteractive">
-          {`window.addEventListener("message", function(e) {
-            if (e.data && e.data.type === "cleanerbot:quote-submitted") {
-              setTimeout(function() { window.history.back(); }, 3500);
-            }
-          });`}
-        </Script>
       </body>
     </html>
   );
