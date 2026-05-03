@@ -31,7 +31,7 @@ write("01_campaigns.csv",
       [["Add", CAMPAIGN, "Search",
         "Google search",
         "15.00", "Maximize Clicks", "2.50",
-        "English", "Paused",
+        "en", "Paused",
         UTM_BASE,
         "Monday[06:00-21:00];Tuesday[06:00-21:00];Wednesday[06:00-21:00];"
         "Thursday[06:00-21:00];Friday[06:00-21:00];Saturday[06:00-21:00];"
