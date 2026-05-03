@@ -6,7 +6,7 @@ import os
 OUT = "/Users/simonwilbrahan/Fresh For Less Carpet/ads-import/google"
 os.makedirs(OUT, exist_ok=True)
 
-ACCOUNT = "biosure"  # Google Ads account name as shown in Editor
+ACCOUNT = "BioSure"  # Google Ads account name as shown in Editor
 CAMPAIGN = "4for99 - Search - Merseyside & Cheshire"
 BASE_URL = "https://www.freshforlesscarpetcleaning.co.uk/4for99/"
 UTM_BASE = "utm_source=google&utm_medium=cpc&utm_campaign=4for99"
