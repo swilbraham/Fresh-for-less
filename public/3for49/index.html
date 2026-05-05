@@ -755,6 +755,7 @@ src="https://www.facebook.com/tr?id=613073519035884&ev=PageView&noscript=1"
     <h2>Book Your £49 Clean</h2>
     <p class="form-sub">Fill in the form and we'll confirm your slot within 2 hours.</p>
     <form id="lead-form" onsubmit="handleSubmit(event)">
+      <input type="text" name="_honey" style="display:none" tabindex="-1" autocomplete="off">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="form-group">
           <label>First Name *</label>
@@ -869,6 +870,9 @@ src="https://www.facebook.com/tr?id=613073519035884&ev=PageView&noscript=1"
     e.preventDefault();
     const form = e.target;
     const data = new FormData(form);
+
+    // Honeypot — silently drop bot submissions
+    if (data.get('_honey')) return;
 
     // Build mailto link as basic notification (replace with CRM/API in production)
     const body = `New Booking Request:%0A%0AName: ${data.get('first')} ${data.get('last')}%0APhone: ${data.get('phone')}%0AEmail: ${data.get('email')}%0APostcode: ${data.get('postcode')}%0ARooms: ${data.get('rooms')}%0APreferred Date: ${data.get('preferred_date')}%0APreferred Time: ${data.get('preferred_time')}%0ANotes: ${data.get('notes')}`;

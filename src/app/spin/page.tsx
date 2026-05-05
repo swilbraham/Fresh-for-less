@@ -234,8 +234,12 @@ export default function SpinPage() {
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSending(true);
     const formData = new FormData(e.currentTarget);
+
+    // Honeypot — silently drop bot submissions
+    if (formData.get("_honey")) return;
+
+    setSending(true);
     try {
       await fetch("https://formsubmit.co/ajax/simonwilbraham@sky.com", {
         method: "POST",
@@ -421,6 +425,15 @@ export default function SpinPage() {
 
                             <input type="hidden" name="_subject" value="Spin the Wheel Discount Claim — Fresh For Less" />
                             <input type="hidden" name="_template" value="table" />
+                            {/* Honeypot — bots fill this; humans never see it */}
+                            <input
+                              type="text"
+                              name="_honey"
+                              tabIndex={-1}
+                              autoComplete="off"
+                              aria-hidden="true"
+                              style={{ position: "absolute", left: "-9999px", opacity: 0, height: 0, width: 0 }}
+                            />
                             <input type="hidden" name="discount_won" value={wonDiscount} />
 
                             <div className="grid gap-4 sm:grid-cols-2">

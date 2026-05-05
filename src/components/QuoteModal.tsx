@@ -14,9 +14,13 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSending(true);
     const form = e.currentTarget;
     const formData = new FormData(form);
+
+    // Honeypot — silently drop bot submissions
+    if (formData.get("_honey")) return;
+
+    setSending(true);
 
     try {
       await fetch("https://formsubmit.co/ajax/simonwilbraham@sky.com", {
@@ -115,6 +119,15 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <input type="hidden" name="_subject" value="New Quote Request — Fresh For Less" />
                   <input type="hidden" name="_template" value="table" />
+                  {/* Honeypot — bots fill this; humans never see it */}
+                  <input
+                    type="text"
+                    name="_honey"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    style={{ position: "absolute", left: "-9999px", opacity: 0, height: 0, width: 0 }}
+                  />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-slate-700">

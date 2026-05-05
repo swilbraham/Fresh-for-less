@@ -773,6 +773,10 @@ fbq('track', 'PageView');
     e.preventDefault();
     const form = e.target;
     const data = new FormData(form);
+
+    // Honeypot — silently drop bot submissions
+    if (data.get('_honey')) return;
+
     const submitBtn = form.querySelector('.form-submit');
     const origText = submitBtn.textContent;
     submitBtn.textContent = 'Sending...';
