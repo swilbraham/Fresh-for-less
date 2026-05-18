@@ -31,7 +31,7 @@ CSP allows the third parties the site actually uses:
 - **Google Fonts** — `fonts.googleapis.com` (style-src), `fonts.gstatic.com` (font-src)
 - **Facebook Pixel** — `connect.facebook.net` (script-src), `www.facebook.com` (img/connect/frame-src)
 - **Stripe Checkout** — `js.stripe.com` (script-src/frame-src), `api.stripe.com` (connect-src), `hooks.stripe.com` (frame-src)
-- **FormSubmit** — `formsubmit.co` (connect-src) for form posts
+- **Web3Forms** — `api.web3forms.com` (connect-src) for form posts
 - **Google Apps Script** — `script.google.com` (connect-src) for spreadsheet logging on `/4for99` etc.
 - **Unsplash** — `*.unsplash.com` (img-src) for stock imagery
 

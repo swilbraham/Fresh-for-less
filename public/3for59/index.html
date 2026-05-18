@@ -756,9 +756,9 @@ fbq('track', 'PageView');
     <h2>Book Your £59 Clean</h2>
     <p class="form-sub">Fill in the form and we'll confirm your slot within 2 hours.</p>
     <form id="lead-form" onsubmit="handleSubmit(event)">
-      <input type="hidden" name="_subject" value="New 3 for £59 Booking Request">
-      <input type="hidden" name="_captcha" value="false">
-      <input type="hidden" name="_template" value="table">
+      <input type="hidden" name="access_key" value="ef4b17e6-367d-4c61-9f46-9c5ffa4045d7">
+      <input type="hidden" name="subject" value="New 3 for £59 Booking Request">
+      <input type="hidden" name="from_name" value="Fresh For Less Website">
       <input type="text" name="_honey" style="display:none">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="form-group">
@@ -874,7 +874,9 @@ fbq('track', 'PageView');
   const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzvjrNLW293wswSlbOyhwFR660wlhkn8C517ktao4JeFcqVUdfrTmuTSPm6MiM5kdud/exec';
 
   function logToGoogleSheet(data) {
-    if (GOOGLE_SHEET_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return; // skip if not configured
+    if (GOOGLE_SHEET_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+      return Promise.reject(new Error('Sheet URL not configured'));
+    }
     const payload = {
       first: data.get('first'),
       last: data.get('last'),
@@ -886,12 +888,12 @@ fbq('track', 'PageView');
       preferred_time: data.get('preferred_time'),
       notes: data.get('notes') || ''
     };
-    fetch(GOOGLE_SHEET_URL, {
+    return fetch(GOOGLE_SHEET_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    }).catch(err => console.log('Sheet log failed:', err));
+    });
   }
 
   // ========== FORM SUBMISSION ==========
@@ -908,33 +910,33 @@ fbq('track', 'PageView');
     submitBtn.textContent = 'Sending...';
     submitBtn.disabled = true;
 
-    // 1) Send to email via FormSubmit.co
-    fetch('https://formsubmit.co/ajax/contact@wirralcarpetcleaning.com', {
+    // Best-effort email via Web3Forms — failures here must not block bookings,
+    // because the Google Sheet below is the authoritative record.
+    fetch('https://api.web3forms.com/submit', {
       method: 'POST',
       body: data
-    })
-    .then(response => response.json())
-    .then(result => {
-      // 2) Log to Google Sheet (fire-and-forget)
-      logToGoogleSheet(data);
+    }).catch(err => console.log('Web3Forms failed:', err));
 
-      // 3) Fire Meta Pixel conversion event
-      if (typeof fbq === 'function') {
-        fbq('track', 'Lead', {
-          content_name: '3 for 59 Carpet Clean',
-          value: 59.00,
-          currency: 'GBP'
-        });
-      }
-
-      document.getElementById('lead-form').style.display = 'none';
-      document.getElementById('form-success').style.display = 'block';
-    })
-    .catch(error => {
-      submitBtn.textContent = origText;
-      submitBtn.disabled = false;
-      alert('Something went wrong. Please call us on 0330 043 4811 to book.');
-    });
+    // Primary path: log to Google Sheet. Booking is considered confirmed
+    // as soon as this request leaves the browser.
+    logToGoogleSheet(data)
+      .then(() => {
+        if (typeof fbq === 'function') {
+          fbq('track', 'Lead', {
+            content_name: '3 for 59 Carpet Clean',
+            value: 59.00,
+            currency: 'GBP'
+          });
+        }
+        document.getElementById('lead-form').style.display = 'none';
+        document.getElementById('form-success').style.display = 'block';
+      })
+      .catch(error => {
+        console.log('Sheet log failed:', error);
+        submitBtn.textContent = origText;
+        submitBtn.disabled = false;
+        alert('Something went wrong. Please call us on 0330 043 4811 to book.');
+      });
   }
 </script>
 </body>

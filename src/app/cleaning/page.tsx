@@ -106,7 +106,7 @@ export default function CleaningLandingPage() {
     setFormSending(true);
 
     try {
-      await fetch("https://formsubmit.co/ajax/simonwilbraham@sky.com", {
+      await fetch("https://api.web3forms.com/submit", {
         method: "POST",
         headers: { Accept: "application/json" },
         body: formData,
@@ -334,8 +334,9 @@ export default function CleaningLandingPage() {
                     </motion.div>
                   ) : (
                     <form onSubmit={handleInlineSubmit} className="space-y-5">
-                      <input type="hidden" name="_subject" value="New Quote Request — Fresh For Less (Landing Page)" />
-                      <input type="hidden" name="_template" value="table" />
+                      <input type="hidden" name="access_key" value="ef4b17e6-367d-4c61-9f46-9c5ffa4045d7" />
+                      <input type="hidden" name="subject" value="New Quote Request — Fresh For Less (Landing Page)" />
+                      <input type="hidden" name="from_name" value="Fresh For Less Website" />
                       {/* Honeypot — bots fill this; humans never see it */}
                       <input
                         type="text"
