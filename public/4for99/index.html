@@ -916,17 +916,18 @@ fbq('track', 'ViewContent', {
     submitBtn.textContent = 'Sending...';
     submitBtn.disabled = true;
 
-    // Best-effort email via Web3Forms — failures here must not block bookings,
-    // because the Google Sheet below is the authoritative record.
+    // Backup: log to Google Sheet (fire-and-forget — never blocks success).
+    logToGoogleSheet(data).catch(err => console.log('Sheet log failed:', err));
+
+    // Primary path: send email via Web3Forms. The booking is confirmed iff
+    // Web3Forms reports success.
     fetch('https://api.web3forms.com/submit', {
       method: 'POST',
       body: data
-    }).catch(err => console.log('Web3Forms failed:', err));
-
-    // Primary path: log to Google Sheet. Booking is considered confirmed
-    // as soon as this request leaves the browser.
-    logToGoogleSheet(data)
-      .then(() => {
+    })
+      .then(response => response.json())
+      .then(result => {
+        if (!result.success) throw new Error(result.message || 'Submission failed');
         if (typeof fbq === 'function') {
           fbq('track', 'Lead', {
             content_name: '4 for 99 Carpet Clean',
@@ -938,7 +939,7 @@ fbq('track', 'ViewContent', {
         document.getElementById('form-success').style.display = 'block';
       })
       .catch(error => {
-        console.log('Sheet log failed:', error);
+        console.log('Web3Forms failed:', error);
         submitBtn.textContent = origText;
         submitBtn.disabled = false;
         alert('Something went wrong. Please call us on 0330 043 4811 to book.');
