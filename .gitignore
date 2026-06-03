@@ -39,3 +39,4 @@ next-env.d.ts
 start-dev.ps1
 verify-build.ps1
 .claude/
+.vercel
