@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carpet &amp; Upholstery Cleaning | Fresh For Less Carpet Cleaning</title>
+<meta name="description" content="Professional carpet &amp; upholstery cleaning. Deep stains &amp; odours removed, fast-drying, fully insured. Free quote — call 0330 043 4811.">
+<link rel="icon" href="/images/logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- ===== TRACKING — replace IDs marked "REPLACE" ===== -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-CONVERSION_ID"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-CONVERSION_ID'); // REPLACE with your Google Ads ID
+  function trackCall(){ gtag('event','conversion',{'send_to':'AW-CONVERSION_ID/CALL_LABEL'}); } // REPLACE
+  function trackLead(){ gtag('event','conversion',{'send_to':'AW-CONVERSION_ID/LEAD_LABEL'}); } // REPLACE
+</script>
+
+<style>
+  :root{
+    --deep-blue:#0f172a;--mid-blue:#1e293b;--sky:#3b99f5;--aqua:#257bea;--aqua-dark:#1d64d7;
+    --fresh-green:#22c55e;--green-dark:#16a34a;--lime:#4ade80;--bubble:#dbeffe;--cream:#f8fafc;
+    --white:#fff;--text:#0f172a;--muted:#64748b;--gold:#F5A623;
+    --radius:16px;--shadow:0 12px 34px rgba(15,23,42,.14);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',sans-serif;color:var(--text);background:var(--white);line-height:1.55;overflow-x:hidden}
+  img{max-width:100%;display:block}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+  /* ---------- Top bar ---------- */
+  .topbar{position:sticky;top:0;z-index:50;background:var(--deep-blue);color:#fff}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;padding:8px 20px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand img{height:46px;width:auto;background:#fff;border-radius:8px;padding:3px}
+  .brand .name{font-weight:800;font-size:1rem;line-height:1.1}
+  .brand .name small{display:block;font-weight:500;font-size:.7rem;color:var(--bubble)}
+  .num{font-weight:900;font-size:1.2rem;color:#fff}
+  .num small{display:block;font-weight:500;font-size:.7rem;color:var(--lime);text-align:right}
+  .btn{display:inline-block;background:var(--fresh-green);color:#fff;font-weight:800;padding:14px 26px;border-radius:50px;border:none;cursor:pointer;transition:transform .15s,background .15s;font-size:1.05rem;box-shadow:0 6px 18px rgba(34,197,94,.35)}
+  .btn:hover{background:var(--green-dark);transform:translateY(-2px)}
+  .btn-lg{padding:17px 34px;font-size:1.15rem}
+  .call-mobile{display:none}
+
+  /* ---------- Hero ---------- */
+  .hero{position:relative;background:linear-gradient(135deg,var(--deep-blue),var(--aqua-dark) 65%,var(--aqua));color:#fff;overflow:hidden}
+  .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 82% 18%,rgba(74,222,128,.25),transparent 45%),radial-gradient(circle at 12% 88%,rgba(59,153,245,.35),transparent 40%)}
+  .hero .wrap{position:relative;z-index:2;display:grid;grid-template-columns:1.05fr .95fr;gap:42px;align-items:center;padding:50px 20px}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);padding:7px 16px;border-radius:50px;font-weight:600;font-size:.9rem;margin-bottom:18px}
+  .hero h1{font-size:2.7rem;line-height:1.1;font-weight:900;margin-bottom:14px;letter-spacing:-.5px}
+  .hero h1 em{color:var(--lime);font-style:normal}
+  .hero p.sub{font-size:1.15rem;color:#e2ecfb;margin-bottom:22px}
+  .hero ul{list-style:none;margin:0 0 26px;display:grid;gap:10px}
+  .hero ul li{display:flex;align-items:center;gap:11px;font-size:1.05rem;font-weight:500}
+  .hero ul li::before{content:"✓";display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:var(--fresh-green);border-radius:50%;font-size:.85rem;font-weight:900;flex-shrink:0}
+  .hero-cta{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  .hero-cta .phone{font-weight:900;font-size:1.35rem;color:#fff}
+  .hero-cta .phone small{display:block;font-weight:500;font-size:.8rem;color:var(--bubble)}
+
+  /* ---------- Quote card ---------- */
+  .quote-card{background:#fff;color:var(--text);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px;border-top:6px solid var(--fresh-green)}
+  .quote-card h2{font-size:1.45rem;margin-bottom:4px}
+  .quote-card p.small{color:var(--muted);font-size:.92rem;margin-bottom:16px}
+  .quote-card form{display:grid;gap:11px}
+  .quote-card input,.quote-card select{width:100%;padding:14px;border:1.5px solid #d7e3f4;border-radius:10px;font-size:1rem;font-family:inherit}
+  .quote-card input:focus,.quote-card select:focus{outline:none;border-color:var(--aqua);box-shadow:0 0 0 3px rgba(37,123,234,.15)}
+  .quote-card .btn{width:100%}
+  .form-note{font-size:.8rem;color:var(--muted);text-align:center}
+
+  /* ---------- Trust strip ---------- */
+  .trust{background:var(--cream);padding:16px 0;border-bottom:1px solid #e6eef9}
+  .trust .wrap{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 30px}
+  .trust .item{display:flex;align-items:center;gap:8px;font-weight:600;font-size:.96rem}
+  .trust .item .ico{font-size:1.2rem}
+  .stars{color:var(--gold);letter-spacing:2px}
+
+  /* ---------- Services (3, compact) ---------- */
+  .block{padding:54px 0}
+  .section-head{text-align:center;max-width:640px;margin:0 auto 36px}
+  .section-head h2{font-size:1.95rem;font-weight:800;margin-bottom:8px;letter-spacing:-.5px}
+  .section-head p{color:var(--muted);font-size:1.05rem}
+  .services{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .card{background:#fff;border:1px solid #e6eef9;border-radius:var(--radius);padding:26px;text-align:center;transition:transform .15s,box-shadow .15s}
+  .card:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
+  .card .ico{font-size:2.2rem;margin-bottom:10px}
+  .card h3{font-size:1.18rem;margin-bottom:6px}
+  .card p{color:var(--muted);font-size:.96rem}
+
+  /* ---------- Reviews (compact row) ---------- */
+  .reviews{background:var(--deep-blue);color:#fff}
+  .reviews .section-head p{color:var(--bubble)}
+  .review-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .review{background:var(--mid-blue);border-radius:var(--radius);padding:24px;border:1px solid rgba(255,255,255,.08)}
+  .review .stars{font-size:1.1rem;margin-bottom:10px}
+  .review p{color:#e2ecfb;margin-bottom:12px;font-size:.98rem}
+  .review .who{font-weight:700;color:var(--lime);font-size:.92rem}
+
+  /* ---------- Final CTA ---------- */
+  .final{background:linear-gradient(135deg,var(--green-dark),var(--fresh-green));color:#fff;text-align:center;padding:60px 20px}
+  .final h2{font-size:2.1rem;font-weight:800;margin-bottom:10px;letter-spacing:-.5px}
+  .final p{font-size:1.15rem;color:#eafff1;margin-bottom:24px}
+  .final .btn{background:#fff;color:var(--green-dark)}
+  .final .btn:hover{background:var(--cream)}
+  .final .phone-big{font-size:2rem;font-weight:900;margin-top:18px;display:inline-block;color:#fff}
+  .final .phone-big small{display:block;font-size:.9rem;font-weight:500;color:#eafff1}
+
+  /* ---------- Footer ---------- */
+  footer{background:var(--deep-blue);color:#9fb3d1;padding:32px 0;text-align:center;font-size:.9rem}
+  footer img{height:50px;margin:0 auto 12px;background:#fff;border-radius:10px;padding:4px}
+  footer .fnum{color:#fff;font-weight:800}
+
+  /* ---------- Mobile sticky call bar ---------- */
+  .mobile-bar{display:none}
+  @media(max-width:860px){
+    .hero .wrap{grid-template-columns:1fr;padding:34px 20px}
+    .hero h1{font-size:2.05rem}
+    .services,.review-grid{grid-template-columns:1fr}
+    .num{display:none}
+    .call-mobile{display:inline-block}
+    .brand .name{display:none}
+    .mobile-bar{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:60;background:var(--fresh-green);color:#fff;align-items:center;justify-content:center;gap:8px;padding:15px;font-weight:800;font-size:1.12rem;box-shadow:0 -4px 16px rgba(0,0,0,.25)}
+    body{padding-bottom:62px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<header class="topbar">
+  <div class="wrap">
+    <a href="#" class="brand">
+      <img src="/images/logo.png" alt="Fresh For Less Carpet Cleaning logo">
+      <span class="name">Fresh For Less<small>Carpet Cleaning</small></span>
+    </a>
+    <a href="tel:03300434811" class="num" onclick="trackCall()">0330 043 4811<small>Open 8am–8pm</small></a>
+    <a href="tel:03300434811" class="btn call-mobile" onclick="trackCall()">📞 Call</a>
+  </div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="badge">⭐ Rated 4.9/5 by 600+ customers</div>
+      <h1>Carpets &amp; Sofas <em>Fresh Again</em> — For Less</h1>
+      <p class="sub">Deep stains, odours and allergens removed. Fast-drying and safe for kids &amp; pets.</p>
+      <ul>
+        <li>Same-week appointments</li>
+        <li>Fully insured · satisfaction guaranteed</li>
+        <li>Honest, upfront pricing</li>
+      </ul>
+      <div class="hero-cta">
+        <a href="#quote" class="btn btn-lg">Get My Free Quote →</a>
+        <a href="tel:03300434811" class="phone" onclick="trackCall()">📞 0330 043 4811<small>Open 8am–8pm, 7 days</small></a>
+      </div>
+    </div>
+
+    <!-- QUOTE FORM -->
+    <div class="quote-card" id="quote">
+      <h2>Get Your Free Quote</h2>
+      <p class="small">Takes 30 seconds. No obligation.</p>
+      <form onsubmit="return submitQuote(event)">
+        <input type="text" name="name" placeholder="Your name" required>
+        <input type="tel" name="phone" placeholder="Phone number" required>
+        <select name="service" required>
+          <option value="" disabled selected>What needs cleaning?</option>
+          <option>Carpets</option>
+          <option>Upholstery / Sofas</option>
+          <option>Carpets + Upholstery</option>
+          <option>End of tenancy</option>
+        </select>
+        <input type="text" name="postcode" placeholder="Postcode" required>
+        <button type="submit" class="btn btn-lg">Get My Free Quote →</button>
+        <p class="form-note">🔒 We'll call you back fast. Details kept private.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TRUST STRIP ===== -->
+<div class="trust">
+  <div class="wrap">
+    <div class="item"><span class="stars">★★★★★</span> 4.9/5 rated</div>
+    <div class="item"><span class="ico">🛡️</span> Fully insured</div>
+    <div class="item"><span class="ico">💧</span> Dry in 1–2 hrs</div>
+    <div class="item"><span class="ico">🌿</span> Pet &amp; child safe</div>
+    <div class="item"><span class="ico">✅</span> Guaranteed</div>
+  </div>
+</div>
+
+<!-- ===== SERVICES (3) ===== -->
+<section class="block">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>What We Clean</h2>
+      <p>Deep hot-water extraction that removes what vacuuming leaves behind.</p>
+    </div>
+    <div class="services">
+      <div class="card"><div class="ico">🏠</div><h3>Carpets</h3><p>Lounges, stairs and hallways restored — lifting dirt, traffic lanes and stubborn stains.</p></div>
+      <div class="card"><div class="ico">🛋️</div><h3>Upholstery &amp; Sofas</h3><p>Sofas, armchairs and dining chairs deep-cleaned and refreshed, gently and safely.</p></div>
+      <div class="card"><div class="ico">🐾</div><h3>Stains &amp; Odours</h3><p>Pet accidents, wine and coffee neutralised at the source so smells don't return.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== REVIEWS ===== -->
+<section class="block reviews">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Loved by Local Customers</h2>
+      <p><span class="stars">★★★★★</span> 4.9 out of 5 from 600+ reviews</p>
+    </div>
+    <div class="review-grid">
+      <div class="review"><div class="stars">★★★★★</div><p>"Cleaned the same day. Red wine stains I thought were permanent — completely gone!"</p><div class="who">— Sarah M.</div></div>
+      <div class="review"><div class="stars">★★★★★</div><p>"Our sofa looks brand new and the pet smell has gone. Great value, highly recommend."</p><div class="who">— James T.</div></div>
+      <div class="review"><div class="stars">★★★★★</div><p>"End of tenancy clean and got my full deposit back. Quick, tidy, fairly priced."</p><div class="who">— Priya K.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FINAL CTA ===== -->
+<section class="final">
+  <div class="wrap">
+    <h2>Ready for Fresher Carpets?</h2>
+    <p>Free, no-obligation quote — same-week appointments available.</p>
+    <a href="#quote" class="btn btn-lg">Get My Free Quote →</a>
+    <a href="tel:03300434811" class="phone-big" onclick="trackCall()">📞 0330 043 4811<small>Open 8am–8pm, 7 days a week</small></a>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <div class="wrap">
+    <img src="/images/logo.png" alt="Fresh For Less Carpet Cleaning logo">
+    <p>Call <a href="tel:03300434811" class="fnum" onclick="trackCall()">0330 043 4811</a> · Open 8am–8pm, 7 days</p>
+    <p style="margin-top:8px;opacity:.7">Fully insured · Satisfaction guaranteed · © Fresh For Less Carpet Cleaning</p>
+  </div>
+</footer>
+
+<!-- ===== MOBILE STICKY CALL BAR ===== -->
+<a href="tel:03300434811" class="mobile-bar" onclick="trackCall()">📞 Tap to Call — Free Quote</a>
+
+<script>
+  function submitQuote(e){
+    e.preventDefault();
+    trackLead();
+    var form = e.target;
+    // TODO: POST `form` data to your email/CRM/Formspree endpoint here.
+    form.innerHTML = '<div style="text-align:center;padding:20px 0">'+
+      '<div style="font-size:2.6rem">✅</div>'+
+      '<h2 style="margin:10px 0">Thank you!</h2>'+
+      '<p style="color:var(--muted)">We\'ve got your details and will call you back shortly with your free quote.</p>'+
+      '</div>';
+    return false;
+  }
+</script>
+
+</body>
+</html>
