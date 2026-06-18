@@ -164,7 +164,11 @@
     <div class="quote-card" id="quote">
       <h2>Get Your Free Quote</h2>
       <p class="small">Takes 30 seconds. No obligation.</p>
-      <form onsubmit="return submitQuote(event)">
+      <form id="lead-form" onsubmit="return submitQuote(event)">
+        <input type="hidden" name="access_key" value="ef4b17e6-367d-4c61-9f46-9c5ffa4045d7">
+        <input type="hidden" name="subject" value="New Carpet Cleaning Quote Request (Landing Page)">
+        <input type="hidden" name="from_name" value="Fresh For Less Website">
+        <input type="text" name="_honey" style="display:none" tabindex="-1" autocomplete="off">
         <input type="text" name="name" placeholder="Your name" required>
         <input type="tel" name="phone" placeholder="Phone number" required>
         <select name="service" required>
@@ -175,7 +179,7 @@
           <option>End of tenancy</option>
         </select>
         <input type="text" name="postcode" placeholder="Postcode" required>
-        <button type="submit" class="btn btn-lg">Get My Free Quote →</button>
+        <button type="submit" class="btn btn-lg" id="lead-submit">Get My Free Quote →</button>
         <p class="form-note">🔒 We'll call you back fast. Details kept private.</p>
       </form>
     </div>
@@ -248,14 +252,34 @@
 <script>
   function submitQuote(e){
     e.preventDefault();
-    trackLead();
     var form = e.target;
-    // TODO: POST `form` data to your email/CRM/Formspree endpoint here.
-    form.innerHTML = '<div style="text-align:center;padding:20px 0">'+
-      '<div style="font-size:2.6rem">✅</div>'+
-      '<h2 style="margin:10px 0">Thank you!</h2>'+
-      '<p style="color:var(--muted)">We\'ve got your details and will call you back shortly with your free quote.</p>'+
-      '</div>';
+    var data = new FormData(form);
+
+    // Honeypot — silently drop bot submissions
+    if (data.get('_honey')) return false;
+
+    var btn = document.getElementById('lead-submit');
+    var orig = btn.textContent;
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    fetch('https://api.web3forms.com/submit', { method:'POST', body:data })
+      .then(function(r){ return r.json(); })
+      .then(function(result){
+        if (!result.success) throw new Error(result.message || 'Submission failed');
+        trackLead(); // Google Ads conversion — only on confirmed send
+        form.innerHTML = '<div style="text-align:center;padding:20px 0">'+
+          '<div style="font-size:2.6rem">✅</div>'+
+          '<h2 style="margin:10px 0">Thank you!</h2>'+
+          '<p style="color:var(--muted)">We\'ve got your details and will call you back shortly with your free quote.</p>'+
+          '</div>';
+      })
+      .catch(function(err){
+        console.log('Web3Forms failed:', err);
+        btn.textContent = orig;
+        btn.disabled = false;
+        alert('Sorry, something went wrong. Please call us on 0330 043 4811 and we\'ll sort your quote right away.');
+      });
     return false;
   }
 </script>
