@@ -100,6 +100,25 @@
   .review p{color:#e2ecfb;margin-bottom:12px;font-size:.98rem}
   .review .who{font-weight:700;color:var(--lime);font-size:.92rem}
 
+  /* ---------- Offer ---------- */
+  .offer-wrap{max-width:760px;margin:0 auto}
+  .offer-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;border:1px solid #e6eef9}
+  .offer-top{background:linear-gradient(135deg,var(--deep-blue),var(--aqua-dark) 70%,var(--aqua));color:#fff;text-align:center;padding:30px 24px}
+  .offer-top .pill{display:inline-block;background:var(--gold);color:#3a2a00;font-weight:800;font-size:.78rem;padding:5px 14px;border-radius:50px;letter-spacing:.4px;text-transform:uppercase;margin-bottom:12px}
+  .offer-top h3{font-size:1.9rem;font-weight:900;line-height:1.12;letter-spacing:-.5px}
+  .offer-top h3 em{color:var(--lime);font-style:normal}
+  .offer-price-row{display:flex;align-items:baseline;justify-content:center;gap:14px;margin-top:14px;flex-wrap:wrap}
+  .offer-price-row .now{font-size:3rem;font-weight:900;line-height:1}
+  .offer-price-row .was{font-size:1.3rem;text-decoration:line-through;opacity:.5}
+  .offer-price-row .save{align-self:center;background:var(--fresh-green);color:#fff;font-weight:800;font-size:.82rem;padding:5px 12px;border-radius:50px}
+  .offer-body{padding:28px 30px}
+  .offer-body .lead{font-weight:700;margin-bottom:14px;font-size:1.05rem}
+  .offer-list{list-style:none;display:grid;gap:12px;margin-bottom:24px}
+  .offer-list li{display:flex;gap:11px;align-items:flex-start;font-size:1rem}
+  .offer-list li::before{content:"✓";flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:var(--fresh-green);color:#fff;border-radius:50%;font-size:.8rem;font-weight:900;margin-top:1px}
+  .offer-body .btn{width:100%;text-align:center}
+  .offer-fine{text-align:center;color:var(--muted);font-size:.82rem;margin-top:12px}
+
   /* ---------- Final CTA ---------- */
   .final{background:linear-gradient(135deg,var(--green-dark),var(--fresh-green));color:#fff;text-align:center;padding:60px 20px}
   .final h2{font-size:2.1rem;font-weight:800;margin-bottom:10px;letter-spacing:-.5px}
@@ -150,6 +169,7 @@
       <h1>Carpets &amp; Sofas <em>Fresh Again</em> — For Less</h1>
       <p class="sub">Deep stains, odours and allergens removed. Fast-drying and safe for kids &amp; pets.</p>
       <ul>
+        <li><strong>4 carpets cleaned for just £99</strong> — this month only</li>
         <li>Same-week appointments</li>
         <li>Fully insured · satisfaction guaranteed</li>
         <li>Honest, upfront pricing</li>
@@ -197,6 +217,38 @@
   </div>
 </div>
 
+<!-- ===== OFFER ===== -->
+<section class="block" id="offer" style="padding-bottom:0">
+  <div class="wrap">
+    <div class="offer-wrap">
+      <div class="offer-card">
+        <div class="offer-top">
+          <span class="pill">⭐ This Month's Deal</span>
+          <h3>4 Carpets Cleaned <em>For Just £99</em></h3>
+          <div class="offer-price-row">
+            <span class="now">£99</span>
+            <span class="was">£160</span>
+            <span class="save">SAVE 38%</span>
+          </div>
+        </div>
+        <div class="offer-body">
+          <p class="lead">What's included:</p>
+          <ul class="offer-list">
+            <li><span><strong>4 carpets</strong> of your choice — lounge, bedrooms, hallway or stairs (up to 180 sq ft each)</span></li>
+            <li><span><strong>Hot-water extraction</strong> deep-clean — the industry gold-standard method</span></li>
+            <li><span><strong>Pre-treatment</strong> of all stains and high-traffic areas</span></li>
+            <li><span><strong>Deodorising treatment</strong> — lifts pet, food and damp odours</span></li>
+            <li><span><strong>Fast dry time</strong> — carpets dry in 2–4 hours, not days</span></li>
+            <li><span><strong>100% satisfaction guarantee</strong> — not happy? We'll re-clean free</span></li>
+          </ul>
+          <a href="#quote" class="btn btn-lg">Claim the £99 Deal →</a>
+          <p class="offer-fine">Limited bookings each month · Fully insured · North West coverage</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ===== SERVICES (3) ===== -->
 <section class="block">
   <div class="wrap">
@@ -230,8 +282,8 @@
 <!-- ===== FINAL CTA ===== -->
 <section class="final">
   <div class="wrap">
-    <h2>Ready for Fresher Carpets?</h2>
-    <p>Free, no-obligation quote — same-week appointments available.</p>
+    <h2>Ready to Claim Your £99 Clean?</h2>
+    <p>4 carpets deep-cleaned for £99 — free quote, same-week appointments available.</p>
     <a href="#quote" class="btn btn-lg">Get My Free Quote →</a>
     <a href="tel:03300434811" class="phone-big" onclick="trackCall()">📞 0330 043 4811<small>Open 8am–8pm, 7 days a week</small></a>
   </div>
