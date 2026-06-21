@@ -10,7 +10,7 @@
 
 ## 1. The job in one sentence
 
-Produce **3 static images** and **1 vertical 15-second video** that convince Merseyside & Cheshire homeowners (especially mums with kids/pets) to book 4 carpets professionally cleaned for £99 (normally £160).
+Produce **3 static images** and **1 vertical 15-second video** that convince North West homeowners (especially mums with kids/pets in Wirral, Liverpool, Chester and surrounding areas) to book 4 carpets professionally cleaned for £99 (normally £160).
 
 ---
 
@@ -30,7 +30,7 @@ The customer they're trying to reach is the household decision-maker — usually
 | Was price | **£160** |
 | Saving | **38% off** / **save £61** |
 | What's included | 4 carpets, hot-water extraction, pre-treatment of stains, deodorising, dries in 2–4 hours, 100% satisfaction guarantee |
-| Service area | Merseyside & Cheshire |
+| Service area | The North West (Wirral, Liverpool, Chester & surrounding areas) |
 | Phone | **0330 043 4811** |
 | WhatsApp | **+44 7479 921066** *(only show on creative if specifically requested)* |
 | Landing page | https://www.freshforlesscarpetcleaning.co.uk/4for99/ |
@@ -107,7 +107,7 @@ For each of the 3 concepts below, deliver **3 aspect ratios**:
 > WAS £160 · SAVE 38%
 
 **Bottom-right pill** (cream background, dark text):
-> Wirral · Liverpool · Cheshire
+> Wirral · Liverpool · Chester
 
 **Logo:** Top-right, ~80px height on the 1080 frame. Don't make it the focus.
 
@@ -126,7 +126,7 @@ For each of the 3 concepts below, deliver **3 aspect ratios**:
 > Pet- & kid-safe · Dries in 2 hours
 
 **Bottom strip:**
-- ★ 4.9 · Fully Insured · Wirral & Cheshire
+- ★ 4.9 · Fully Insured · The North West
 - Small `BOOK NOW →` button graphic
 
 **If using stock:** Unsplash/Pexels search "family living room dog UK". Avoid anything that screams stock — no fake-perfect kitchens, no models in matching outfits. Real homes feel real.

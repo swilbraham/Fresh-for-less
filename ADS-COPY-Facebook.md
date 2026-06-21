@@ -3,7 +3,7 @@
 **Offer:** 4 Carpets Professionally Cleaned for £99 (was £160, save 38%)
 **Landing page:** https://www.freshforlesscarpetcleaning.co.uk/4for99/
 **Phone:** 0330 043 4811
-**Service area:** Merseyside & Cheshire
+**Service area:** The North West (Wirral, Liverpool, Chester & wider Cheshire West)
 **Pixel event firing:** `Lead` with `value: 99, currency: GBP` (already wired on the page)
 
 ---
@@ -78,7 +78,7 @@ We deep-clean 4 carpets — lounge, hallway, stairs, bedroom, you pick — for j
 ✅ Dry in 2–4 hours, not days
 ✅ If you're not thrilled, we re-clean it FREE
 
-Covering Wirral, Liverpool & Cheshire. 4.9★ from 2,400+ local families.
+Covering Wirral, Liverpool, Chester & the wider North West. 4.9★ from 2,400+ local families.
 
 👇 Tap below to grab a slot — only 7 left this week.
 ```
@@ -124,7 +124,7 @@ Was £160. Now £99. This price is only for bookings made this week.
 "Absolutely gobsmacked at the difference. Our living room carpet looked brand new — even the red wine stain from Christmas is gone!"
 — Sarah T., Wirral ★★★★★
 
-We've deep-cleaned 2,400+ carpets across Merseyside & Cheshire, and right now 4 of yours can be next — for £99 (normally £160).
+We've deep-cleaned 2,400+ carpets across the North West, and right now 4 of yours can be next — for £99 (normally £160).
 
 Hot-water extraction, deodorising, stain pre-treatment, and a 2–4hr dry time so you're not living in a damp house all weekend.
 
@@ -180,7 +180,7 @@ Just message us on WhatsApp — tell us how many carpets, where you are, and we'
 ✅ 4 carpets professionally cleaned — £99 (was £160)
 ✅ Hot-water extraction · stains, pet smells & allergens out
 ✅ Dry in 2–4 hours
-✅ 4.9★ from 2,400+ Wirral & Cheshire families
+✅ 4.9★ from 2,400+ North West families
 
 Tap "Send Message" below — we usually reply within minutes.
 ```
@@ -226,7 +226,7 @@ For week 1, just count manually — the volume should be low enough.
 - Diagonal split — left "BEFORE" (visibly stained, slightly muted), right "AFTER" (rich colour, clean)
 - **Top overlay (large, bold):** `4 CARPETS · £99`
 - **Bottom-left badge:** `WAS £160 · SAVE 38%`
-- **Bottom-right pill:** `Wirral · Liverpool · Cheshire`
+- **Bottom-right pill:** `Wirral · Liverpool · Chester`
 - Logo top-right, small (don't fight the image)
 - Keep text under 20% of the frame area — Meta still penalises text-heavy ads in the auction
 

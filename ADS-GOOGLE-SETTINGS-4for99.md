@@ -1,6 +1,6 @@
 # Google Ads Campaign — `/4for99` Carpet Offer
 
-Copy-paste-ready setup for **Google Search Ads** targeting Merseyside & Cheshire. Different mindset to Facebook: people searching Google have already decided they need carpet cleaning — your job is to win the click, not start the conversation.
+Copy-paste-ready setup for **Google Search Ads** targeting the North West (Wirral, Liverpool, Chester & wider Cheshire West). Different mindset to Facebook: people searching Google have already decided they need carpet cleaning — your job is to win the click, not start the conversation.
 
 > **Why Search before Performance Max:** Search gives you complete keyword visibility and control while you learn your CPC. Once you've got 30+ conversions, layer Performance Max on top of it for retargeting and YouTube reach.
 
@@ -44,7 +44,7 @@ You need to tell Google Ads when a lead has converted. Two events to track:
 
 | Field | Value |
 |---|---|
-| **Campaign name** | `4for99 — Search — Merseyside & Cheshire` |
+| **Campaign name** | `4for99 — Search — North West` |
 | **Goal** | `Leads` |
 | **Campaign type** | `Search` |
 | **Conversion goals** | Tick `Form Lead — 4for99` and `Phone Call — Click`. Untick everything else (esp. "page views"). |
