@@ -14,6 +14,10 @@
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
+  // Consent Mode v2 — default everything to denied until the visitor chooses (see cookie banner)
+  gtag('consent', 'default', {
+    'ad_storage':'denied','ad_user_data':'denied','ad_personalization':'denied','analytics_storage':'denied','wait_for_update':500
+  });
   gtag('config', 'AW-17323788558');
   function trackCall(){ gtag('event','conversion',{'send_to':'AW-17323788558/PTz-CK29_sIcEI6S0MRA'}); } // Phone call click
   function trackLead(){ gtag('event','conversion',{'send_to':'AW-17323788558/v7HjCKq9_sIcEI6S0MRA'}); } // Submit lead form
@@ -133,6 +137,15 @@
   footer img{height:50px;margin:0 auto 12px;background:#fff;border-radius:10px;padding:4px}
   footer .fnum{color:#fff;font-weight:800}
 
+  /* ---------- Cookie consent ---------- */
+  .cookie-consent{position:fixed;left:16px;right:16px;bottom:16px;z-index:70;max-width:600px;margin:0 auto;background:#fff;color:var(--text);border:1px solid #e6eef9;border-radius:14px;box-shadow:var(--shadow);padding:16px 18px;display:none;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between}
+  .cookie-consent.show{display:flex}
+  .cookie-consent p{font-size:.88rem;flex:1;min-width:230px;color:var(--muted);margin:0}
+  .cookie-consent a{color:var(--aqua);text-decoration:underline}
+  .cc-actions{display:flex;gap:12px;align-items:center}
+  .cc-accept{padding:11px 24px;font-size:.95rem}
+  .cc-decline{background:none;border:none;color:var(--muted);font-weight:600;cursor:pointer;font-size:.9rem;text-decoration:underline;padding:8px}
+
   /* ---------- Mobile sticky call bar ---------- */
   .mobile-bar{display:none}
   @media(max-width:860px){
@@ -144,6 +157,7 @@
     .brand .name{display:none}
     .mobile-bar{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:60;background:var(--fresh-green);color:#fff;align-items:center;justify-content:center;gap:8px;padding:15px;font-weight:800;font-size:1.12rem;box-shadow:0 -4px 16px rgba(0,0,0,.25)}
     body{padding-bottom:62px}
+    .cookie-consent{bottom:74px}
   }
 </style>
 </head>
@@ -289,14 +303,31 @@
   </div>
 </section>
 
+<!-- ===== PRIVACY & COOKIES ===== -->
+<section id="privacy" class="block" style="padding-top:0">
+  <div class="wrap" style="max-width:760px">
+    <div class="section-head" style="margin-bottom:14px"><h2 style="font-size:1.35rem">Privacy &amp; Cookies</h2></div>
+    <p style="color:var(--muted);font-size:.92rem">We use the contact details you submit (name, phone, postcode) solely to respond to your enquiry — we never sell or share your data. This site also uses cookies for advertising measurement and remarketing through Google Ads, which lets us see which ads lead to enquiries and show relevant ads to people who've visited before. You can accept or decline these cookies via the banner, change your choice any time by clearing your browser's site data, and opt out of personalised Google ads at <a href="https://adssettings.google.com" target="_blank" rel="noopener">adssettings.google.com</a>. Questions about your data? Call us on <a href="tel:03300434811">0330 043 4811</a>.</p>
+  </div>
+</section>
+
 <!-- ===== FOOTER ===== -->
 <footer>
   <div class="wrap">
     <img src="/images/logo.png" alt="Fresh For Less Carpet Cleaning logo">
     <p>Call <a href="tel:03300434811" class="fnum" onclick="trackCall()">0330 043 4811</a> · Open 8am–8pm, 7 days</p>
-    <p style="margin-top:8px;opacity:.7">Fully insured · Satisfaction guaranteed · © Fresh For Less Carpet Cleaning</p>
+    <p style="margin-top:8px;opacity:.7">Fully insured · Satisfaction guaranteed · <a href="#privacy" style="color:inherit;text-decoration:underline">Privacy &amp; Cookies</a> · © Fresh For Less Carpet Cleaning</p>
   </div>
 </footer>
+
+<!-- ===== COOKIE CONSENT ===== -->
+<div id="cookie-consent" class="cookie-consent" role="dialog" aria-label="Cookie consent">
+  <p>We use cookies for ads measurement &amp; remarketing. See our <a href="#privacy">Privacy &amp; Cookies</a> note.</p>
+  <div class="cc-actions">
+    <button type="button" class="cc-decline" id="cc-decline">Decline</button>
+    <button type="button" class="btn cc-accept" id="cc-accept">Accept</button>
+  </div>
+</div>
 
 <!-- ===== MOBILE STICKY CALL BAR ===== -->
 <a href="tel:03300434811" class="mobile-bar" onclick="trackCall()">📞 Tap to Call — Free Quote</a>
@@ -334,6 +365,28 @@
       });
     return false;
   }
+
+  // ===== Cookie consent (Google Consent Mode v2) =====
+  (function(){
+    var KEY = 'ffl_consent';
+    var banner = document.getElementById('cookie-consent');
+    function apply(granted){
+      var v = granted ? 'granted' : 'denied';
+      gtag('consent','update',{'ad_storage':v,'ad_user_data':v,'ad_personalization':v,'analytics_storage':v});
+    }
+    function choose(granted){
+      try { localStorage.setItem(KEY, granted ? 'granted' : 'denied'); } catch(e){}
+      apply(granted);
+      banner.classList.remove('show');
+    }
+    var saved = null;
+    try { saved = localStorage.getItem(KEY); } catch(e){}
+    if (saved === 'granted') { apply(true); }
+    else if (saved === 'denied') { apply(false); }
+    else { banner.classList.add('show'); }
+    document.getElementById('cc-accept').addEventListener('click', function(){ choose(true); });
+    document.getElementById('cc-decline').addEventListener('click', function(){ choose(false); });
+  })();
 </script>
 
 </body>
