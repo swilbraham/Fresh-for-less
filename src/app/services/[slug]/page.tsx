@@ -69,12 +69,12 @@ export async function generateMetadata({
 
   if (!service) {
     return {
-      title: "Service Not Found | Fresh For Less",
+      title: { absolute: "Service Not Found | Fresh For Less" },
     };
   }
 
   return {
-    title: service.metaTitle,
+    title: { absolute: service.metaTitle },
     description: service.metaDescription,
     alternates: {
       canonical: `https://www.freshforlesscarpetcleaning.co.uk/services/${service.slug}`,

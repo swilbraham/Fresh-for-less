@@ -3,7 +3,9 @@ import Link from "next/link";
 import { areas, getPostcodeForArea } from "@/data/areas";
 
 export const metadata: Metadata = {
-  title: "Areas We Cover | Carpet Cleaning Wirral, Liverpool, Chester & North Wales",
+  title: {
+    absolute: "Areas We Cover | Carpet Cleaning Wirral, Liverpool, Chester & North Wales",
+  },
   description:
     "Fresh For Less Carpet Cleaning serves 100+ towns and villages across Wirral, Liverpool, Chester, Warrington, Runcorn and North Wales. Find your local carpet cleaner.",
   alternates: {

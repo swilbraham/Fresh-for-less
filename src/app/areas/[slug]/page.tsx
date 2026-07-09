@@ -21,7 +21,9 @@ export async function generateMetadata({
   const postcodeStr = postcode ? ` (${postcode})` : "";
 
   return {
-    title: `Carpet Cleaning ${name}${postcodeStr} | ${county} Carpet Cleaners — Fresh For Less`,
+    title: {
+      absolute: `Carpet Cleaning ${name}${postcodeStr} | Fresh For Less`,
+    },
     description: `Professional carpet & upholstery cleaning in ${name}, ${county}${postcode ? ` ${postcode}` : ""} from £39. Hot-water extraction, stain removal, pet-safe products, fast drying. Free local quotes — call 0330 043 4811.`,
     alternates: {
       canonical: `https://www.freshforlesscarpetcleaning.co.uk/areas/${slug}`,

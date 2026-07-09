@@ -2,7 +2,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-5">
           {/* Brand */}
           <div className="lg:col-span-1">
             <div className="flex items-center gap-2">
@@ -51,6 +51,34 @@ export default function Footer() {
                   <a href={`/services/${s.slug}`} className="text-sm text-slate-400 hover:text-white transition-colors">{s.name}</a>
                 </li>
               ))}
+            </ul>
+          </div>
+
+          {/* Areas We Cover */}
+          <div>
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Areas We Cover</h4>
+            <ul className="mt-4 space-y-3">
+              {[
+                { name: "Liverpool", slug: "liverpool" },
+                { name: "Birkenhead", slug: "birkenhead" },
+                { name: "Wallasey", slug: "wallasey" },
+                { name: "Chester", slug: "chester" },
+                { name: "Ellesmere Port", slug: "ellesmere-port" },
+                { name: "Warrington", slug: "warrington" },
+                { name: "Runcorn", slug: "runcorn" },
+                { name: "Wrexham", slug: "wrexham" },
+              ].map((a) => (
+                <li key={a.slug}>
+                  <a href={`/areas/${a.slug}`} className="text-sm text-slate-400 hover:text-white transition-colors">
+                    Carpet Cleaning {a.name}
+                  </a>
+                </li>
+              ))}
+              <li>
+                <a href="/areas" className="text-sm font-medium text-primary-400 hover:text-primary-300 transition-colors">
+                  View All Areas →
+                </a>
+              </li>
             </ul>
           </div>
 

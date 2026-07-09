@@ -9,6 +9,7 @@ const navLinks = [
   { label: "How It Works", href: "#process" },
   { label: "Reviews", href: "#testimonials" },
   { label: "FAQ", href: "#faq" },
+  { label: "Areas", href: "/areas" },
   { label: "Pay Online", href: "/pay/" },
 ];
 
