@@ -10,6 +10,7 @@ const navLinks = [
   { label: "Reviews", href: "#testimonials" },
   { label: "FAQ", href: "#faq" },
   { label: "Areas", href: "/areas" },
+  { label: "Training", href: "/training" },
   { label: "Pay Online", href: "/pay/" },
 ];
 

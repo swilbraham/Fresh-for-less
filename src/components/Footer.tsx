@@ -92,6 +92,7 @@ export default function Footer() {
                 { label: "Reviews", href: "#testimonials" },
                 { label: "FAQ", href: "#faq" },
                 { label: "About Us", href: "#about" },
+                { label: "Training Course", href: "/training" },
                 { label: "Pay Online", href: "/pay/" },
               ].map((link) => (
                 <li key={link.label}>
