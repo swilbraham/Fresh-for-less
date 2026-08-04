@@ -127,7 +127,61 @@ const faqs = [
     answer:
       "One. We deliberately take a single trainee at a time so you get maximum hands-on time on every job and our customers get the same quality of service as always.",
   },
+  {
+    question: "Where is the course held? I'm not local — can I still attend?",
+    answer:
+      "The course runs on our real customer rounds across Wirral, Liverpool and Chester, and trainees join us from all over the UK. We're easy to reach — around 40 minutes from Liverpool, an hour from Manchester, and close to the M53 and M56 — with plenty of affordable hotels and B&Bs nearby. Tell us where you're travelling from and we'll suggest somewhere convenient to stay for the week.",
+  },
+  {
+    question: "Do you run courses in other parts of the country?",
+    answer:
+      "No — and that's deliberate. The training happens on our genuine customer bookings, which is exactly what makes it worth more than a classroom course. Trainees travel to us from across England, Scotland, Wales and Northern Ireland for the week, then take everything home to launch in their own area.",
+  },
 ];
+
+const courseSchema = {
+  "@context": "https://schema.org",
+  "@type": "Course",
+  name: "5-Day Live Carpet Cleaning Training Course",
+  description:
+    "Hands-on carpet cleaning training on real customer jobs. One trainee per course, all equipment provided, certificate of completion. Trainees welcome from anywhere in the UK.",
+  provider: {
+    "@type": "LocalBusiness",
+    name: "Fresh For Less Carpet Cleaning",
+    telephone: "0330 043 4811",
+    url: "https://www.freshforlesscarpetcleaning.co.uk",
+    address: {
+      "@type": "PostalAddress",
+      addressRegion: "Merseyside",
+      addressCountry: "GB",
+    },
+  },
+  offers: {
+    "@type": "Offer",
+    price: "995",
+    priceCurrency: "GBP",
+    category: "Paid",
+  },
+  hasCourseInstance: {
+    "@type": "CourseInstance",
+    courseMode: "Onsite",
+    courseWorkload: "P5D",
+    location: {
+      "@type": "Place",
+      name: "Wirral, Merseyside (training on real customer jobs across Wirral, Liverpool and Chester)",
+    },
+  },
+};
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: { "@type": "Answer", text: faq.answer },
+  })),
+};
 
 /* ─────────────────── HELPERS ─────────────────── */
 
@@ -200,6 +254,14 @@ export default function TrainingPage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(courseSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       <Navbar onQuoteClick={scrollToEnquiry} />
 
       <main>
@@ -257,7 +319,8 @@ export default function TrainingPage() {
               >
                 No classroom. No demo rig. You spend a full working week on genuine
                 customer bookings alongside an experienced, fully insured technician —
-                and finish ready to take your first paying customer.
+                and finish ready to take your first paying customer. Trainees welcome
+                from anywhere in the UK.
               </motion.p>
 
               <motion.div
@@ -398,6 +461,47 @@ export default function TrainingPage() {
                   </AnimatedSection>
                 ))}
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════ UK-WIDE ══════════ */}
+        <section className="bg-white py-16 lg:py-24">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <AnimatedSection className="text-center">
+              <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+                Train With Us From Anywhere in the UK
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600">
+                Because the course runs on real customer jobs, it happens on our rounds
+                across Wirral, Liverpool and Chester — and trainees travel to us from all
+                over England, Scotland, Wales and Northern Ireland to learn this way.
+                Most book a local hotel or B&amp;B for the week and treat it as a working
+                residential course.
+              </p>
+            </AnimatedSection>
+            <div className="mt-12 grid gap-6 md:grid-cols-3">
+              {[
+                {
+                  title: "Easy to reach",
+                  desc: "Minutes from the M53 and M56, around 40 minutes from Liverpool and an hour from Manchester. Direct trains to Liverpool from most of the UK.",
+                },
+                {
+                  title: "Affordable stays",
+                  desc: "Plenty of reasonably priced hotels and B&Bs nearby — tell us where you're travelling from and we'll suggest somewhere convenient for the week.",
+                },
+                {
+                  title: "Launch back home",
+                  desc: "Everything you learn — the technical skills, pricing and marketing — is designed to set up your own round in your own area, wherever that is.",
+                },
+              ].map((item, i) => (
+                <AnimatedSection key={item.title} delay={i * 0.1}>
+                  <div className="h-full rounded-2xl bg-slate-50 p-6">
+                    <h3 className="font-bold text-slate-900">{item.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{item.desc}</p>
+                  </div>
+                </AnimatedSection>
+              ))}
             </div>
           </div>
         </section>
