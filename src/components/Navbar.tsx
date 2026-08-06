@@ -11,6 +11,7 @@ const navLinks = [
   { label: "FAQ", href: "#faq" },
   { label: "Areas", href: "/areas" },
   { label: "Training", href: "/training" },
+  { label: "Franchise", href: "/franchise" },
   { label: "Pay Online", href: "/pay/" },
 ];
 
