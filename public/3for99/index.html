@@ -812,23 +812,13 @@ fbq('track', 'ViewContent', {
       <input type="hidden" name="subject" value="New 3 for £99 Booking Request — Manchester">
       <input type="hidden" name="from_name" value="Fresh For Less Website">
       <input type="text" name="_honey" style="display:none" tabindex="-1" autocomplete="off">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div class="form-group">
-          <label>First Name *</label>
-          <input type="text" name="first" required placeholder="e.g. Sarah">
-        </div>
-        <div class="form-group">
-          <label>Last Name *</label>
-          <input type="text" name="last" required placeholder="e.g. Thompson">
-        </div>
+      <div class="form-group">
+        <label>Name *</label>
+        <input type="text" name="name" required placeholder="e.g. Sarah Thompson">
       </div>
       <div class="form-group">
         <label>Phone Number *</label>
         <input type="tel" name="phone" required placeholder="e.g. 07700 900123">
-      </div>
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" name="email" placeholder="e.g. sarah@email.com">
       </div>
       <div class="form-group">
         <label>Postcode *</label>
@@ -843,27 +833,8 @@ fbq('track', 'ViewContent', {
           <option value="6">6 rooms (£198)</option>
         </select>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div class="form-group">
-          <label>Preferred Date *</label>
-          <input type="date" name="preferred_date" required min="" id="date-input">
-        </div>
-        <div class="form-group">
-          <label>Preferred Time *</label>
-          <select name="preferred_time" required>
-            <option value="" disabled selected>Select a time</option>
-            <option value="A.M">A.M</option>
-            <option value="P.M">P.M</option>
-            <option value="flexible">I'm flexible</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Anything we should know?</label>
-        <textarea name="notes" placeholder="e.g. pet stains in the hallway, access instructions..."></textarea>
-      </div>
       <button type="submit" class="form-submit">Book My Clean Now →</button>
-      <p class="form-note">🔒 Your details are 100% safe. We'll never share or spam you.</p>
+      <p class="form-note">🔒 Your details are 100% safe. We'll never share or spam you. We'll call you within 2 hours to confirm date &amp; time.</p>
     </form>
     <div id="form-success" style="display:none;text-align:center;padding:40px 0;">
       <div style="font-size:48px;margin-bottom:14px;">🎉</div>
@@ -905,18 +876,6 @@ fbq('track', 'ViewContent', {
   }
   startCountdown();
 
-  // Set min date to today for the date picker
-  (function() {
-    const dateInput = document.getElementById('date-input');
-    if (dateInput) {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate() + 1).padStart(2, '0');
-      dateInput.min = `${yyyy}-${mm}-${dd}`;
-    }
-  })();
-
   // ========== GOOGLE SHEETS LOGGING ==========
   const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzvjrNLW293wswSlbOyhwFR660wlhkn8C517ktao4JeFcqVUdfrTmuTSPm6MiM5kdud/exec';
 
@@ -925,15 +884,10 @@ fbq('track', 'ViewContent', {
       return Promise.reject(new Error('Sheet URL not configured'));
     }
     const payload = {
-      first: data.get('first'),
-      last: data.get('last'),
+      name: data.get('name'),
       phone: data.get('phone'),
-      email: data.get('email'),
       postcode: data.get('postcode'),
       rooms: data.get('rooms'),
-      preferred_date: data.get('preferred_date'),
-      preferred_time: data.get('preferred_time'),
-      notes: data.get('notes') || '',
       offer: '3 for £99 — Manchester'
     };
     return fetch(GOOGLE_SHEET_URL, {
