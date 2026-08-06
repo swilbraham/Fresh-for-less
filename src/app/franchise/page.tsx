@@ -75,7 +75,7 @@ const included = [
   "Branded uniform, business cards & flyers",
   "Your own page on freshforlesscarpetcleaning.co.uk",
   "Central booking system + CRM login",
-  "Ongoing lead generation (Google Ads, Meta, SEO)",
+  "Ongoing lead generation — HQ commits £500+/month of ad spend to your territory",
   "Public liability insurance guidance & supplier deals",
   "Monthly 1:1 coaching call for the first year",
 ];
@@ -104,7 +104,7 @@ const process = [
   {
     step: "5",
     title: "Launch",
-    desc: "Your van rolls out, your local ads switch on, and your first bookings land the same week.",
+    desc: "Your van rolls out, your local ads switch on, and your first bookings typically land inside the first fortnight.",
   },
 ];
 
@@ -115,15 +115,15 @@ const franchiseFaqs = [
   },
   {
     q: "How much can I earn?",
-    a: "It depends on your effort, territory density, and how many hours you work. Full-time franchisees typically build to £45,000–£70,000+ per year after 12 months. We'll share real numbers under NDA at your discovery meeting.",
+    a: "It depends on your effort, territory density, and how many hours you work. A full-time single-van franchisee typically builds to £45,000–£70,000 in turnover in year one, which works out to around £30,000–£45,000 take-home after costs. Year two and beyond, with a repeat-customer base, that grows to £45,000–£55,000+ take-home. We'll share the full model under NDA at your discovery meeting.",
   },
   {
     q: "How much does it cost to get started?",
-    a: "Franchise fees start from around £14,995 inclusive of equipment, training, and launch marketing. Finance options are available — we'll walk you through them.",
+    a: "The franchise package starts from £14,995 and covers your training, equipment, chemicals starter pack, branded materials, and £1,500 of launch marketing. You supply your own van (typically £8,000–£15,000 second-hand) — or ask about our £22,995 turn-key option which includes a signwritten van. Finance options available for both.",
   },
   {
     q: "What ongoing fees are there?",
-    a: "A flat monthly management fee that covers your lead generation, CRM access, brand licence, and support. No percentage-of-revenue royalty games.",
+    a: "A flat monthly management fee (currently £600) that contributes to your local lead generation, CRM access, brand licence, and support. No percentage-of-revenue royalty games. Most franchisees also budget an additional £150–£300/month for their own local marketing.",
   },
   {
     q: "How big is a territory?",
@@ -260,9 +260,9 @@ export default function FranchisePage() {
                 className="mx-auto mt-14 flex max-w-lg flex-wrap items-center justify-center gap-x-8 gap-y-4 border-t border-slate-800 pt-8"
               >
                 {[
-                  { value: "From £14,995", label: "All-Inclusive Start-Up" },
+                  { value: "From £14,995", label: "Kit + Training + Brand" },
                   { value: "5 Days", label: "Full Training" },
-                  { value: "Week 1", label: "First Bookings" },
+                  { value: "Weeks 1–3", label: "First Bookings" },
                 ].map((stat) => (
                   <div key={stat.label} className="text-center">
                     <p className="text-2xl font-bold text-white">{stat.value}</p>
@@ -324,7 +324,10 @@ export default function FranchisePage() {
                 <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <p className="text-sm font-medium text-slate-500">Investment from</p>
                   <p className="mt-1 text-4xl font-extrabold text-slate-900">£14,995</p>
-                  <p className="mt-1 text-sm text-slate-500">All-inclusive. Finance options available.</p>
+                  <p className="mt-1 text-sm text-slate-500">Van-optional package. Finance available.</p>
+                  <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                    You supply your own van, or add a signwritten van package for a total of £22,995.
+                  </p>
                 </div>
               </AnimatedSection>
 
