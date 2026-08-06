@@ -137,6 +137,11 @@ const faqs = [
     answer:
       "No — and that's deliberate. The training happens on our genuine customer bookings, which is exactly what makes it worth more than a classroom course. Trainees travel to us from across England, Scotland, Wales and Northern Ireland for the week, then take everything home to launch in their own area.",
   },
+  {
+    question: "Can I launch under the Fresh For Less brand instead of going it alone?",
+    answer:
+      "Possibly — our best course graduates can apply to join the Fresh For Less network as licensees: an exclusive territory in your own area, our brand, area pages on this website, and centrally managed Google and Meta advertising feeding you leads, for a licence fee and a monthly fee. Your £995 course fee is credited in full against the licence. Mention it in your enquiry and we'll talk openly about the numbers during your course week.",
+  },
 ];
 
 const courseSchema = {
@@ -540,6 +545,60 @@ export default function TrainingPage() {
                     Reserve Your Week
                   </button>
                 </div>
+              </AnimatedSection>
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════ NETWORK / FRANCHISE ══════════ */}
+        <section className="bg-slate-950 py-16 lg:py-24">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center">
+              <AnimatedSection>
+                <span className="inline-flex items-center gap-2 rounded-full border border-accent-500/20 bg-accent-500/10 px-4 py-1.5 text-xs font-medium text-accent-300">
+                  For Our Best Graduates
+                </span>
+                <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+                  Join the Fresh For Less Network
+                </h2>
+                <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-400">
+                  Don&apos;t want to build a brand from scratch? Our strongest trainees
+                  can apply to launch under the Fresh For Less name in their own area —
+                  a franchise-style licence with our marketing engine behind you.
+                </p>
+              </AnimatedSection>
+              <div className="mt-10 grid gap-4 text-left sm:grid-cols-2">
+                {[
+                  {
+                    title: "Exclusive territory",
+                    desc: "The Fresh For Less brand and van livery in your own patch — one licensee per area.",
+                  },
+                  {
+                    title: "Leads from day one",
+                    desc: "Area pages on this website plus Google and Meta ads, run centrally by us for your territory.",
+                  },
+                  {
+                    title: "Systems and support",
+                    desc: "The full operations manual, pricing structure and direct phone support when a job gets tricky.",
+                  },
+                  {
+                    title: "Course fee credited",
+                    desc: "Your £995 training fee is credited in full against the licence fee if you join the network.",
+                  },
+                ].map((item, i) => (
+                  <AnimatedSection key={item.title} delay={i * 0.08}>
+                    <div className="h-full rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+                      <h3 className="font-bold text-white">{item.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-400">{item.desc}</p>
+                    </div>
+                  </AnimatedSection>
+                ))}
+              </div>
+              <AnimatedSection delay={0.3}>
+                <p className="mt-8 text-sm text-slate-500">
+                  Places are limited and offered to graduates we&apos;d trust with our own
+                  customers. Interested? Mention the network in your enquiry below.
+                </p>
               </AnimatedSection>
             </div>
           </div>
