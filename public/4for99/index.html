@@ -760,29 +760,19 @@ fbq('track', 'ViewContent', {
 <section class="form-section" id="book">
   <div class="form-wrapper">
     <h2>Book Your £99 Clean</h2>
-    <p class="form-sub">Fill in the form and we'll confirm your slot within 2 hours.</p>
+    <p class="form-sub">Takes 20 seconds — we'll call you within 2 hours to book your slot.</p>
     <form id="lead-form" onsubmit="handleSubmit(event)">
       <input type="hidden" name="access_key" value="ef4b17e6-367d-4c61-9f46-9c5ffa4045d7">
       <input type="hidden" name="subject" value="New 4 for £99 Booking Request">
       <input type="hidden" name="from_name" value="Fresh For Less Website">
       <input type="text" name="_honey" style="display:none">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div class="form-group">
-          <label>First Name *</label>
-          <input type="text" name="first" required placeholder="e.g. Sarah">
-        </div>
-        <div class="form-group">
-          <label>Last Name *</label>
-          <input type="text" name="last" required placeholder="e.g. Thompson">
-        </div>
+      <div class="form-group">
+        <label>Name *</label>
+        <input type="text" name="first" required placeholder="e.g. Sarah">
       </div>
       <div class="form-group">
         <label>Phone Number *</label>
         <input type="tel" name="phone" required placeholder="e.g. 07700 900123">
-      </div>
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" name="email" placeholder="e.g. sarah@email.com">
       </div>
       <div class="form-group">
         <label>Postcode *</label>
@@ -796,28 +786,6 @@ fbq('track', 'ViewContent', {
           <option value="6">6 carpets (£139)</option>
           <option value="7">7 carpets (£159)</option>
         </select>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div class="form-group">
-          <label>Preferred Date *</label>
-          <input type="date" name="preferred_date" required min="" id="date-input">
-        </div>
-        <div class="form-group">
-          <label>Preferred Time *</label>
-          <select name="preferred_time" required>
-            <option value="" disabled selected>Select a time</option>
-            <option value="08:00 - 10:00">08:00 – 10:00</option>
-            <option value="10:00 - 12:00">10:00 – 12:00</option>
-            <option value="12:00 - 14:00">12:00 – 14:00</option>
-            <option value="14:00 - 16:00">14:00 – 16:00</option>
-            <option value="16:00 - 18:00">16:00 – 18:00</option>
-            <option value="flexible">I'm flexible</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Anything we should know?</label>
-        <textarea name="notes" placeholder="e.g. pet stains in the hallway, access instructions..."></textarea>
       </div>
       <button type="submit" class="form-submit">Book My Clean Now →</button>
       <p class="form-note">🔒 Your details are 100% safe. We'll never share or spam you.</p>
@@ -885,13 +853,13 @@ fbq('track', 'ViewContent', {
     }
     const payload = {
       first: data.get('first'),
-      last: data.get('last'),
+      last: data.get('last') || '',
       phone: data.get('phone'),
-      email: data.get('email'),
+      email: data.get('email') || '',
       postcode: data.get('postcode'),
       rooms: data.get('rooms'),
-      preferred_date: data.get('preferred_date'),
-      preferred_time: data.get('preferred_time'),
+      preferred_date: data.get('preferred_date') || '',
+      preferred_time: data.get('preferred_time') || '',
       notes: data.get('notes') || ''
     };
     return fetch(GOOGLE_SHEET_URL, {
