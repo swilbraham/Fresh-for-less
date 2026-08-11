@@ -2,47 +2,32 @@
 
 import AnimatedSection from "../AnimatedSection";
 
-const packages = [
+type Package = {
+  name: string;
+  price: number;
+  originalPrice?: number;
+  subtitle: string;
+  description: string;
+  popular: boolean;
+  features: string[];
+};
+
+const packages: Package[] = [
   {
-    name: "1 Room",
-    price: 39,
-    subtitle: "per service",
-    description: "Perfect for a single room refresh",
-    popular: false,
-    features: [
-      "Professional deep clean",
-      "Stain pre-treatment",
-      "Deodorising included",
-      "Typically dry in 4-6 hours",
-    ],
-  },
-  {
-    name: "2 Rooms",
-    price: 59,
-    subtitle: "per service",
-    description: "Great for a smaller home refresh",
-    popular: false,
-    features: [
-      "Professional deep clean",
-      "Stain pre-treatment",
-      "Deodorising included",
-      "Typically dry in 4-6 hours",
-      "Priority booking",
-    ],
-  },
-  {
-    name: "3 Rooms",
+    name: "3 Rooms Cleaned",
     price: 99,
+    originalPrice: 150,
     subtitle: "per service",
-    description: "Our most popular choice — best value",
+    description: "Our most popular choice — save £51 today",
     popular: true,
     features: [
-      "Professional deep clean",
-      "Stain pre-treatment",
-      "Deodorising included",
-      "Typically dry in 4-6 hours",
-      "Priority booking",
+      "3 rooms of your choice — professionally deep-cleaned",
+      "Hot water extraction — the industry gold standard",
+      "Pre-treatment of all stains & high-traffic areas",
+      "Deodorising treatment included",
+      "Typically dry in 2–4 hours",
       "Free hallway clean",
+      "100% satisfaction guarantee",
     ],
   },
 ];
@@ -104,13 +89,13 @@ export default function Pricing({ onQuoteClick }: { onQuoteClick: () => void }) 
         </AnimatedSection>
 
         {/* Pricing cards */}
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+        <div className="mx-auto mt-14 grid max-w-md gap-6 lg:gap-8">
           {packages.map((pkg, i) => (
             <AnimatedSection key={pkg.name} delay={i * 0.1}>
               <div
                 className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white p-6 shadow-sm transition-all hover:shadow-lg lg:p-8 ${
                   pkg.popular
-                    ? "border-primary-300 shadow-md shadow-primary-500/10 ring-1 ring-primary-200 hover:shadow-primary-500/15"
+                    ? "border-accent-400 shadow-lg shadow-accent-500/15 ring-2 ring-accent-300 hover:shadow-accent-500/25"
                     : "border-slate-200/80 hover:border-primary-200 hover:shadow-primary-500/5"
                 }`}
               >
@@ -118,13 +103,17 @@ export default function Pricing({ onQuoteClick }: { onQuoteClick: () => void }) 
                 {pkg.popular && (
                   <div className="absolute top-0 right-6">
                     <div className="rounded-b-lg bg-accent-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
-                      Most Popular
+                      🔥 Limited Offer
                     </div>
                   </div>
                 )}
 
                 {/* Frosted hover glow */}
-                <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-primary-50 opacity-0 blur-3xl transition-opacity group-hover:opacity-100" />
+                <div
+                  className={`absolute -right-12 -top-12 h-40 w-40 rounded-full opacity-0 blur-3xl transition-opacity group-hover:opacity-100 ${
+                    pkg.popular ? "bg-accent-100" : "bg-primary-50"
+                  }`}
+                />
 
                 <div className="relative flex flex-1 flex-col">
                   {/* Package name */}
@@ -132,12 +121,30 @@ export default function Pricing({ onQuoteClick }: { onQuoteClick: () => void }) 
                   <p className="mt-1 text-sm text-slate-500">{pkg.description}</p>
 
                   {/* Price */}
-                  <div className="mt-5 flex items-baseline gap-1">
-                    <span className="text-4xl font-extrabold tracking-tight text-slate-900">
+                  <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span
+                      className={`text-4xl font-extrabold tracking-tight ${
+                        pkg.popular ? "text-accent-600" : "text-slate-900"
+                      }`}
+                    >
                       &pound;{pkg.price}
                     </span>
+                    {pkg.originalPrice && (
+                      <span className="text-lg font-semibold text-slate-400 line-through">
+                        &pound;{pkg.originalPrice}
+                      </span>
+                    )}
                     <span className="text-sm font-medium text-slate-500">{pkg.subtitle}</span>
                   </div>
+
+                  {/* Save badge */}
+                  {pkg.originalPrice && (
+                    <div className="mt-3">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-accent-700 ring-1 ring-accent-200">
+                        Save &pound;{pkg.originalPrice - pkg.price} · {Math.round(((pkg.originalPrice - pkg.price) / pkg.originalPrice) * 100)}% off
+                      </span>
+                    </div>
+                  )}
 
                   {/* Divider */}
                   <div className="my-6 h-px bg-slate-100" />
@@ -180,7 +187,7 @@ export default function Pricing({ onQuoteClick }: { onQuoteClick: () => void }) 
         {/* Additional rooms note */}
         <AnimatedSection delay={0.35}>
           <p className="mx-auto mt-10 max-w-2xl text-center text-sm leading-relaxed text-slate-500">
-            Need more rooms? Additional rooms from just &pound;20 each. Commercial quotes available on request.
+            Need more rooms? Additional rooms from just &pound;33 each. A minimum cleaning charge of &pound;60.00 applies. Commercial quotes available on request.
           </p>
         </AnimatedSection>
 
