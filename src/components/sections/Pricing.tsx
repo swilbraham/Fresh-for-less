@@ -20,8 +20,8 @@ const packages = [
     name: "2 Rooms",
     price: 59,
     subtitle: "per service",
-    description: "Our most popular choice",
-    popular: true,
+    description: "Great for a smaller home refresh",
+    popular: false,
     features: [
       "Professional deep clean",
       "Stain pre-treatment",
@@ -32,10 +32,10 @@ const packages = [
   },
   {
     name: "3 Rooms",
-    price: 79,
+    price: 99,
     subtitle: "per service",
-    description: "Best value for whole-home clean",
-    popular: false,
+    description: "Our most popular choice — best value",
+    popular: true,
     features: [
       "Professional deep clean",
       "Stain pre-treatment",
