@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import QuoteModal from "@/components/QuoteModal";
-import { notifyLead } from "@/lib/notifyLead";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -239,8 +238,6 @@ export default function SpinPage() {
 
     // Honeypot — silently drop bot submissions
     if (formData.get("_honey")) return;
-
-    notifyLead("Spin the Wheel discount", formData);
 
     setSending(true);
     try {

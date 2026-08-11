@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AnimatedSection from "@/components/AnimatedSection";
-import { notifyLead } from "@/lib/notifyLead";
 
 /* ─────────────────── DATA ─────────────────── */
 
@@ -241,8 +240,6 @@ export default function TrainingPage() {
 
     // Honeypot — silently drop bot submissions
     if (formData.get("_honey")) return;
-
-    notifyLead("Training course enquiry", formData);
 
     setFormSending(true);
 

@@ -6,7 +6,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import QuoteModal from "@/components/QuoteModal";
 import AnimatedSection from "@/components/AnimatedSection";
-import { notifyLead } from "@/lib/notifyLead";
 
 /* ─────────────────── DATA ─────────────────── */
 
@@ -151,8 +150,6 @@ export default function FranchisePage() {
     const formData = new FormData(e.currentTarget);
 
     if (formData.get("_honey")) return;
-
-    notifyLead("Franchise enquiry", formData);
 
     setFormSending(true);
 
