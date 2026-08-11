@@ -12,27 +12,23 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.freshforlesscarpetcleaning.co.uk"),
   title: {
-    default: "Carpet Cleaning Wirral, Liverpool & Chester | Fresh For Less",
+    default: "Professional Carpet Cleaning UK | Fresh For Less",
     template: "%s | Fresh For Less Carpet Cleaning",
   },
   description:
-    "Professional carpet & upholstery cleaning across Wirral, Liverpool, Chester, Warrington & North Wales. Hot-water extraction, stain removal, pet-safe products. Free quotes from £39 — call 0330 043 4811.",
+    "Professional carpet & upholstery cleaning nationwide. Hot-water extraction, stain removal, pet-safe products, 100% satisfaction guarantee. Request your free quote — call 0330 043 4811.",
   applicationName: "Fresh For Less Carpet Cleaning",
   authors: [{ name: "Fresh For Less Carpet Cleaning" }],
   keywords: [
     "carpet cleaning",
-    "carpet cleaning wirral",
-    "carpet cleaning liverpool",
-    "carpet cleaning chester",
-    "carpet cleaning warrington",
-    "carpet cleaning north wales",
+    "carpet cleaning uk",
+    "professional carpet cleaning",
     "upholstery cleaning",
     "sofa cleaning",
     "rug cleaning",
     "stain removal",
     "pet odour removal",
     "carpet cleaner near me",
-    "professional carpet cleaning",
     "affordable carpet cleaning",
     "commercial carpet cleaning",
     "end of tenancy carpet cleaning",
@@ -62,15 +58,15 @@ export const metadata: Metadata = {
     locale: "en_GB",
     siteName: "Fresh For Less Carpet Cleaning",
     url: "https://www.freshforlesscarpetcleaning.co.uk",
-    title: "Carpet Cleaning Wirral, Liverpool & Chester | Fresh For Less",
+    title: "Professional Carpet Cleaning UK | Fresh For Less",
     description:
-      "Professional carpet & upholstery cleaning trusted by 2,000+ families. Free no-obligation quotes, eco-friendly products, 100% satisfaction guarantee.",
+      "Professional carpet & upholstery cleaning trusted by 2,000+ families nationwide. Free no-obligation quotes, eco-friendly products, 100% satisfaction guarantee.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Carpet Cleaning Wirral, Liverpool & Chester | Fresh For Less",
+    title: "Professional Carpet Cleaning UK | Fresh For Less",
     description:
-      "Professional carpet cleaning across the North West from £39. Free quotes, eco-friendly products, 100% satisfaction guarantee. Call 0330 043 4811.",
+      "Professional carpet cleaning UK-wide. Free quotes, eco-friendly products, 100% satisfaction guarantee. Call 0330 043 4811.",
   },
 };
 
@@ -81,7 +77,7 @@ const jsonLd = {
   "@id": "https://www.freshforlesscarpetcleaning.co.uk/#business",
   name: "Fresh For Less Carpet Cleaning",
   description:
-    "Professional carpet and upholstery cleaning services across Wirral, Liverpool, Chester, Warrington and North Wales — spotless results at affordable prices.",
+    "Professional carpet and upholstery cleaning services nationwide — spotless results with a 100% satisfaction guarantee.",
   telephone: "0330 043 4811",
   email: "info@freshforlesscarpetcleaning.co.uk",
   url: "https://www.freshforlesscarpetcleaning.co.uk",
@@ -89,11 +85,7 @@ const jsonLd = {
   logo: "https://www.freshforlesscarpetcleaning.co.uk/images/logo.png",
   priceRange: "££",
   areaServed: [
-    { "@type": "AdministrativeArea", name: "Wirral" },
-    { "@type": "City", name: "Liverpool" },
-    { "@type": "City", name: "Chester" },
-    { "@type": "City", name: "Warrington" },
-    { "@type": "AdministrativeArea", name: "North Wales" },
+    { "@type": "Country", name: "United Kingdom" },
   ],
   openingHoursSpecification: {
     "@type": "OpeningHoursSpecification",

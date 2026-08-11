@@ -38,7 +38,7 @@ const faqs = [
   {
     question: "What areas do you cover?",
     answer:
-      "We cover the Wirral, Liverpool, Chester, Warrington, Runcorn, and North Wales. Check our area pages for a full list or contact us to check if we serve your location.",
+      "We now cover the whole of the UK through our network of local carpet cleaners. Enter your postcode when you request a quote and we'll match you with the team serving your area.",
   },
   {
     question: "How do I pay?",
