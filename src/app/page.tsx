@@ -5,7 +5,6 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/sections/Hero";
 import PainPoints from "@/components/sections/PainPoints";
 import Benefits from "@/components/sections/Benefits";
-import Pricing from "@/components/sections/Pricing";
 import Process from "@/components/sections/Process";
 import Testimonials from "@/components/sections/Testimonials";
 import FAQ from "@/components/sections/FAQ";
@@ -28,7 +27,6 @@ export default function Home() {
         <Hero onQuoteClick={openQuote} />
         <PainPoints />
         <Benefits />
-        <Pricing onQuoteClick={openQuote} />
         <Process />
         <Testimonials />
         <FAQ />

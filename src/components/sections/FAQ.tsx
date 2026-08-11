@@ -33,7 +33,7 @@ const faqs = [
   {
     question: "How much does it cost?",
     answer:
-      "Our prices start from \u00a339 for a single room. Check our pricing section for full details, or request a free no-obligation quote.",
+      "Prices are tailored to your area and the size of the job \u2014 request a free no-obligation quote and we'll give you an honest price up front. No hidden fees, ever.",
   },
   {
     question: "What areas do you cover?",
