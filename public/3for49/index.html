@@ -6,6 +6,7 @@
 <title>3 Rooms Just £49 — Fresh For Less Carpet Cleaning</title>
 <meta name="description" content="Professional carpet cleaning — 3 rooms deep-cleaned for just £49. Stains, odours & allergens removed. Book online or call 0330 043 4811.">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<script src="/js/notify-lead.js"></script>
 <!-- Meta Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
@@ -873,6 +874,8 @@ src="https://www.facebook.com/tr?id=613073519035884&ev=PageView&noscript=1"
 
     // Honeypot — silently drop bot submissions
     if (data.get('_honey')) return;
+
+    if (window.notifyLead) window.notifyLead('3 for £49', data);
 
     // Build mailto link as basic notification (replace with CRM/API in production)
     const body = `New Booking Request:%0A%0AName: ${data.get('first')} ${data.get('last')}%0APhone: ${data.get('phone')}%0AEmail: ${data.get('email')}%0APostcode: ${data.get('postcode')}%0ARooms: ${data.get('rooms')}%0APreferred Date: ${data.get('preferred_date')}%0APreferred Time: ${data.get('preferred_time')}%0ANotes: ${data.get('notes')}`;

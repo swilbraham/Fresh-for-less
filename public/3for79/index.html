@@ -6,6 +6,7 @@
 <title>3 Rooms Just £79 — Fresh For Less Carpet Cleaning</title>
 <meta name="description" content="Professional carpet cleaning — 3 rooms deep-cleaned for just £79. Stains, odours & allergens removed. Book online or call 0330 043 4811.">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="/js/notify-lead.js"></script>
 
 <!-- ========== META PIXEL ========== -->
 <!-- REPLACE '613073519035884' WITH YOUR 15-16 DIGIT PIXEL ID -->
@@ -901,6 +902,8 @@ fbq('track', 'PageView');
 
     // Honeypot — silently drop bot submissions
     if (data.get('_honey')) return;
+
+    if (window.notifyLead) window.notifyLead('3 for £79', data);
 
     const submitBtn = form.querySelector('.form-submit');
     const origText = submitBtn.textContent;

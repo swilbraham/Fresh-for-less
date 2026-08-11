@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { notifyLead } from "@/lib/notifyLead";
 
 interface QuoteModalProps {
   isOpen: boolean;
@@ -19,6 +20,8 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
 
     // Honeypot — silently drop bot submissions
     if (formData.get("_honey")) return;
+
+    notifyLead("Quote Modal", formData);
 
     setSending(true);
 

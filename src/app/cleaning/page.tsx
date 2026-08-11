@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import QuoteModal from "@/components/QuoteModal";
 import AnimatedSection from "@/components/AnimatedSection";
+import { notifyLead } from "@/lib/notifyLead";
 
 /* ─────────────────── DATA ─────────────────── */
 
@@ -102,6 +103,8 @@ export default function CleaningLandingPage() {
 
     // Honeypot — silently drop bot submissions
     if (formData.get("_honey")) return;
+
+    notifyLead("Cleaning landing page", formData);
 
     setFormSending(true);
 
