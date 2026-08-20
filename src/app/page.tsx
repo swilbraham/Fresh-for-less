@@ -10,6 +10,7 @@ import Testimonials from "@/components/sections/Testimonials";
 import FAQ from "@/components/sections/FAQ";
 import About from "@/components/sections/About";
 import FinalCTA from "@/components/sections/FinalCTA";
+import JoinAsPro from "@/components/sections/JoinAsPro";
 import Footer from "@/components/Footer";
 import QuoteModal from "@/components/QuoteModal";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -32,6 +33,7 @@ export default function Home() {
         <FAQ />
         <About />
         <FinalCTA onQuoteClick={openQuote} />
+        <JoinAsPro />
       </main>
       <Footer />
       <QuoteModal isOpen={quoteOpen} onClose={closeQuote} />

@@ -106,6 +106,14 @@ export default async function ProPage({
               </button>
             </form>
             <p className="mt-4 text-sm text-slate-500">
+              <Link
+                href="/pro/forgot"
+                className="font-semibold text-primary-600 underline"
+              >
+                Forgotten your password?
+              </Link>
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
               New here?{" "}
               <Link
                 href="/pro/register"

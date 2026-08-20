@@ -1425,3 +1425,20 @@ export async function updateCleanerProfile(
   );
   return { ok: true };
 }
+
+/** How many messages went to this recipient recently — cheap abuse guard. */
+export async function countRecentNotifications(
+  recipient: string,
+  minutes: number,
+  subjectLike: string
+): Promise<number> {
+  const row = await queryOne<{ n: number }>(
+    `SELECT count(*)::int AS n
+       FROM notifications
+      WHERE recipient = $1
+        AND subject LIKE $3
+        AND created_at > now() - ($2 || ' minutes')::interval`,
+    [recipient, String(minutes), subjectLike]
+  );
+  return row?.n ?? 0;
+}
