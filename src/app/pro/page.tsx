@@ -12,6 +12,11 @@ import {
 import { buildQuote, type Basket } from "@/lib/marketplace/pricing";
 import { gbp, gbpShort } from "@/lib/marketplace/money";
 import { COMMISSION_TERMS_LONG } from "@/lib/marketplace/terms";
+import {
+  DROP_REVIEW_DAYS,
+  DROP_REVIEW_LIMIT,
+  LATE_DROP_HOURS,
+} from "@/lib/marketplace/repo";
 import { loginAction } from "./actions";
 import { Alert, Card, Field } from "@/components/marketplace/shell";
 
@@ -173,6 +178,59 @@ export default async function ProPage({
                 </p>
               )}
             </details>
+          </div>
+
+          <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900">
+              What we expect
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Short and stated up front, so there are no surprises later.
+            </p>
+
+            <ul className="mt-4 space-y-3 text-sm">
+              {[
+                [
+                  "Only accept what you can do",
+                  "Jobs are first-to-accept. Take one and the customer is told you're coming, so only accept slots you can genuinely make.",
+                ],
+                [
+                  "Tell us early if things change",
+                  `Hand the job back from your dashboard and it goes straight to another cleaner. Drops inside ${LATE_DROP_HOURS} hours are recorded, and ${DROP_REVIEW_LIMIT} of them in ${DROP_REVIEW_DAYS} days means a conversation.`,
+                ],
+                [
+                  "Never turn up without notice",
+                  "A no-show costs the customer their day and us the relationship. It means suspension, not a warning.",
+                ],
+                [
+                  "Honour the price",
+                  "The customer has been given a fixed price with no home visit. Charging extra on the doorstep breaks the promise the whole thing is built on.",
+                ],
+                [
+                  "Keep your insurance current",
+                  "Public liability cover has to stay valid. We'll ask before it expires.",
+                ],
+                [
+                  "Collect the full amount",
+                  "Take the whole price from the customer on the day. Commission is invoiced separately, never deducted at your end.",
+                ],
+              ].map(([title, body]) => (
+                <li key={title} className="flex gap-3">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                    •
+                  </span>
+                  <div>
+                    <p className="font-semibold text-slate-900">{title}</p>
+                    <p className="text-slate-600">{body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <p className="mt-4 text-xs text-slate-500">
+              Do those and you&apos;ll get a steady run of priced local work. We
+              don&apos;t charge lead fees, so we only make money when you do.
+            </p>
           </div>
 
           <Link

@@ -122,6 +122,17 @@ export default async function RegisterPage({
             <AvailabilityGrid availability={DEFAULT_AVAILABILITY} />
           </Card>
 
+          <p className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+            By applying you agree to only accept jobs you can make, to hand a
+            job back as early as you can if something changes, to honour the
+            fixed price the customer was quoted, and to keep public liability
+            cover in place. The full list is on the{" "}
+            <Link href="/pro" className="font-semibold text-primary-600 underline">
+              cleaners page
+            </Link>
+            .
+          </p>
+
           <div className="flex gap-3">
             <Link
               href="/pro"
