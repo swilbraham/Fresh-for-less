@@ -4,7 +4,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentCleaner } from "@/lib/marketplace/auth";
-import { getSettings } from "@/lib/marketplace/repo";
+import {
+  getBundles,
+  getPriceItems,
+  getSettings,
+} from "@/lib/marketplace/repo";
+import { buildQuote, type Basket } from "@/lib/marketplace/pricing";
+import { gbp, gbpShort } from "@/lib/marketplace/money";
 import { loginAction } from "./actions";
 import { Alert, Card, Field } from "@/components/marketplace/shell";
 
@@ -26,7 +32,33 @@ export default async function ProPage({
   const { error, next } = await searchParams;
   // Arriving from a job text: they're an existing cleaner, not a recruit.
   const returning = Boolean(next?.startsWith("/pro"));
-  const settings = await getSettings();
+  const [settings, items, bundles] = await Promise.all([
+    getSettings(),
+    getPriceItems(true),
+    getBundles(true),
+  ]);
+
+  const commissionPct = Number(settings.commission_pct);
+  const quoteOpts = {
+    minimumChargePence: settings.minimum_charge_pence,
+    commissionPct,
+  };
+
+  // Worked examples beat a unit price list — a cleaner wants to know what a
+  // real job pays, not what one room costs.
+  const exampleBaskets: { label: string; basket: Basket }[] = [
+    { label: "Lounge, stairs and landing", basket: { room: 1, stairs: 1, landing: 1 } },
+    { label: "Three bedrooms", basket: { room: 3 } },
+    { label: "Whole house — 4 rooms, stairs, landing", basket: { room: 4, stairs: 1, landing: 1 } },
+    { label: "Three-seater sofa and an armchair", basket: { sofa3: 1, armchair: 1 } },
+  ];
+
+  const examples = exampleBaskets
+    .map((example) => ({
+      label: example.label,
+      quote: buildQuote(example.basket, items, bundles, quoteOpts),
+    }))
+    .filter((example) => example.quote.total_pence > 0);
 
   return (
     <>
@@ -77,9 +109,69 @@ export default async function ProPage({
             ))}
           </ul>
 
+          <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900">
+              What you&apos;d earn
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Real jobs at our current national prices. The customer pays you in
+              full on the day; we invoice {commissionPct}% commission separately.
+            </p>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[420px] text-sm">
+                <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="py-2 font-semibold">Job</th>
+                    <th className="py-2 text-right font-semibold">Customer pays</th>
+                    <th className="py-2 text-right font-semibold">You keep</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {examples.map((example) => (
+                    <tr key={example.label}>
+                      <td className="py-2 pr-3 text-slate-700">{example.label}</td>
+                      <td className="py-2 text-right tabular-nums text-slate-600">
+                        {gbp(example.quote.total_pence)}
+                      </td>
+                      <td className="py-2 text-right font-semibold tabular-nums text-accent-700">
+                        {gbp(
+                          example.quote.total_pence - example.quote.commission_pence
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <details className="mt-4">
+              <summary className="cursor-pointer text-sm font-semibold text-primary-600">
+                See the full price list
+              </summary>
+              <ul className="mt-3 divide-y divide-slate-100 text-sm">
+                {items.map((item) => (
+                  <li key={item.code} className="flex justify-between py-1.5">
+                    <span className="text-slate-600">{item.label}</span>
+                    <span className="tabular-nums text-slate-800">
+                      {gbpShort(item.unit_price_pence)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {bundles.length > 0 && (
+                <p className="mt-3 text-xs text-slate-500">
+                  Offers apply automatically where they beat the itemised price —{" "}
+                  {bundles.map((b) => b.label).join(", ")}. Every job has a{" "}
+                  {gbpShort(settings.minimum_charge_pence)} minimum.
+                </p>
+              )}
+            </details>
+          </div>
+
           <Link
             href="/pro/register"
-            className="mt-8 inline-block rounded-xl bg-accent-600 px-6 py-3 font-semibold text-white transition hover:bg-accent-700"
+            className="mt-6 inline-block rounded-xl bg-accent-600 px-6 py-3 font-semibold text-white transition hover:bg-accent-700"
           >
             Apply to join
           </Link>
