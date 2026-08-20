@@ -6,6 +6,7 @@ import { outwardOf, normalisePostcode } from "./postcode";
 import { isMobile, toE164 } from "./phone";
 import { bookingUrl } from "./auth";
 import { COMMISSION_TERMS_SHORT } from "./terms";
+import { firstName } from "./names";
 import type {
   Cleaner,
   Job,
@@ -583,18 +584,19 @@ export async function acceptJob(
   const job = await getJob(jobId);
   const cleaner = await getCleaner(cleanerId);
   if (job && cleaner) {
-    const trading = cleaner.business_name || cleaner.name;
+    // First name only: to the customer this is Fresh For Less sending someone.
+    const who = firstName(cleaner.name);
     await notifyCustomer(job, {
       subject: `Your carpet clean is confirmed — ${job.ref}`,
       body:
-        `Good news ${job.customer_name}, ${trading} has accepted your booking ` +
+        `Good news ${job.customer_name}, ${who} will be cleaning for you ` +
         `for ${job.slot_date} (${job.slot_window.toUpperCase()}).\n\n` +
-        `Your cleaner: ${trading}\n` +
+        `Your cleaner: ${who}\n` +
         `Their number: ${cleaner.phone}\n` +
         `Fixed price: ${gbpShort(job.total_pence)}, payable to them on the day.\n\n` +
         `Need to change or cancel? ${bookingUrl(job.ref, siteUrl())}`,
       smsBody:
-        `${job.ref} confirmed: ${trading} (${cleaner.phone}) will clean on ` +
+        `${job.ref} confirmed: ${who} (${cleaner.phone}) will clean on ` +
         `${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
         `${gbpShort(job.total_pence)} on the day. Changes: ${bookingUrl(job.ref, siteUrl())}`,
       jobId,

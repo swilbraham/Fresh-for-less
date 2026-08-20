@@ -10,6 +10,7 @@ import {
   getSettings,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
+import { firstName } from "@/lib/marketplace/names";
 import { Alert, Card, StatusPill } from "@/components/marketplace/shell";
 import SlotPicker from "@/components/marketplace/SlotPicker";
 import { cancelBookingAction, rescheduleBookingAction } from "../actions";
@@ -147,7 +148,7 @@ export default async function ManageBookingPage({
               label="Your cleaner"
               value={
                 cleaner
-                  ? `${cleaner.business_name || cleaner.name} · ${cleaner.phone}`
+                  ? `${firstName(cleaner.name)} · ${cleaner.phone}`
                   : job.status === "cancelled"
                     ? "—"
                     : "Being matched — we'll confirm shortly"
