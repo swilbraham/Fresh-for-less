@@ -583,14 +583,20 @@ export async function acceptJob(
   const job = await getJob(jobId);
   const cleaner = await getCleaner(cleanerId);
   if (job && cleaner) {
-    await notify({
-      recipient: job.customer_email,
+    const trading = cleaner.business_name || cleaner.name;
+    await notifyCustomer(job, {
       subject: `Your carpet clean is confirmed — ${job.ref}`,
       body:
-        `Good news ${job.customer_name}, ${cleaner.business_name || cleaner.name} ` +
-        `has accepted your booking for ${job.slot_date} (${job.slot_window.toUpperCase()}).\n\n` +
-        `Fixed price: ${gbpShort(job.total_pence)}, payable to your cleaner on the day.\n` +
-        `Any questions, quote reference ${job.ref}.`,
+        `Good news ${job.customer_name}, ${trading} has accepted your booking ` +
+        `for ${job.slot_date} (${job.slot_window.toUpperCase()}).\n\n` +
+        `Your cleaner: ${trading}\n` +
+        `Their number: ${cleaner.phone}\n` +
+        `Fixed price: ${gbpShort(job.total_pence)}, payable to them on the day.\n\n` +
+        `Need to change or cancel? ${bookingUrl(job.ref, siteUrl())}`,
+      smsBody:
+        `${job.ref} confirmed: ${trading} (${cleaner.phone}) will clean on ` +
+        `${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
+        `${gbpShort(job.total_pence)} on the day. Changes: ${bookingUrl(job.ref, siteUrl())}`,
       jobId,
     });
   }
@@ -644,16 +650,55 @@ export async function completeJob(
   return { ok: true };
 }
 
+/**
+ * Cancel from the office. Both sides are told — a customer who hears nothing
+ * still expects a cleaner at their door, and a cleaner who hears nothing turns
+ * up to one that isn't expecting them.
+ */
 export async function cancelJob(
   jobId: number,
   reason: string
 ): Promise<void> {
-  await query(
+  const job = await getJob(jobId);
+  const cancelled = await query<{ id: number }>(
     `UPDATE jobs
-        SET status = 'cancelled', cancelled_at = now(), cancel_reason = $2
-      WHERE id = $1 AND status IN ('offered','accepted','unfilled')`,
+        SET status = 'cancelled', cancelled_at = now(), cancel_reason = $2,
+            cancelled_by = 'admin'
+      WHERE id = $1 AND status IN ('offered','accepted','unfilled')
+      RETURNING id`,
     [jobId, reason]
   );
+  if (!job || cancelled.length === 0) return;
+
+  const when = `${job.slot_date} (${job.slot_window.toUpperCase()})`;
+
+  await notifyCustomer(job, {
+    subject: `Your booking ${job.ref} has been cancelled`,
+    body:
+      `${job.customer_name}, we've cancelled your carpet clean for ${when}.\n\n` +
+      `${reason ? `Reason: ${reason}\n\n` : ""}` +
+      `There's nothing to pay. Call 0330 043 4811 and we'll rebook you, or ` +
+      `book again at ${siteUrl()}/book.`,
+    smsBody:
+      `Your Fresh For Less booking ${job.ref} for ${when} has been cancelled. ` +
+      `Nothing to pay. Call 0330 043 4811 to rebook.`,
+    jobId,
+  });
+
+  if (job.cleaner_id) {
+    const cleaner = await getCleaner(job.cleaner_id);
+    if (cleaner) {
+      await notifyCleaner(cleaner, {
+        subject: `Cancelled by the office — ${job.ref} on ${job.slot_date}`,
+        body:
+          `${cleaner.name}, the office has cancelled ${job.ref} for ${when}.\n\n` +
+          `${reason ? `Reason: ${reason}\n\n` : ""}` +
+          `No commission is due. Your diary has been freed up.`,
+        smsBody: `CANCELLED by office: ${job.ref}, ${when}. Slot is free again.`,
+        jobId,
+      });
+    }
+  }
 }
 
 /** Put an unfilled or cancelled job back out to the market. */
