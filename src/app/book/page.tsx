@@ -1,3 +1,5 @@
+import SiteHeader from "@/components/marketplace/SiteHeader";
+import Footer from "@/components/Footer";
 import type { Metadata } from "next";
 import Link from "next/link";
 import BookingFlow from "@/components/marketplace/BookingFlow";
@@ -24,7 +26,9 @@ export default async function BookPage() {
   ]);
 
   return (
-    <main className="min-h-screen bg-slate-50 pt-28">
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-slate-50 pt-10">
       <header className="mx-auto max-w-3xl px-4 pb-8 text-center">
         <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
           Instant fixed price
@@ -55,5 +59,7 @@ export default async function BookPage() {
         </p>
       </footer>
     </main>
+      <Footer />
+    </>
   );
 }

@@ -1,3 +1,5 @@
+import SiteHeader from "@/components/marketplace/SiteHeader";
+import Footer from "@/components/Footer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { verifyBookingToken } from "@/lib/marketplace/auth";
@@ -88,7 +90,9 @@ export default async function ManageBookingPage({
       ).filter((s) => s.am || s.pm);
 
   return (
-    <main className="min-h-screen bg-slate-50 pt-28 pb-20">
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-slate-50 pt-10 pb-20">
       <div className="mx-auto max-w-2xl px-4">
         <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
           Booking {job.ref}
@@ -267,6 +271,8 @@ export default async function ManageBookingPage({
         </p>
       </div>
     </main>
+      <Footer />
+    </>
   );
 }
 

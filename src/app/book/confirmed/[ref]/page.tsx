@@ -1,3 +1,5 @@
+import SiteHeader from "@/components/marketplace/SiteHeader";
+import Footer from "@/components/Footer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getJobByRef } from "@/lib/marketplace/repo";
@@ -29,7 +31,9 @@ export default async function ConfirmedPage({
   );
 
   return (
-    <main className="min-h-screen bg-slate-50 pt-28 pb-20">
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-slate-50 pt-10 pb-20">
       <div className="mx-auto max-w-2xl px-4">
         <div className="rounded-2xl border border-accent-200 bg-white p-8 shadow-sm">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-100 text-3xl">
@@ -124,6 +128,8 @@ export default async function ConfirmedPage({
         </div>
       </div>
     </main>
+      <Footer />
+    </>
   );
 }
 

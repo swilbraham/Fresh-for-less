@@ -1,3 +1,5 @@
+import SiteHeader from "@/components/marketplace/SiteHeader";
+import Footer from "@/components/Footer";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -25,7 +27,9 @@ export default async function ProPage({
   const settings = await getSettings();
 
   return (
-    <main className="min-h-screen bg-slate-50 pt-28 pb-20">
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-slate-50 pt-10 pb-20">
       <div className="mx-auto grid max-w-5xl gap-10 px-4 lg:grid-cols-2">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
@@ -105,5 +109,7 @@ export default async function ProPage({
         </div>
       </div>
     </main>
+      <Footer />
+    </>
   );
 }

@@ -1,3 +1,5 @@
+import SiteHeader from "@/components/marketplace/SiteHeader";
+import Footer from "@/components/Footer";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -32,7 +34,9 @@ export default async function RegisterPage({
   const { error } = await searchParams;
 
   return (
-    <main className="min-h-screen bg-slate-50 pt-28 pb-20">
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-slate-50 pt-10 pb-20">
       <div className="mx-auto max-w-3xl px-4">
         <h1 className="text-3xl font-bold text-slate-900">
           Apply to join the network
@@ -135,5 +139,7 @@ export default async function RegisterPage({
         </form>
       </div>
     </main>
+      <Footer />
+    </>
   );
 }
