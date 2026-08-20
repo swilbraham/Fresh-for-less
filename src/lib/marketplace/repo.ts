@@ -5,6 +5,7 @@ import { gbpShort } from "./money";
 import { outwardOf, normalisePostcode } from "./postcode";
 import { isMobile, toE164 } from "./phone";
 import { bookingUrl } from "./auth";
+import { COMMISSION_TERMS_SHORT } from "./terms";
 import type {
   Cleaner,
   Job,
@@ -514,7 +515,8 @@ export async function broadcastJob(
         `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
         `Job: ${items}\n` +
         `Job value: ${gbpShort(job.total_pence)}\n` +
-        `Commission: ${gbpShort(job.commission_pence)} — you keep ${youKeep}\n\n` +
+        `Commission: ${gbpShort(job.commission_pence)} — you keep ${youKeep}\n` +
+        `${COMMISSION_TERMS_SHORT}\n\n` +
         `First to accept gets it — open your dashboard at ${siteUrl()}/pro/dashboard.`,
       // Kept short and front-loaded: it has to be readable in a lock-screen preview.
       smsBody:

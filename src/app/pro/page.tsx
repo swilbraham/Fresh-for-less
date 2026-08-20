@@ -11,6 +11,7 @@ import {
 } from "@/lib/marketplace/repo";
 import { buildQuote, type Basket } from "@/lib/marketplace/pricing";
 import { gbp, gbpShort } from "@/lib/marketplace/money";
+import { COMMISSION_TERMS_LONG } from "@/lib/marketplace/terms";
 import { loginAction } from "./actions";
 import { Alert, Card, Field } from "@/components/marketplace/shell";
 
@@ -82,7 +83,7 @@ export default async function ProPage({
             {[
               [
                 "No lead fees, no bidding",
-                `You pay ${Number(settings.commission_pct)}% commission on completed jobs only. Nothing for quotes that go nowhere.`,
+                `You pay ${Number(settings.commission_pct)}% commission on completed jobs only, invoiced weekly. Nothing for quotes that go nowhere.`,
               ],
               [
                 "You control your patch",
@@ -114,8 +115,8 @@ export default async function ProPage({
               What you&apos;d earn
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Real jobs at our current national prices. The customer pays you in
-              full on the day; we invoice {commissionPct}% commission separately.
+              Real jobs at our current national prices, showing what you keep
+              after {commissionPct}% commission.
             </p>
 
             <div className="mt-4 overflow-x-auto">
@@ -144,6 +145,11 @@ export default async function ProPage({
                 </tbody>
               </table>
             </div>
+
+            <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              <strong className="text-slate-800">How you get paid.</strong>{" "}
+              {COMMISSION_TERMS_LONG}
+            </p>
 
             <details className="mt-4">
               <summary className="cursor-pointer text-sm font-semibold text-primary-600">

@@ -3,6 +3,10 @@ import { currentCleaner } from "@/lib/marketplace/auth";
 import { listInvoices, listJobsForCleaner } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { Card, ProNav, StatusPill } from "@/components/marketplace/shell";
+import {
+  COMMISSION_TERMS_LONG,
+  formatCommissionMonday,
+} from "@/lib/marketplace/terms";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +37,9 @@ export default async function InvoicesPage() {
 
       <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-900">Commission</h1>
-        <p className="mt-2 text-slate-600">
-          You collect the full job price from the customer on the day. We invoice
-          the platform commission separately.
+        <p className="mt-2 text-slate-600">{COMMISSION_TERMS_LONG}</p>
+        <p className="mt-2 text-sm font-semibold text-slate-700">
+          Next invoice run: {formatCommissionMonday()}
         </p>
 
         <div className="my-6 grid gap-4 sm:grid-cols-2">
@@ -49,7 +53,7 @@ export default async function InvoicesPage() {
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Accrued, not yet invoiced
+              Accrued this week
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-900 tabular-nums">
               {gbp(notYetInvoiced)}

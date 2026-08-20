@@ -8,6 +8,10 @@ import {
   listOffersForCleaner,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
+import {
+  COMMISSION_TERMS_SHORT,
+  formatCommissionMonday,
+} from "@/lib/marketplace/terms";
 import type { Job } from "@/lib/marketplace/types";
 import {
   acceptJobAction,
@@ -101,8 +105,8 @@ export default async function DashboardPage({
               owed === 0
                 ? "Nothing to pay"
                 : invoiced > 0
-                  ? `${gbp(invoiced)} invoiced, rest to follow`
-                  : "Not invoiced yet"
+                  ? `${gbp(invoiced)} invoiced · next run ${formatCommissionMonday()}`
+                  : `Invoiced ${formatCommissionMonday()}`
             }
           />
         </div>
@@ -148,8 +152,14 @@ export default async function DashboardPage({
                       <p className="text-sm text-slate-600">{slotLabel(job)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold text-slate-900 tabular-nums">
-                        {gbp(job.total_pence)}
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        You keep
+                      </p>
+                      <p className="text-3xl font-bold text-accent-700 tabular-nums">
+                        {gbp(job.total_pence - job.commission_pence)}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        Collect {gbp(job.total_pence)} from the customer
                       </p>
                       <p className="text-xs text-slate-500">
                         less {gbp(job.commission_pence)} commission
@@ -196,8 +206,11 @@ export default async function DashboardPage({
                     </form>
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    Full address and phone number are shared the moment you
-                    accept.
+                    Accept and the job is yours: you get the full address and
+                    phone number straight away, you collect{" "}
+                    {gbp(job.total_pence)} from the customer on the day, and you
+                    keep {gbp(job.total_pence - job.commission_pence)}.{" "}
+                    {COMMISSION_TERMS_SHORT}
                   </p>
                 </li>
               ))}
@@ -242,7 +255,10 @@ export default async function DashboardPage({
                         {gbp(job.total_pence)}
                       </p>
                       <p className="text-xs text-slate-500">
-                        collect from customer
+                        to collect on the day
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-accent-700 tabular-nums">
+                        You keep {gbp(job.total_pence - job.commission_pence)}
                       </p>
                     </div>
                   </div>
