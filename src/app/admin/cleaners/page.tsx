@@ -1,8 +1,24 @@
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
-import { getCleanerAreas, listCleaners } from "@/lib/marketplace/repo";
-import { setCleanerStatusAction } from "../actions";
-import { AdminNav, Alert, Card, StatusPill } from "@/components/marketplace/shell";
+import {
+  getAvailability,
+  getCleanerAreas,
+  listCleaners,
+} from "@/lib/marketplace/repo";
+import {
+  issueResetLinkAction,
+  setCleanerStatusAction,
+  updateCleanerAction,
+  updateCleanerCoverageAction,
+} from "../actions";
+import {
+  AdminNav,
+  Alert,
+  AvailabilityGrid,
+  Card,
+  Field,
+  StatusPill,
+} from "@/components/marketplace/shell";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +30,10 @@ export const metadata = {
 export default async function AdminCleanersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; reset?: string }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved } = await searchParams;
+  const { error, saved, reset } = await searchParams;
 
   const cleaners = await listCleaners();
   const areasByCleaner = new Map(
@@ -25,6 +41,14 @@ export default async function AdminCleanersPage({
       cleaners.map(
         async (cleaner) =>
           [cleaner.id, await getCleanerAreas(cleaner.id)] as const
+      )
+    )
+  );
+  const availabilityByCleaner = new Map(
+    await Promise.all(
+      cleaners.map(
+        async (cleaner) =>
+          [cleaner.id, await getAvailability(cleaner.id)] as const
       )
     )
   );
@@ -36,6 +60,15 @@ export default async function AdminCleanersPage({
       <div className="mx-auto max-w-5xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Cleaner updated.</Alert>}
+        {reset && (
+          <Alert tone="info">
+            <strong>One-time reset link — text this to them.</strong> It works
+            once and expires in 48 hours.
+            <span className="mt-2 block break-all rounded-lg bg-white px-3 py-2 font-mono text-xs text-slate-700">
+              {reset}
+            </span>
+          </Alert>
+        )}
 
         <h1 className="mb-6 text-2xl font-bold text-slate-900">
           Cleaners ({cleaners.length})
@@ -117,6 +150,100 @@ export default async function AdminCleanersPage({
                     </dd>
                   </div>
                 </dl>
+
+                <details className="mt-4 border-t border-slate-100 pt-4">
+                  <summary className="cursor-pointer text-sm font-semibold text-primary-600">
+                    Edit details, coverage or password
+                  </summary>
+
+                  <form action={updateCleanerAction} className="mt-4 space-y-4">
+                    <input type="hidden" name="id" value={cleaner.id} />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Name" name="name" required defaultValue={cleaner.name} />
+                      <Field
+                        label="Trading name"
+                        name="businessName"
+                        defaultValue={cleaner.business_name}
+                      />
+                      <Field label="Email" name="email" type="email" required defaultValue={cleaner.email} />
+                      <Field label="Mobile" name="phone" type="tel" required defaultValue={cleaner.phone} />
+                      <Field
+                        label="Insurance provider"
+                        name="insuranceProvider"
+                        defaultValue={cleaner.insurance_provider}
+                      />
+                      <Field
+                        label="Policy expiry"
+                        name="insuranceExpiry"
+                        type="date"
+                        defaultValue={cleaner.insurance_expiry ?? ""}
+                      />
+                      <Field
+                        label="Years of experience"
+                        name="yearsExperience"
+                        type="number"
+                        defaultValue={cleaner.years_experience}
+                      />
+                      <Field
+                        label="Equipment"
+                        name="equipment"
+                        defaultValue={cleaner.equipment}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-slate-900 px-5 py-2.5 font-semibold text-white"
+                    >
+                      Save details
+                    </button>
+                  </form>
+
+                  <form
+                    action={updateCleanerCoverageAction}
+                    className="mt-6 space-y-4 border-t border-slate-100 pt-6"
+                  >
+                    <input type="hidden" name="id" value={cleaner.id} />
+                    <label
+                      htmlFor={`coverage-${cleaner.id}`}
+                      className="block text-sm font-semibold text-slate-700"
+                    >
+                      Postcode areas covered
+                    </label>
+                    <textarea
+                      id={`coverage-${cleaner.id}`}
+                      name="coverage"
+                      rows={2}
+                      defaultValue={areas.join(" ")}
+                      className="w-full rounded-xl border border-slate-300 px-4 py-2.5 uppercase tracking-wide"
+                    />
+                    <AvailabilityGrid
+                      availability={availabilityByCleaner.get(cleaner.id) ?? []}
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-slate-900 px-5 py-2.5 font-semibold text-white"
+                    >
+                      Save coverage &amp; availability
+                    </button>
+                  </form>
+
+                  <form
+                    action={issueResetLinkAction}
+                    className="mt-6 border-t border-slate-100 pt-6"
+                  >
+                    <input type="hidden" name="id" value={cleaner.id} />
+                    <button
+                      type="submit"
+                      className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Issue password reset link
+                    </button>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Generates a one-time link to text them. Their current
+                      password keeps working until they use it.
+                    </p>
+                  </form>
+                </details>
 
                 <form
                   action={setCleanerStatusAction}

@@ -1351,3 +1351,77 @@ export async function listCoverageDemand(limit = 20): Promise<CoverageDemand[]> 
     [limit]
   );
 }
+
+// ------------------------------------------------- cleaner profile edits --
+
+/** The stored password hash — needed to sign and verify reset links. */
+export async function getCleanerPasswordHash(
+  id: number
+): Promise<string | null> {
+  const row = await queryOne<{ password_hash: string }>(
+    `SELECT password_hash FROM cleaners WHERE id = $1`,
+    [id]
+  );
+  return row?.password_hash ?? null;
+}
+
+export async function setCleanerPassword(
+  id: number,
+  passwordHash: string
+): Promise<void> {
+  await query(`UPDATE cleaners SET password_hash = $2 WHERE id = $1`, [
+    id,
+    passwordHash,
+  ]);
+}
+
+export type CleanerProfileInput = {
+  name: string;
+  businessName: string;
+  email: string;
+  phone: string;
+  insuranceProvider?: string;
+  insuranceExpiry?: string | null;
+  yearsExperience?: number;
+  equipment?: string;
+};
+
+/**
+ * Update a cleaner's own details. Vetting fields are optional so the cleaner
+ * can edit their contact details without being able to rewrite their own
+ * insurance record — only admin passes those.
+ */
+export async function updateCleanerProfile(
+  id: number,
+  input: CleanerProfileInput
+): Promise<{ ok: boolean; reason?: string }> {
+  const clash = await queryOne<{ id: number }>(
+    `SELECT id FROM cleaners WHERE lower(email) = lower($1) AND id <> $2`,
+    [input.email, id]
+  );
+  if (clash) {
+    return { ok: false, reason: "Another cleaner already uses that email." };
+  }
+
+  await query(
+    `UPDATE cleaners
+        SET name = $2, business_name = $3, email = $4, phone = $5,
+            insurance_provider = COALESCE($6, insurance_provider),
+            insurance_expiry   = COALESCE($7::date, insurance_expiry),
+            years_experience   = COALESCE($8, years_experience),
+            equipment          = COALESCE($9, equipment)
+      WHERE id = $1`,
+    [
+      id,
+      input.name,
+      input.businessName,
+      input.email,
+      input.phone,
+      input.insuranceProvider ?? null,
+      input.insuranceExpiry ?? null,
+      input.yearsExperience ?? null,
+      input.equipment ?? null,
+    ]
+  );
+  return { ok: true };
+}

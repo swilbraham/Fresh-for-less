@@ -7,13 +7,16 @@ import {
 } from "@/lib/marketplace/repo";
 import {
   addBlackoutAction,
+  changePasswordAction,
   removeBlackoutAction,
   saveCoverageAction,
+  updateProfileAction,
 } from "../actions";
 import {
   Alert,
   AvailabilityGrid,
   Card,
+  Field,
   ProNav,
 } from "@/components/marketplace/shell";
 import { isMobile } from "@/lib/marketplace/phone";
@@ -48,6 +51,63 @@ export default async function CoveragePage({
       <div className="mx-auto max-w-3xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Saved.</Alert>}
+
+        <Card
+          title="Your details"
+          description="Keep your mobile up to date — it's where job offers are texted."
+          className="mb-6"
+        >
+          <form action={updateProfileAction} className="mt-4 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Your name" name="name" required defaultValue={cleaner.name} />
+              <Field
+                label="Trading name"
+                name="businessName"
+                defaultValue={cleaner.business_name}
+              />
+              <Field label="Email" name="email" type="email" required defaultValue={cleaner.email} />
+              <Field label="Mobile" name="phone" type="tel" required defaultValue={cleaner.phone} />
+            </div>
+            <button
+              type="submit"
+              className="rounded-xl bg-primary-600 px-6 py-2.5 font-semibold text-white transition hover:bg-primary-700"
+            >
+              Save my details
+            </button>
+          </form>
+        </Card>
+
+        <Card title="Change your password" className="mb-6">
+          <form action={changePasswordAction} className="mt-4 space-y-4">
+            <Field
+              label="Current password"
+              name="currentPassword"
+              type="password"
+              required
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="New password"
+                name="newPassword"
+                type="password"
+                required
+                hint="At least 8 characters."
+              />
+              <Field
+                label="Confirm new password"
+                name="confirmPassword"
+                type="password"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="rounded-xl border border-slate-300 px-6 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              Change password
+            </button>
+          </form>
+        </Card>
 
         <form action={saveCoverageAction} className="space-y-6">
           <Card
