@@ -559,6 +559,16 @@ export async function acceptJob(
   );
 
   if (won.length === 0) {
+    // The update lost the race — but not necessarily to someone else. A double
+    // click, or a retry after the dashboard refreshed, lands here too, so work
+    // out what actually happened before blaming another cleaner.
+    const current = await getJob(jobId);
+    if (current?.cleaner_id === cleanerId) {
+      return { ok: true };
+    }
+    if (current?.status === "cancelled") {
+      return { ok: false, reason: "That booking has been cancelled." };
+    }
     return { ok: false, reason: "Another cleaner accepted this job first." };
   }
 
@@ -622,6 +632,11 @@ export async function completeJob(
     [jobId, cleanerId]
   );
   if (done.length === 0) {
+    const current = await getJob(jobId);
+    // Already completed by this cleaner — treat a repeat click as success.
+    if (current?.cleaner_id === cleanerId && current.status === "completed") {
+      return { ok: true };
+    }
     return { ok: false, reason: "That job isn't yours to complete." };
   }
   return { ok: true };

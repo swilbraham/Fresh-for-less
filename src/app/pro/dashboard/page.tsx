@@ -22,6 +22,7 @@ import {
   StatusPill,
 } from "@/components/marketplace/shell";
 import AutoRefresh from "@/components/marketplace/AutoRefresh";
+import SubmitButton from "@/components/marketplace/SubmitButton";
 
 export const dynamic = "force-dynamic";
 
@@ -155,12 +156,12 @@ export default async function DashboardPage({
                   <div className="mt-4 flex gap-2">
                     <form action={acceptJobAction} className="flex-1">
                       <input type="hidden" name="jobId" value={job.id} />
-                      <button
-                        type="submit"
+                      <SubmitButton
+                        pendingLabel="Accepting…"
                         className="w-full rounded-xl bg-accent-600 px-5 py-2.5 font-semibold text-white transition hover:bg-accent-700"
                       >
                         Accept this job
-                      </button>
+                      </SubmitButton>
                     </form>
                     <form action={declineJobAction}>
                       <input type="hidden" name="jobId" value={job.id} />
@@ -244,12 +245,12 @@ export default async function DashboardPage({
 
                   <form action={completeJobAction} className="mt-4">
                     <input type="hidden" name="jobId" value={job.id} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      pendingLabel="Saving…"
                       className="rounded-xl bg-primary-600 px-5 py-2.5 font-semibold text-white transition hover:bg-primary-700"
                     >
                       Mark complete
-                    </button>
+                    </SubmitButton>
                   </form>
                 </li>
               ))}
