@@ -24,6 +24,14 @@ import {
   getCleaner,
 } from "@/lib/marketplace/repo";
 import { penceFromInput } from "@/lib/marketplace/money";
+import { parseOutwardList } from "@/lib/marketplace/postcode";
+import { makeResetToken } from "@/lib/marketplace/auth";
+import {
+  getCleanerPasswordHash,
+  setAvailability,
+  setCleanerAreas,
+  updateCleanerProfile,
+} from "@/lib/marketplace/repo";
 
 function field(data: FormData, name: string, max = 200): string {
   return String(data.get(name) ?? "").trim().slice(0, max);
@@ -258,4 +266,111 @@ export async function setInvoiceStatusAction(data: FormData) {
   await setInvoiceStatus(Number(field(data, "id", 12)), status);
   revalidatePath("/admin/invoices");
   redirect("/admin/invoices?saved=1");
+}
+
+
+// ------------------------------------------------- editing cleaners -------
+
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
+/**
+ * Change a cleaner's details on their behalf — the "I've got a new mobile"
+ * phone call. The mobile matters most: it's where job texts go, so a stale
+ * number silently costs them work.
+ */
+export async function updateCleanerAction(data: FormData) {
+  await requireAdmin("/admin/cleaners");
+  const id = Number(field(data, "id", 12));
+
+  const name = field(data, "name", 80);
+  const email = field(data, "email", 120);
+  const phone = field(data, "phone", 30);
+
+  if (name.length < 2) fail("/admin/cleaners", "The cleaner needs a name.");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    fail("/admin/cleaners", "That email address doesn't look right.");
+  }
+  if (phone.replace(/\D/g, "").length < 10) {
+    fail("/admin/cleaners", "That phone number doesn't look right.");
+  }
+
+  const expiry = field(data, "insuranceExpiry", 10);
+  const result = await updateCleanerProfile(id, {
+    name,
+    businessName: field(data, "businessName", 120),
+    email,
+    phone,
+    insuranceProvider: field(data, "insuranceProvider", 120),
+    insuranceExpiry: /^\d{4}-\d{2}-\d{2}$/.test(expiry) ? expiry : null,
+    yearsExperience: Math.max(0, Math.min(60, Number(field(data, "yearsExperience", 3)) || 0)),
+    equipment: field(data, "equipment", 500),
+  });
+  if (!result.ok) fail("/admin/cleaners", result.reason ?? "Couldn't save that.");
+
+  revalidatePath("/admin/cleaners");
+  redirect("/admin/cleaners?saved=1");
+}
+
+/** Change where and when a cleaner works, on their behalf. */
+export async function updateCleanerCoverageAction(data: FormData) {
+  await requireAdmin("/admin/cleaners");
+  const id = Number(field(data, "id", 12));
+
+  const { codes, invalid } = parseOutwardList(field(data, "coverage", 4000));
+  if (codes.length === 0) {
+    fail("/admin/cleaners", "List at least one postcode area.");
+  }
+  if (invalid.length) {
+    fail(
+      "/admin/cleaners",
+      `These don't look like UK postcode areas: ${invalid.slice(0, 5).join(", ")}`
+    );
+  }
+
+  const availability = WEEKDAYS.map((weekday) => ({
+    weekday,
+    am: data.get(`day-${weekday}-am`) === "on",
+    pm: data.get(`day-${weekday}-pm`) === "on",
+  }));
+  if (!availability.some((a) => a.am || a.pm)) {
+    fail("/admin/cleaners", "Tick at least one half-day.");
+  }
+
+  await setCleanerAreas(id, codes);
+  await setAvailability(id, availability);
+  revalidatePath("/admin/cleaners");
+  redirect("/admin/cleaners?saved=1");
+}
+
+/**
+ * Issue a one-time password reset link. With no mail provider configured the
+ * link is shown in the admin page to copy and text over; it's also written to
+ * the notification log so it's delivered if email is switched on later.
+ */
+export async function issueResetLinkAction(data: FormData) {
+  await requireAdmin("/admin/cleaners");
+  const id = Number(field(data, "id", 12));
+
+  const hash = await getCleanerPasswordHash(id);
+  const cleaner = await getCleaner(id);
+  if (!hash || !cleaner) fail("/admin/cleaners", "Cleaner not found.");
+
+  const token = makeResetToken(id, hash);
+  const base = (
+    process.env.MARKETPLACE_BASE_URL ??
+    "https://www.freshforlesscarpetcleaning.co.uk"
+  ).replace(/\/$/, "");
+  const link = `${base}/pro/reset/${token}`;
+
+  await notify({
+    recipient: cleaner.email,
+    subject: "Reset your Fresh For Less password",
+    body:
+      `${cleaner.name}, use this link within 48 hours to set a new password:\n\n` +
+      `${link}\n\n` +
+      `If you didn't ask for this, ignore it — your current password still works.`,
+  });
+
+  revalidatePath("/admin/cleaners");
+  redirect(`/admin/cleaners?reset=${encodeURIComponent(link)}`);
 }

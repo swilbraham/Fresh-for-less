@@ -172,3 +172,58 @@ export function verifyBookingToken(ref: string, token: string): boolean {
 export function bookingUrl(ref: string, baseUrl: string): string {
   return `${baseUrl}/booking/${ref}?t=${bookingToken(ref)}`;
 }
+
+// ---- Password reset links -----------------------------------------------
+
+const RESET_HOURS = 48;
+
+/**
+ * A reset link that needs no database table and can only be used once.
+ *
+ * The signature covers the cleaner's *current* password hash, so the moment
+ * they set a new password the old link stops verifying. An expiry is baked in
+ * as well, so a link texted and forgotten doesn't stay live indefinitely.
+ */
+export function makeResetToken(
+  cleanerId: number,
+  currentPasswordHash: string
+): string {
+  const expires = Date.now() + RESET_HOURS * 60 * 60 * 1000;
+  const payload = `${cleanerId}.${expires}`;
+  const signature = createHmac("sha256", secret())
+    .update(`reset:${payload}:${currentPasswordHash}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `${payload}.${signature}`;
+}
+
+export function verifyResetToken(
+  token: string,
+  currentPasswordHash: string
+): { cleanerId: number } | null {
+  const parts = String(token ?? "").split(".");
+  if (parts.length !== 3) return null;
+  const [id, expires, signature] = parts;
+
+  if (!/^\d+$/.test(id) || !/^\d+$/.test(expires)) return null;
+  if (Number(expires) < Date.now()) return null;
+
+  const expected = createHmac("sha256", secret())
+    .update(`reset:${id}.${expires}:${currentPasswordHash}`)
+    .digest("hex")
+    .slice(0, 32);
+
+  if (
+    signature.length !== expected.length ||
+    !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
+  ) {
+    return null;
+  }
+  return { cleanerId: Number(id) };
+}
+
+/** The cleaner id embedded in a reset token, before the signature is checked. */
+export function cleanerIdFromResetToken(token: string): number | null {
+  const id = String(token ?? "").split(".")[0];
+  return /^\d+$/.test(id) ? Number(id) : null;
+}

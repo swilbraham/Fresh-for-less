@@ -20,6 +20,9 @@ import {
   setAvailability,
   setCleanerAreas,
   setNotificationPrefs,
+  setCleanerPassword,
+  updateCleanerProfile,
+  getCleanerPasswordHash,
   notify,
 } from "@/lib/marketplace/repo";
 import { parseOutwardList } from "@/lib/marketplace/postcode";
@@ -223,4 +226,61 @@ export async function completeJobAction(data: FormData) {
   revalidatePath("/pro/dashboard");
   if (!result.ok) fail("/pro/dashboard", result.reason ?? "Couldn't complete that job.");
   redirect("/pro/dashboard?completed=1");
+}
+
+
+// ---------------------------------------------------- own details ---------
+
+/**
+ * A cleaner keeping their own contact details current. The mobile matters most
+ * — it's where job offers are texted, so a stale number quietly costs them work.
+ */
+export async function updateProfileAction(data: FormData) {
+  const cleaner = await requireCleaner();
+
+  const name = field(data, "name", 80);
+  const email = field(data, "email", 120);
+  const phone = field(data, "phone", 30);
+
+  if (name.length < 2) fail("/pro/coverage", "Please enter your name.");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    fail("/pro/coverage", "Please enter a valid email address.");
+  }
+  if (phone.replace(/\D/g, "").length < 10) {
+    fail("/pro/coverage", "Please enter a valid mobile number.");
+  }
+
+  const result = await updateCleanerProfile(cleaner.id, {
+    name,
+    businessName: field(data, "businessName", 120),
+    email,
+    phone,
+  });
+  if (!result.ok) fail("/pro/coverage", result.reason ?? "Couldn't save that.");
+
+  revalidatePath("/pro/coverage");
+  redirect("/pro/coverage?saved=1");
+}
+
+export async function changePasswordAction(data: FormData) {
+  const cleaner = await requireCleaner();
+
+  const current = field(data, "currentPassword", 200);
+  const next = field(data, "newPassword", 200);
+  const confirm = field(data, "confirmPassword", 200);
+
+  const hash = await getCleanerPasswordHash(cleaner.id);
+  if (!hash || !verifyPassword(current, hash)) {
+    fail("/pro/coverage", "Your current password isn't right.");
+  }
+  if (next.length < 8) {
+    fail("/pro/coverage", "Choose a new password of at least 8 characters.");
+  }
+  if (next !== confirm) {
+    fail("/pro/coverage", "Those two new passwords don't match.");
+  }
+
+  await setCleanerPassword(cleaner.id, hashPassword(next));
+  revalidatePath("/pro/coverage");
+  redirect("/pro/coverage?saved=1");
 }
