@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
-import { listJobs } from "@/lib/marketplace/repo";
+import {
+  jobStatusCounts,
+  jobTotals,
+  listJobs,
+} from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { cancelJobAction, rebroadcastJobAction } from "../actions";
+import Link from "next/link";
 import { AdminNav, Alert, Card, StatusPill } from "@/components/marketplace/shell";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +20,46 @@ export const metadata = {
 export default async function AdminJobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string; offered?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    saved?: string;
+    offered?: string;
+    status?: string;
+    from?: string;
+    to?: string;
+    q?: string;
+  }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, offered } = await searchParams;
+  const { error, saved, offered, status, from, to, q } = await searchParams;
 
-  const jobs = await listJobs();
+  const filters = { status, from, to, q };
+  const [jobs, totals, counts] = await Promise.all([
+    listJobs(filters),
+    jobTotals(filters),
+    jobStatusCounts(filters),
+  ]);
+
+  const STATUSES = [
+    "offered",
+    "accepted",
+    "completed",
+    "unfilled",
+    "cancelled",
+  ] as const;
+
+  // Preserve the other filters when switching status tab.
+  const tabHref = (next?: string) => {
+    const params = new URLSearchParams();
+    if (next) params.set("status", next);
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    if (q) params.set("q", q);
+    const query = params.toString();
+    return query ? `/admin/jobs?${query}` : "/admin/jobs";
+  };
+
+  const filtered = Boolean(status || from || to || q);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -35,14 +74,117 @@ export default async function AdminJobsPage({
           </Alert>
         )}
 
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">
-          Jobs ({jobs.length})
-        </h1>
+        <h1 className="mb-4 text-2xl font-bold text-slate-900">Jobs</h1>
+
+        {/* Status tabs */}
+        <nav className="mb-4 flex flex-wrap gap-2">
+          <Link
+            href={tabHref()}
+            className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+              !status
+                ? "bg-slate-900 text-white"
+                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-primary-300"
+            }`}
+          >
+            All ({Object.values(counts).reduce((a, b) => a + b, 0)})
+          </Link>
+          {STATUSES.map((value) => (
+            <Link
+              key={value}
+              href={tabHref(value)}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold capitalize transition ${
+                status === value
+                  ? "bg-slate-900 text-white"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-primary-300"
+              }`}
+            >
+              {value} ({counts[value] ?? 0})
+            </Link>
+          ))}
+        </nav>
+
+        {/* Date range and search */}
+        <form method="get" className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+          {status && <input type="hidden" name="status" value={status} />}
+          <div>
+            <label htmlFor="from" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Slot from
+            </label>
+            <input
+              id="from"
+              name="from"
+              type="date"
+              defaultValue={from ?? ""}
+              className="mt-1 rounded-xl border border-slate-300 px-3 py-2"
+            />
+          </div>
+          <div>
+            <label htmlFor="to" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Slot to
+            </label>
+            <input
+              id="to"
+              name="to"
+              type="date"
+              defaultValue={to ?? ""}
+              className="mt-1 rounded-xl border border-slate-300 px-3 py-2"
+            />
+          </div>
+          <div className="min-w-[200px] flex-1">
+            <label htmlFor="q" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Search
+            </label>
+            <input
+              id="q"
+              name="q"
+              defaultValue={q ?? ""}
+              placeholder="Reference, name, postcode or town"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-xl bg-slate-900 px-5 py-2.5 font-semibold text-white"
+          >
+            Apply
+          </button>
+          {filtered && (
+            <Link
+              href="/admin/jobs"
+              className="rounded-xl border border-slate-300 px-5 py-2.5 font-semibold text-slate-600"
+            >
+              Clear
+            </Link>
+          )}
+        </form>
+
+        {/* Totals for the current selection */}
+        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          {[
+            { label: "Jobs shown", value: String(totals.jobs) },
+            { label: "Customer value", value: gbp(totals.value_pence) },
+            { label: "Your commission", value: gbp(totals.commission_pence) },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-slate-200 bg-white p-4"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {stat.label}
+              </p>
+              <p className="mt-1 text-xl font-bold text-slate-900 tabular-nums">
+                {stat.value}
+              </p>
+            </div>
+          ))}
+        </div>
 
         {jobs.length === 0 ? (
           <Card>
             <p className="text-sm text-slate-500">
-              No bookings yet. Customers book at <code>/book</code>.
+              {filtered
+                ? "No jobs match those filters."
+                : "No bookings yet. Customers book at /book."}
             </p>
           </Card>
         ) : (

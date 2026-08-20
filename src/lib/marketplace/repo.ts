@@ -710,20 +710,99 @@ export async function listJobsForCleaner(
   );
 }
 
-export async function listJobs(status?: string): Promise<
-  (Job & { cleaner_name: string | null; offers: number })[]
-> {
-  return query(
+export type JobFilters = {
+  status?: string;
+  /** Inclusive slot-date bounds, YYYY-MM-DD. */
+  from?: string;
+  to?: string;
+  /** Matches reference, customer name, postcode or town. */
+  q?: string;
+  limit?: number;
+};
+
+export type JobRow = Job & { cleaner_name: string | null; offers: number };
+
+/** Build the WHERE clause shared by the list and its totals. */
+function jobFilterClause(filters: JobFilters): {
+  where: string;
+  params: unknown[];
+} {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters.status) {
+    params.push(filters.status);
+    clauses.push(`j.status = $${params.length}`);
+  }
+  if (filters.from) {
+    params.push(filters.from);
+    clauses.push(`j.slot_date >= $${params.length}::date`);
+  }
+  if (filters.to) {
+    params.push(filters.to);
+    clauses.push(`j.slot_date <= $${params.length}::date`);
+  }
+  if (filters.q) {
+    params.push(`%${filters.q.toLowerCase()}%`);
+    const n = params.length;
+    clauses.push(
+      `(lower(j.ref) LIKE $${n} OR lower(j.customer_name) LIKE $${n}
+        OR lower(j.postcode) LIKE $${n} OR lower(j.town) LIKE $${n})`
+    );
+  }
+
+  return {
+    where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+    params,
+  };
+}
+
+export async function listJobs(filters: JobFilters = {}): Promise<JobRow[]> {
+  const { where, params } = jobFilterClause(filters);
+  params.push(Math.min(filters.limit ?? 300, 1000));
+
+  return query<JobRow>(
     `SELECT ${JOB_COLUMNS},
             c.name AS cleaner_name,
             (SELECT count(*)::int FROM job_offers o WHERE o.job_id = j.id) AS offers
        FROM jobs j
        LEFT JOIN cleaners c ON c.id = j.cleaner_id
-      ${status ? "WHERE j.status = $1" : ""}
-      ORDER BY j.created_at DESC
-      LIMIT 300`,
-    status ? [status] : []
+      ${where}
+      ORDER BY j.slot_date DESC, j.created_at DESC
+      LIMIT $${params.length}`,
+    params
   );
+}
+
+/** Totals for whatever the current filter selects. */
+export async function jobTotals(
+  filters: JobFilters = {}
+): Promise<{ jobs: number; value_pence: number; commission_pence: number }> {
+  const { where, params } = jobFilterClause(filters);
+  const row = await queryOne<{
+    jobs: number;
+    value_pence: number;
+    commission_pence: number;
+  }>(
+    `SELECT count(*)::int AS jobs,
+            COALESCE(sum(j.total_pence), 0)::int      AS value_pence,
+            COALESCE(sum(j.commission_pence), 0)::int AS commission_pence
+       FROM jobs j ${where}`,
+    params
+  );
+  return row ?? { jobs: 0, value_pence: 0, commission_pence: 0 };
+}
+
+/** Counts per status for the filter tabs, respecting date and search. */
+export async function jobStatusCounts(
+  filters: JobFilters = {}
+): Promise<Record<string, number>> {
+  const { where, params } = jobFilterClause({ ...filters, status: undefined });
+  const rows = await query<{ status: string; n: number }>(
+    `SELECT j.status, count(*)::int AS n FROM jobs j ${where} GROUP BY j.status`,
+    params
+  );
+  return Object.fromEntries(rows.map((r) => [r.status, r.n]));
 }
 
 // ------------------------------------------------------------- commissions --

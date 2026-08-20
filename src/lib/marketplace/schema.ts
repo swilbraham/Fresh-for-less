@@ -9,13 +9,13 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
   `CREATE TABLE IF NOT EXISTS settings (
      id                  int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-     commission_pct      numeric(5,2) NOT NULL DEFAULT 15.00,
+     commission_pct      numeric(5,2) NOT NULL DEFAULT 17.50,
      minimum_charge_pence int NOT NULL DEFAULT 9000,
      min_notice_days     int NOT NULL DEFAULT 1,
      booking_email       text NOT NULL DEFAULT 'info@freshforlesscarpetcleaning.co.uk',
@@ -187,12 +187,11 @@ export const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS coverage_requests_outward
      ON coverage_requests (outward)`,
 
-  // ---- One-off price change, 2026-08-20 (minimum charge) ------------------
-  // Requested directly: raise the minimum job charge to £90. Runs once, on the
-  // version bump above. Previous one-off statements are deliberately not kept
-  // here — replaying them on a later bump would quietly undo admin edits.
-  // Ongoing price changes belong in /admin/prices.
-  `UPDATE settings SET minimum_charge_pence = 9000 WHERE id = 1`,
+  // ---- One-off settings change, 2026-08-20 (commission rate) --------------
+  // Requested directly: commission set to 17.5%. Runs once, on the version bump
+  // above. Jobs already booked keep the rate they were quoted at, so this only
+  // affects new bookings. Ongoing changes belong in /admin/prices.
+  `UPDATE settings SET commission_pct = 17.50 WHERE id = 1`,
 
   // ---- Notification outbox ------------------------------------------------
   // Written on every broadcast/allocation event. A sender picks these up; with
