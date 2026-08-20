@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { isAdmin } from "@/lib/marketplace/auth";
-import { getAdminStats, getSettings, listNotifications } from "@/lib/marketplace/repo";
+import {
+  getAdminStats,
+  getSettings,
+  listCoverageDemand,
+  listNotifications,
+} from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { adminLoginAction, adminLogoutAction } from "./actions";
 import { AdminNav, Alert, Card } from "@/components/marketplace/shell";
@@ -58,10 +63,11 @@ export default async function AdminPage({
     );
   }
 
-  const [stats, settings, notifications] = await Promise.all([
+  const [stats, settings, notifications, demand] = await Promise.all([
     getAdminStats(),
     getSettings(),
     listNotifications(12),
+    listCoverageDemand(12),
   ]);
 
   return (
@@ -107,6 +113,31 @@ export default async function AdminPage({
             href="/admin/invoices"
           />
         </div>
+
+        {demand.length > 0 && (
+          <Card
+            title="Where to recruit next"
+            description="Customers who tried to book somewhere you have no cleaner. Ranked by demand — each one is also a lead worth calling back."
+            className="mt-8"
+          >
+            <ul className="mt-4 flex flex-wrap gap-2">
+              {demand.map((area) => (
+                <li
+                  key={area.outward}
+                  className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm"
+                >
+                  <span className="font-bold text-amber-900">{area.outward}</span>
+                  <span className="ml-2 text-amber-800">
+                    {area.requests} request{area.requests === 1 ? "" : "s"}
+                  </span>
+                  <span className="ml-2 text-xs text-amber-700">
+                    latest {area.latest}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         <Card
           title="Notification log"

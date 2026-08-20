@@ -1292,3 +1292,62 @@ export async function cancelJobByCustomer(
 
   return { ok: true, late };
 }
+
+// -------------------------------------------------- demand in dead zones --
+
+/**
+ * Someone wanted a clean somewhere we don't cover. Keep the lead and the
+ * postcode: it's a customer to call back and a recruitment target.
+ */
+export async function recordCoverageRequest(input: {
+  name: string;
+  email: string;
+  phone: string;
+  postcode: string;
+}): Promise<void> {
+  const postcode = normalisePostcode(input.postcode) ?? input.postcode.toUpperCase();
+  const outward = outwardOf(postcode);
+  if (!outward) throw new Error("That postcode doesn't look right.");
+
+  await query(
+    `INSERT INTO coverage_requests (name, email, phone, postcode, outward)
+     VALUES ($1,$2,$3,$4,$5)`,
+    [input.name, input.email, input.phone, postcode, outward]
+  );
+
+  const settings = await getSettings();
+  await notify({
+    recipient: settings.booking_email,
+    subject: `Wanted: a cleaner in ${outward}`,
+    body:
+      `${input.name || "Someone"} tried to book in ${postcode} but no cleaner ` +
+      `covers ${outward}.\n\n` +
+      `Email: ${input.email}\nPhone: ${input.phone || "not given"}\n\n` +
+      `Either recruit in ${outward} or call them back and cover it yourself.`,
+  });
+}
+
+export type CoverageDemand = {
+  outward: string;
+  requests: number;
+  latest: string;
+};
+
+/** Uncovered postcode areas ranked by how many customers asked for them. */
+export async function listCoverageDemand(limit = 20): Promise<CoverageDemand[]> {
+  return query<CoverageDemand>(
+    `SELECT r.outward,
+            count(*)::int AS requests,
+            to_char(max(r.created_at), 'YYYY-MM-DD') AS latest
+       FROM coverage_requests r
+      WHERE NOT EXISTS (
+        SELECT 1 FROM cleaner_areas a
+          JOIN cleaners c ON c.id = a.cleaner_id
+         WHERE a.outward = r.outward AND c.status = 'approved'
+      )
+      GROUP BY r.outward
+      ORDER BY count(*) DESC, max(r.created_at) DESC
+      LIMIT $1`,
+    [limit]
+  );
+}

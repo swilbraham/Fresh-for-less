@@ -94,6 +94,15 @@ export default function Hero({ onQuoteClick }: { onQuoteClick: () => void }) {
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-600 to-primary-500 opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
               <a
+                href="/book"
+                className="flex items-center justify-center gap-2 rounded-xl border border-accent-500/60 bg-accent-600/10 px-8 py-4 text-base font-semibold text-white backdrop-blur-sm transition-all hover:border-accent-400 hover:bg-accent-600/20"
+              >
+                <svg className="h-5 w-5 text-accent-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                Book Online — Instant Price
+              </a>
+              <a
                 href="tel:03300434811"
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/50 px-8 py-4 text-base font-semibold text-white backdrop-blur-sm transition-all hover:border-slate-600 hover:bg-slate-800"
               >

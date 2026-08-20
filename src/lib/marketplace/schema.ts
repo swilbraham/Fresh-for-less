@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -171,6 +171,21 @@ export const STATEMENTS: string[] = [
   // Repair bundle labels seeded before the pound sign was used.
   `UPDATE price_bundles SET label = replace(label, 'GBP', '£')
      WHERE label LIKE '%GBP%'`,
+
+  // ---- Demand in uncovered areas ------------------------------------------
+  // A postcode with no cleaner is a lost customer AND the best possible signal
+  // of where to recruit next, so capture it rather than showing a dead end.
+  `CREATE TABLE IF NOT EXISTS coverage_requests (
+     id         serial PRIMARY KEY,
+     name       text NOT NULL DEFAULT '',
+     email      text NOT NULL,
+     phone      text NOT NULL DEFAULT '',
+     postcode   text NOT NULL,
+     outward    text NOT NULL,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS coverage_requests_outward
+     ON coverage_requests (outward)`,
 
   // ---- Notification outbox ------------------------------------------------
   // Written on every broadcast/allocation event. A sender picks these up; with
