@@ -42,7 +42,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ error?: string; accepted?: string; completed?: string }>;
 }) {
   const cleaner = await currentCleaner();
-  if (!cleaner) redirect("/pro");
+  if (!cleaner) redirect("/pro?next=/pro/dashboard");
 
   const { error, accepted, completed } = await searchParams;
   const [offers, upcoming, done, areas, invoices] = await Promise.all([

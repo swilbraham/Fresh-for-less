@@ -56,15 +56,22 @@ export async function loginAction(data: FormData) {
   const password = field(data, "password", 200);
 
   const cleaner = await findCleanerByEmail(email);
+  const next = field(data, "next", 120);
+  const backTo = next.startsWith("/pro") ? `/pro?next=${encodeURIComponent(next)}` : "/pro";
+
   if (!cleaner || !verifyPassword(password, cleaner.password_hash)) {
-    fail("/pro", "That email and password don't match.");
+    fail(backTo, "That email and password don't match.");
   }
   if (cleaner.status === "suspended" || cleaner.status === "rejected") {
-    fail("/pro", "This account isn't active. Please contact the office.");
+    fail(backTo, "This account isn't active. Please contact the office.");
   }
 
   await startCleanerSession(cleaner.id);
-  redirect("/pro/dashboard");
+
+  // Return them to whatever they were trying to reach — typically the job link
+  // from a text. `next` was already validated as a /pro path above, so this
+  // can't be used as an open redirect to another site.
+  redirect(next.startsWith("/pro") ? next : "/pro/dashboard");
 }
 
 export async function logoutAction() {

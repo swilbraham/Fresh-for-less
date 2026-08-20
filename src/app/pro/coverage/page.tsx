@@ -31,7 +31,7 @@ export default async function CoveragePage({
   searchParams: Promise<{ error?: string; saved?: string }>;
 }) {
   const cleaner = await currentCleaner();
-  if (!cleaner) redirect("/pro");
+  if (!cleaner) redirect("/pro?next=/pro/coverage");
 
   const { error, saved } = await searchParams;
   const mobileOk = isMobile(cleaner.phone);

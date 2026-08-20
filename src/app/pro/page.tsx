@@ -20,10 +20,12 @@ export const metadata: Metadata = {
 export default async function ProPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   if (await currentCleaner()) redirect("/pro/dashboard");
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
+  // Arriving from a job text: they're an existing cleaner, not a recruit.
+  const returning = Boolean(next?.startsWith("/pro"));
   const settings = await getSettings();
 
   return (
@@ -31,7 +33,7 @@ export default async function ProPage({
       <SiteHeader />
       <main className="min-h-screen bg-slate-50 pt-10 pb-20">
       <div className="mx-auto grid max-w-5xl gap-10 px-4 lg:grid-cols-2">
-        <div>
+        <div className={returning ? "order-2" : ""}>
           <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
             For carpet cleaners
           </p>
@@ -83,10 +85,17 @@ export default async function ProPage({
           </Link>
         </div>
 
-        <div>
+        <div className={returning ? "order-1" : ""}>
           {error && <Alert>{error}</Alert>}
-          <Card title="Cleaner sign in">
+          {returning && !error && (
+            <Alert tone="info">
+              <strong>Already a cleaner with us?</strong> Sign in below to see
+              the job — you don&apos;t need to register again.
+            </Alert>
+          )}
+          <Card title={returning ? "Sign in to see this job" : "Cleaner sign in"}>
             <form action={loginAction} className="mt-4 space-y-4">
+              <input type="hidden" name="next" value={next ?? ""} />
               <Field label="Email" name="email" type="email" required />
               <Field label="Password" name="password" type="password" required />
               <button

@@ -10,7 +10,7 @@ export const metadata = { title: "Commission", robots: { index: false } };
 
 export default async function InvoicesPage() {
   const cleaner = await currentCleaner();
-  if (!cleaner) redirect("/pro");
+  if (!cleaner) redirect("/pro?next=/pro/invoices");
 
   const [invoices, completed] = await Promise.all([
     listInvoices(cleaner.id),
