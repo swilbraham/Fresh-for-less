@@ -40,3 +40,6 @@ start-dev.ps1
 verify-build.ps1
 .claude/
 .vercel
+
+# Local marketplace database (PGlite)
+.data/
