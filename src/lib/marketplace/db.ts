@@ -125,11 +125,30 @@ export function ensureSchema(): Promise<void> {
 }
 
 async function migrate(): Promise<void> {
-  const { STATEMENTS, SEED } = await import("./schema");
+  const { STATEMENTS, SEED, SCHEMA_VERSION } = await import("./schema");
+
+  // Serverless pays this on every cold start, and over Neon's HTTP driver each
+  // statement is a separate round trip. Record the applied version so a warm
+  // schema costs one query instead of forty.
+  await raw(
+    `CREATE TABLE IF NOT EXISTS schema_meta (
+       id int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+       version int NOT NULL
+     )`
+  );
+  const current = await raw(`SELECT version FROM schema_meta WHERE id = 1`);
+  if (Number(current[0]?.version) === SCHEMA_VERSION) return;
+
   for (const statement of STATEMENTS) {
     await raw(statement);
   }
   for (const [text, params] of SEED) {
     await raw(text, params);
   }
+
+  await raw(
+    `INSERT INTO schema_meta (id, version) VALUES (1, $1)
+     ON CONFLICT (id) DO UPDATE SET version = EXCLUDED.version`,
+    [SCHEMA_VERSION]
+  );
 }

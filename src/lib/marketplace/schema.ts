@@ -5,6 +5,12 @@
  * All money is stored as integer pence — never floats.
  */
 
+/**
+ * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
+ * migration with a single query instead of replaying every statement.
+ */
+export const SCHEMA_VERSION = 1;
+
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
   `CREATE TABLE IF NOT EXISTS settings (

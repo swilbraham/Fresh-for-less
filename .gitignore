@@ -43,3 +43,6 @@ verify-build.ps1
 
 # Local marketplace database (PGlite)
 .data/
+# Real secrets never get committed; the template does.
+.env*
+!.env.example
