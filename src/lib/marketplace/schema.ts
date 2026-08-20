@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 4;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -187,6 +187,19 @@ export const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS coverage_requests_outward
      ON coverage_requests (outward)`,
 
+  // ---- One-off price change, 2026-08-20 -----------------------------------
+  // Requested directly: a single "3 rooms for £99" offer replacing 3-for-£79
+  // and 4-for-£99, and upholstery priced per seat at £30. Runs once, on the
+  // version bump above. Ongoing price changes belong in /admin/prices, not
+  // here — anything set there afterwards survives.
+  `DELETE FROM price_bundles WHERE item_code = 'room' AND qty = 4`,
+  `UPDATE price_bundles
+      SET price_pence = 9900, label = '3 rooms for £99', active = true
+    WHERE item_code = 'room' AND qty = 3`,
+  `UPDATE price_items SET unit_price_pence = 3000 WHERE code = 'armchair'`,
+  `UPDATE price_items SET unit_price_pence = 6000 WHERE code = 'sofa2'`,
+  `UPDATE price_items SET unit_price_pence = 9000 WHERE code = 'sofa3'`,
+
   // ---- Notification outbox ------------------------------------------------
   // Written on every broadcast/allocation event. A sender picks these up; with
   // no mail provider configured they still give admin a full audit trail.
@@ -213,9 +226,9 @@ export const SEED: [string, unknown[]][] = [
     ["landing", "Landing", "Upstairs landing area", "carpet", 1500, 3, 30],
     ["hall", "Hallway", "Entrance hall or corridor", "carpet", 1500, 3, 40],
     ["rug", "Rug", "Any size up to 2m x 3m", "carpet", 3000, 8, 50],
-    ["sofa2", "2-seater sofa", "Fabric upholstery clean", "upholstery", 4500, 4, 60],
-    ["sofa3", "3-seater sofa", "Fabric upholstery clean", "upholstery", 5500, 4, 70],
-    ["armchair", "Armchair", "Single fabric chair", "upholstery", 2500, 8, 80],
+    ["sofa2", "2-seater sofa", "Fabric upholstery clean", "upholstery", 6000, 4, 60],
+    ["sofa3", "3-seater sofa", "Fabric upholstery clean", "upholstery", 9000, 4, 70],
+    ["armchair", "Armchair", "Single fabric chair", "upholstery", 3000, 8, 80],
     ["mattress", "Mattress", "Single or double, both sides", "upholstery", 3500, 6, 90],
     ["stain", "Heavy stain treatment", "Per affected area", "extra", 1500, 10, 100],
     ["pet", "Pet odour treatment", "Per room treated", "extra", 2000, 10, 110],
@@ -229,8 +242,7 @@ export const SEED: [string, unknown[]][] = [
   ),
 
   ...([
-    ["room", 3, 7900, "3 rooms for £79"],
-    ["room", 4, 9900, "4 rooms for £99"],
+    ["room", 3, 9900, "3 rooms for £99"],
   ] as const).map(
     ([itemCode, qty, price, label]) =>
       [
