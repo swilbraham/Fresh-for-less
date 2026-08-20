@@ -66,11 +66,11 @@ export default async function ConfirmedPage({
             ) : (
               <p>
                 <strong className="text-slate-900">
-                  Your job is out to cleaners now.
+                  We&apos;re confirming your cleaner.
                 </strong>{" "}
-                Vetted cleaners covering {job.outward} have been notified — the
-                first one free takes it, and we&apos;ll email you their details
-                as soon as it&apos;s claimed.
+                Our vetted cleaners covering {job.outward} have been notified.
+                We&apos;ll email you their name and number as soon as your job
+                is confirmed.
               </p>
             )}
           </div>

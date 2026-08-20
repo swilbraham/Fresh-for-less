@@ -33,9 +33,9 @@ export default async function BookPage() {
           Book a vetted carpet cleaner
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-slate-600">
-          Your price is fixed before you book — no surveys, no surprises. We
-          match your job to independent cleaners covering your postcode and the
-          first one free takes it.
+          Your price is fixed before you book — no home visit, no haggling, no
+          surprises. Pick a time that suits you and we&apos;ll confirm your
+          vetted local cleaner.
         </p>
       </header>
 
