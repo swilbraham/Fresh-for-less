@@ -3,10 +3,12 @@ import { isAdmin } from "@/lib/marketplace/auth";
 import {
   jobStatusCounts,
   jobTotals,
+  listCleaners,
   listJobs,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import {
+  assignJobAction,
   cancelJobAction,
   reassignJobAction,
   rebroadcastJobAction,
@@ -28,6 +30,7 @@ export default async function AdminJobsPage({
     error?: string;
     saved?: string;
     offered?: string;
+    assigned?: string;
     status?: string;
     from?: string;
     to?: string;
@@ -35,16 +38,18 @@ export default async function AdminJobsPage({
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, offered, status, from, to, q } = await searchParams;
+  const { error, saved, offered, assigned, status, from, to, q } = await searchParams;
 
   const filters = { status, from, to, q };
-  const [jobs, totals, counts] = await Promise.all([
+  const [jobs, totals, counts, approvedCleaners] = await Promise.all([
     listJobs(filters),
     jobTotals(filters),
     jobStatusCounts(filters),
+    listCleaners("approved"),
   ]);
 
   const STATUSES = [
+    "provisional",
     "offered",
     "accepted",
     "completed",
@@ -72,6 +77,7 @@ export default async function AdminJobsPage({
       <div className="mx-auto max-w-6xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Job updated.</Alert>}
+        {assigned && <Alert tone="success">Job assigned and both sides told.</Alert>}
         {offered !== undefined && (
           <Alert tone="success">
             Re-broadcast to {offered} cleaner{offered === "1" ? "" : "s"}.
@@ -272,7 +278,7 @@ export default async function AdminJobsPage({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {(job.status === "unfilled" ||
                           job.status === "cancelled") && (
                           <form action={rebroadcastJobAction}>
@@ -285,6 +291,34 @@ export default async function AdminJobsPage({
                             </button>
                           </form>
                         )}
+                        {!["completed", "cancelled"].includes(job.status) &&
+                          approvedCleaners.length > 0 && (
+                            <form
+                              action={assignJobAction}
+                              className="flex items-center gap-1"
+                            >
+                              <input type="hidden" name="id" value={job.id} />
+                              <select
+                                name="cleanerId"
+                                defaultValue=""
+                                aria-label={`Assign ${job.ref} to a cleaner`}
+                                className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                              >
+                                <option value="">Assign to…</option>
+                                {approvedCleaners.map((cleaner) => (
+                                  <option key={cleaner.id} value={cleaner.id}>
+                                    {cleaner.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="submit"
+                                className="text-xs font-semibold text-accent-700 underline"
+                              >
+                                Go
+                              </button>
+                            </form>
+                          )}
                         {job.status === "accepted" && (
                           <form action={reassignJobAction}>
                             <input type="hidden" name="id" value={job.id} />

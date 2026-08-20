@@ -42,7 +42,12 @@ export default function BookingFlow({
   const [postcode, setPostcode] = useState("");
   const [checking, setChecking] = useState(false);
   const [coverage, setCoverage] = useState<
-    { covered: boolean; outward: string; slots: Slot[] } | null
+    {
+      covered: boolean;
+      provisional?: boolean;
+      outward: string;
+      slots: Slot[];
+    } | null
   >(null);
   const [basket, setBasket] = useState<Basket>({});
   const [slotDate, setSlotDate] = useState("");
@@ -99,7 +104,7 @@ export default function BookingFlow({
       }
       setCoverage(data);
       setWaitlisted(false);
-      if (data.covered && data.slots.length > 0) setStep("items");
+      if (data.slots.length > 0) setStep("items");
     } catch {
       setError("We couldn't check that postcode. Please try again.");
     } finally {
@@ -216,6 +221,15 @@ export default function BookingFlow({
         ))}
       </ol>
 
+      {step !== "postcode" && coverage?.provisional && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong>We don&apos;t have a cleaner in {coverage.outward} yet.</strong>{" "}
+          Carry on and we&apos;ll treat this as a request — we&apos;ll confirm
+          within 24 hours or call you to sort something out. Nothing to pay
+          either way.
+        </div>
+      )}
+
       {error && (
         <p className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -249,7 +263,7 @@ export default function BookingFlow({
             </button>
           </div>
 
-          {coverage && !coverage.covered && !waitlisted && (
+          {coverage && !coverage.covered && coverage.slots.length === 0 && !waitlisted && (
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <p className="font-semibold">
                 No cleaner is covering {coverage.outward} online just yet.
@@ -414,7 +428,9 @@ export default function BookingFlow({
               When suits you?
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Only dates with a cleaner free in {coverage?.outward} are shown.
+              {coverage?.provisional
+                ? `Tell us when suits and we'll try to cover ${coverage.outward}.`
+                : `Only dates with a cleaner free in ${coverage?.outward} are shown.`}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {coverage?.slots.map((slot) => (
@@ -584,8 +600,9 @@ export default function BookingFlow({
               )}
             </dl>
             <p className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
-              Pay your cleaner {gbp(quote.total_pence)} on the day — cash or card.
-              Nothing to pay now.
+              {coverage?.provisional
+                ? `If we can cover ${coverage.outward}, you'll pay your cleaner ${gbp(quote.total_pence)} on the day. Nothing to pay unless we confirm.`
+                : `Pay your cleaner ${gbp(quote.total_pence)} on the day — cash or card. Nothing to pay now.`}
             </p>
           </section>
 
@@ -602,7 +619,11 @@ export default function BookingFlow({
               disabled={submitting}
               className="flex-1 rounded-xl bg-accent-600 px-6 py-3 font-semibold text-white transition hover:bg-accent-700 disabled:opacity-40"
             >
-              {submitting ? "Booking…" : `Confirm booking — ${gbp(quote.total_pence)}`}
+              {submitting
+                ? "Sending…"
+                : coverage?.provisional
+                  ? `Request this booking — ${gbp(quote.total_pence)}`
+                  : `Confirm booking — ${gbp(quote.total_pence)}`}
             </button>
           </div>
         </form>

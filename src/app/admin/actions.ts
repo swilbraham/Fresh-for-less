@@ -27,6 +27,7 @@ import { penceFromInput } from "@/lib/marketplace/money";
 import { parseOutwardList } from "@/lib/marketplace/postcode";
 import { makeResetToken } from "@/lib/marketplace/auth";
 import {
+  assignJob,
   getCleanerPasswordHash,
   releaseJob,
   setAvailability,
@@ -240,6 +241,19 @@ export async function cancelJobAction(data: FormData) {
  * the customer keeps their slot and price, so they must not be told their
  * booking is cancelled.
  */
+/** Put a job in a named cleaner's diary — usually straight after a phone call. */
+export async function assignJobAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const jobId = Number(field(data, "id", 12));
+  const cleanerId = Number(field(data, "cleanerId", 12));
+  if (!cleanerId) fail("/admin/jobs", "Pick a cleaner to assign it to.");
+
+  const result = await assignJob(jobId, cleanerId);
+  revalidatePath("/admin/jobs");
+  if (!result.ok) fail("/admin/jobs", result.reason ?? "Couldn't assign that job.");
+  redirect("/admin/jobs?assigned=1");
+}
+
 export async function reassignJobAction(data: FormData) {
   await requireAdmin("/admin/jobs");
   const result = await releaseJob({

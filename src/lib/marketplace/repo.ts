@@ -426,6 +426,13 @@ export async function createBooking(
     throw new Error("Choose at least one item to clean.");
   }
 
+  // No cleaner covers this postcode yet. Take the booking anyway — a job with
+  // a date, an address and a price is far better than a name on a list, both
+  // for the customer and as something to recruit against — but hold it as
+  // provisional rather than confirming a slot nobody can work.
+  const covered = await hasCoverage(outward);
+  const initialStatus = covered ? "offered" : "provisional";
+
   let job: Job | null = null;
   for (let attempt = 0; attempt < 5 && !job; attempt++) {
     try {
@@ -434,7 +441,7 @@ export async function createBooking(
            (ref, customer_name, customer_email, customer_phone, address_line, town,
             postcode, outward, slot_date, slot_window, items, notes,
             subtotal_pence, total_pence, commission_pct, commission_pence, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,'offered')
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17)
          RETURNING id, ref`,
         [
           makeRef("FFL"),
@@ -453,6 +460,7 @@ export async function createBooking(
           quote.total_pence,
           quote.commission_pct,
           quote.commission_pence,
+          initialStatus,
         ]
       );
     } catch (error) {
@@ -464,25 +472,53 @@ export async function createBooking(
   }
   if (!job) throw new Error("Could not create the booking. Please try again.");
 
-  const offered = await broadcastJob(job.id, outward, input.slotDate, input.slotWindow);
+  const offered = covered
+    ? await broadcastJob(job.id, outward, input.slotDate, input.slotWindow)
+    : 0;
   const saved = (await getJob(job.id))!;
+
+  if (!covered) {
+    const settings = await getSettings();
+    await notify({
+      recipient: settings.booking_email,
+      subject: `Provisional booking in ${outward} — ${gbpShort(saved.total_pence)} on ${saved.slot_date}`,
+      body:
+        `${saved.customer_name} has booked provisionally in ${saved.postcode}, ` +
+        `where nobody covers.\n\n` +
+        `Wanted: ${saved.slot_date} (${saved.slot_window.toUpperCase()})\n` +
+        `Value: ${gbpShort(saved.total_pence)}\n` +
+        `Phone: ${saved.customer_phone}\n\n` +
+        `They were promised confirmation within 24 hours. Find a cleaner for ` +
+        `${outward} or call them back — ${siteUrl()}/admin/jobs?status=provisional`,
+      jobId: saved.id,
+    });
+  }
 
   const manageLink = bookingUrl(saved.ref, siteUrl());
   await notifyCustomer(saved, {
-    subject: `Booking received — ${saved.ref}`,
+    subject: covered
+      ? `Booking received — ${saved.ref}`
+      : `Booking requested — ${saved.ref}`,
     body:
       `Thanks ${saved.customer_name}, your carpet clean is booked.\n\n` +
       `Reference: ${saved.ref}\n` +
       `Date: ${saved.slot_date} (${saved.slot_window === "am" ? "Morning 8am-12pm" : "Afternoon 12pm-5pm"})\n` +
       `Address: ${saved.address_line}, ${saved.postcode}\n` +
       `Fixed price: ${gbpShort(saved.total_pence)}, payable to your cleaner on the day.\n\n` +
-      `We're matching you with a vetted cleaner now and will confirm their details ` +
-      `as soon as the job is claimed.\n\n` +
+      (covered
+        ? `We're matching you with a vetted cleaner now and will confirm their ` +
+          `details as soon as the job is claimed.\n\n`
+        : `We don't have a cleaner in ${outward} yet, so this is a request ` +
+          `rather than a confirmed booking. We'll confirm within 24 hours, or ` +
+          `call you to sort something out. You owe nothing either way.\n\n`) +
       `Need to change or cancel? Use this link any time:\n${manageLink}`,
-    smsBody:
-      `Booking ${saved.ref} confirmed for ${saved.slot_date} ` +
-      `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
-      `Change or cancel: ${manageLink}`,
+    smsBody: covered
+      ? `Booking ${saved.ref} confirmed for ${saved.slot_date} ` +
+        `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
+        `Change or cancel: ${manageLink}`
+      : `Request ${saved.ref} received for ${saved.slot_date} ` +
+        `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
+        `We'll confirm within 24h — nothing to pay. ${manageLink}`,
     jobId: saved.id,
   });
 
@@ -583,25 +619,91 @@ export async function acceptJob(
 
   const job = await getJob(jobId);
   const cleaner = await getCleaner(cleanerId);
-  if (job && cleaner) {
-    // First name only: to the customer this is Fresh For Less sending someone.
-    const who = firstName(cleaner.name);
-    await notifyCustomer(job, {
-      subject: `Your carpet clean is confirmed — ${job.ref}`,
-      body:
-        `Good news ${job.customer_name}, ${who} will be cleaning for you ` +
-        `for ${job.slot_date} (${job.slot_window.toUpperCase()}).\n\n` +
-        `Your cleaner: ${who}\n` +
-        `Their number: ${cleaner.phone}\n` +
-        `Fixed price: ${gbpShort(job.total_pence)}, payable to them on the day.\n\n` +
-        `Need to change or cancel? ${bookingUrl(job.ref, siteUrl())}`,
-      smsBody:
-        `${job.ref} confirmed: ${who} (${cleaner.phone}) will clean on ` +
-        `${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
-        `${gbpShort(job.total_pence)} on the day. Changes: ${bookingUrl(job.ref, siteUrl())}`,
-      jobId,
-    });
+  if (job && cleaner) await confirmCleanerToCustomer(job, cleaner);
+
+  return { ok: true };
+}
+
+/** Tell the customer who is coming. Shared by acceptance and assignment. */
+async function confirmCleanerToCustomer(
+  job: Job,
+  cleaner: Cleaner
+): Promise<void> {
+  // First name only: to the customer this is Fresh For Less sending someone.
+  const who = firstName(cleaner.name);
+  await notifyCustomer(job, {
+    subject: `Your carpet clean is confirmed — ${job.ref}`,
+    body:
+      `Good news ${job.customer_name}, ${who} will be cleaning for you ` +
+      `on ${job.slot_date} (${job.slot_window.toUpperCase()}).\n\n` +
+      `Your cleaner: ${who}\n` +
+      `Their number: ${cleaner.phone}\n` +
+      `Fixed price: ${gbpShort(job.total_pence)}, payable to them on the day.\n\n` +
+      `Need to change or cancel? ${bookingUrl(job.ref, siteUrl())}`,
+    smsBody:
+      `${job.ref} confirmed: ${who} (${cleaner.phone}) will clean on ` +
+      `${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
+      `${gbpShort(job.total_pence)} on the day. Changes: ${bookingUrl(job.ref, siteUrl())}`,
+    jobId: job.id,
+  });
+}
+
+/**
+ * Give a job straight to a named cleaner — the "I've just got off the phone
+ * with someone who'll take it" case, and how a provisional booking becomes a
+ * real one. Deliberately skips the coverage and availability checks: the office
+ * has spoken to them and knows better than the rota does.
+ */
+export async function assignJob(
+  jobId: number,
+  cleanerId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const job = await getJob(jobId);
+  const cleaner = await getCleaner(cleanerId);
+  if (!job) return { ok: false, reason: "Job not found." };
+  if (!cleaner) return { ok: false, reason: "Cleaner not found." };
+  if (cleaner.status !== "approved") {
+    return { ok: false, reason: `${cleaner.name} isn't approved yet.` };
   }
+  if (job.status === "completed" || job.status === "cancelled") {
+    return { ok: false, reason: "That job is already closed." };
+  }
+
+  await query(
+    `UPDATE jobs
+        SET status = 'accepted', cleaner_id = $2, accepted_at = now()
+      WHERE id = $1`,
+    [jobId, cleanerId]
+  );
+  // Logged as an offer they took, so job history reads consistently.
+  await query(
+    `INSERT INTO job_offers (job_id, cleaner_id, response, responded_at)
+     VALUES ($1,$2,'accepted', now())
+     ON CONFLICT (job_id, cleaner_id)
+     DO UPDATE SET response = 'accepted', responded_at = now()`,
+    [jobId, cleanerId]
+  );
+
+  const assigned = (await getJob(jobId))!;
+  await confirmCleanerToCustomer(assigned, cleaner);
+
+  await notifyCleaner(cleaner, {
+    subject: `Job assigned to you — ${job.ref} on ${job.slot_date}`,
+    body:
+      `${cleaner.name}, we've put ${job.ref} in your diary as agreed.\n\n` +
+      `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
+      `Address: ${job.address_line}${job.town ? `, ${job.town}` : ""}, ${job.postcode}\n` +
+      `Customer: ${job.customer_name}, ${job.customer_phone}\n` +
+      `Collect: ${gbpShort(job.total_pence)} — you keep ` +
+      `${gbpShort(job.total_pence - job.commission_pence)}\n\n` +
+      `${COMMISSION_TERMS_SHORT}`,
+    smsBody:
+      `Job ${job.ref} is in your diary: ${job.slot_date} ` +
+      `${job.slot_window.toUpperCase()}, ${job.postcode}. Collect ` +
+      `${gbpShort(job.total_pence)}, you keep ` +
+      `${gbpShort(job.total_pence - job.commission_pence)}. ${siteUrl()}/pro/dashboard`,
+    jobId,
+  });
 
   return { ok: true };
 }
