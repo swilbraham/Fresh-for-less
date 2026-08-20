@@ -161,9 +161,17 @@ export default async function AdminJobsPage({
         {/* Totals for the current selection */}
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           {[
-            { label: "Jobs shown", value: String(totals.jobs) },
-            { label: "Customer value", value: gbp(totals.value_pence) },
-            { label: "Your commission", value: gbp(totals.commission_pence) },
+            { label: "Jobs shown", value: String(totals.jobs), hint: "Including cancelled" },
+            {
+              label: "Booked value",
+              value: gbp(totals.value_pence),
+              hint: "Excludes cancelled & unfilled",
+            },
+            {
+              label: "Commission earned",
+              value: gbp(totals.commission_pence),
+              hint: "Completed jobs only",
+            },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -175,6 +183,7 @@ export default async function AdminJobsPage({
               <p className="mt-1 text-xl font-bold text-slate-900 tabular-nums">
                 {stat.value}
               </p>
+              <p className="mt-0.5 text-xs text-slate-400">{stat.hint}</p>
             </div>
           ))}
         </div>
@@ -206,7 +215,12 @@ export default async function AdminJobsPage({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {jobs.map((job) => (
-                  <tr key={job.id}>
+                  <tr
+                    key={job.id}
+                    className={
+                      job.status === "cancelled" ? "bg-slate-50/60 text-slate-400" : ""
+                    }
+                  >
                     <td className="px-4 py-3 font-medium text-slate-800">
                       {job.ref}
                     </td>

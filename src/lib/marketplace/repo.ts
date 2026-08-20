@@ -784,9 +784,16 @@ export async function jobTotals(
     value_pence: number;
     commission_pence: number;
   }>(
+    // Cancelled and unfilled jobs are real history but not real money, and
+    // commission is only ever earned on completed work — summing everything
+    // showed income that will never arrive.
     `SELECT count(*)::int AS jobs,
-            COALESCE(sum(j.total_pence), 0)::int      AS value_pence,
-            COALESCE(sum(j.commission_pence), 0)::int AS commission_pence
+            COALESCE(sum(j.total_pence)
+              FILTER (WHERE j.status NOT IN ('cancelled', 'unfilled')), 0)::int
+              AS value_pence,
+            COALESCE(sum(j.commission_pence)
+              FILTER (WHERE j.status = 'completed'), 0)::int
+              AS commission_pence
        FROM jobs j ${where}`,
     params
   );
