@@ -9,14 +9,14 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
   `CREATE TABLE IF NOT EXISTS settings (
      id                  int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
      commission_pct      numeric(5,2) NOT NULL DEFAULT 15.00,
-     minimum_charge_pence int NOT NULL DEFAULT 6900,
+     minimum_charge_pence int NOT NULL DEFAULT 9000,
      min_notice_days     int NOT NULL DEFAULT 1,
      booking_email       text NOT NULL DEFAULT 'info@freshforlesscarpetcleaning.co.uk',
      updated_at          timestamptz NOT NULL DEFAULT now()
@@ -187,18 +187,12 @@ export const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS coverage_requests_outward
      ON coverage_requests (outward)`,
 
-  // ---- One-off price change, 2026-08-20 -----------------------------------
-  // Requested directly: a single "3 rooms for £99" offer replacing 3-for-£79
-  // and 4-for-£99, and upholstery priced per seat at £30. Runs once, on the
-  // version bump above. Ongoing price changes belong in /admin/prices, not
-  // here — anything set there afterwards survives.
-  `DELETE FROM price_bundles WHERE item_code = 'room' AND qty = 4`,
-  `UPDATE price_bundles
-      SET price_pence = 9900, label = '3 rooms for £99', active = true
-    WHERE item_code = 'room' AND qty = 3`,
-  `UPDATE price_items SET unit_price_pence = 3000 WHERE code = 'armchair'`,
-  `UPDATE price_items SET unit_price_pence = 6000 WHERE code = 'sofa2'`,
-  `UPDATE price_items SET unit_price_pence = 9000 WHERE code = 'sofa3'`,
+  // ---- One-off price change, 2026-08-20 (minimum charge) ------------------
+  // Requested directly: raise the minimum job charge to £90. Runs once, on the
+  // version bump above. Previous one-off statements are deliberately not kept
+  // here — replaying them on a later bump would quietly undo admin edits.
+  // Ongoing price changes belong in /admin/prices.
+  `UPDATE settings SET minimum_charge_pence = 9000 WHERE id = 1`,
 
   // ---- Notification outbox ------------------------------------------------
   // Written on every broadcast/allocation event. A sender picks these up; with
