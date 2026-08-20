@@ -18,6 +18,7 @@ import {
   completeJobAction,
   declineJobAction,
   logoutAction,
+  releaseJobAction,
 } from "../actions";
 import {
   Alert,
@@ -43,12 +44,17 @@ function slotLabel(job: Job): string {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; accepted?: string; completed?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    accepted?: string;
+    completed?: string;
+    released?: string;
+  }>;
 }) {
   const cleaner = await currentCleaner();
   if (!cleaner) redirect("/pro?next=/pro/dashboard");
 
-  const { error, accepted, completed } = await searchParams;
+  const { error, accepted, completed, released } = await searchParams;
   const [offers, upcoming, done, areas, invoices] = await Promise.all([
     listOffersForCleaner(cleaner.id),
     listJobsForCleaner(cleaner.id, ["accepted"]),
@@ -84,6 +90,11 @@ export default async function DashboardPage({
         {completed && (
           <Alert tone="success">
             Job marked complete. Commission has been added to your next invoice.
+          </Alert>
+        )}
+        {released && (
+          <Alert tone="info">
+            Job handed back and offered to other cleaners. No commission is due.
           </Alert>
         )}
 
@@ -281,15 +292,43 @@ export default async function DashboardPage({
                     </p>
                   )}
 
-                  <form action={completeJobAction} className="mt-4">
-                    <input type="hidden" name="jobId" value={job.id} />
-                    <SubmitButton
-                      pendingLabel="Saving…"
-                      className="rounded-xl bg-primary-600 px-5 py-2.5 font-semibold text-white transition hover:bg-primary-700"
-                    >
-                      Mark complete
-                    </SubmitButton>
-                  </form>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <form action={completeJobAction}>
+                      <input type="hidden" name="jobId" value={job.id} />
+                      <SubmitButton
+                        pendingLabel="Saving…"
+                        className="rounded-xl bg-primary-600 px-5 py-2.5 font-semibold text-white transition hover:bg-primary-700"
+                      >
+                        Mark complete
+                      </SubmitButton>
+                    </form>
+
+                    <details className="text-sm">
+                      <summary className="cursor-pointer font-semibold text-slate-500 hover:text-red-600">
+                        Can&apos;t make it?
+                      </summary>
+                      <form action={releaseJobAction} className="mt-3 flex flex-wrap items-end gap-2">
+                        <input type="hidden" name="jobId" value={job.id} />
+                        <input
+                          name="reason"
+                          placeholder="Reason (optional)"
+                          aria-label="Reason for handing the job back"
+                          className="rounded-xl border border-slate-300 px-3 py-2"
+                        />
+                        <SubmitButton
+                          pendingLabel="Releasing…"
+                          className="rounded-xl border border-red-300 px-4 py-2 font-semibold text-red-700 transition hover:bg-red-50"
+                        >
+                          Hand this job back
+                        </SubmitButton>
+                        <p className="w-full text-xs text-slate-500">
+                          It goes straight back to other cleaners. Tell us as
+                          early as you can — drops inside 24 hours are recorded
+                          and reviewed.
+                        </p>
+                      </form>
+                    </details>
+                  </div>
                 </li>
               ))}
             </ul>

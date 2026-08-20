@@ -1616,3 +1616,131 @@ export async function countRecentNotifications(
   );
   return row?.n ?? 0;
 }
+
+// ------------------------------------------------------- dropped jobs -----
+
+/** Notice below this counts as a late drop when judging reliability. */
+export const LATE_DROP_HOURS = 24;
+/** Late drops inside this window before a cleaner is flagged for review. */
+export const DROP_REVIEW_DAYS = 90;
+export const DROP_REVIEW_LIMIT = 3;
+
+export type ReleaseResult = {
+  ok: boolean;
+  reason?: string;
+  offered: number;
+  late: boolean;
+};
+
+/**
+ * Take an accepted job off a cleaner and put it straight back to the market.
+ *
+ * Deliberately available to the cleaner as well as the office: a cleaner who
+ * releases the night before is far better than one who no-shows on the day,
+ * because the job goes back out while there's still time to fill it. Every
+ * release is recorded against them either way.
+ */
+export async function releaseJob(input: {
+  jobId: number;
+  by: "cleaner" | "admin";
+  reason: string;
+  expectCleanerId?: number;
+}): Promise<ReleaseResult> {
+  const job = await getJob(input.jobId);
+  if (!job || job.cleaner_id === null) {
+    return { ok: false, reason: "That job isn't assigned to anyone.", offered: 0, late: false };
+  }
+  if (job.status !== "accepted") {
+    return { ok: false, reason: "Only an accepted job can be reassigned.", offered: 0, late: false };
+  }
+  if (input.expectCleanerId && job.cleaner_id !== input.expectCleanerId) {
+    return { ok: false, reason: "That job isn't yours.", offered: 0, late: false };
+  }
+
+  const hoursNotice = Math.max(0, Number(job.hours_until_slot));
+  const late = hoursNotice < LATE_DROP_HOURS;
+  const droppedBy = job.cleaner_id;
+
+  await query(
+    `INSERT INTO job_drops (job_id, cleaner_id, dropped_by, hours_notice, reason)
+     VALUES ($1,$2,$3,$4,$5)`,
+    [input.jobId, droppedBy, input.by, hoursNotice, input.reason.slice(0, 300)]
+  );
+
+  await query(
+    `UPDATE jobs SET status = 'offered', cleaner_id = NULL, accepted_at = NULL
+      WHERE id = $1`,
+    [input.jobId]
+  );
+  await query(`DELETE FROM job_offers WHERE job_id = $1`, [input.jobId]);
+
+  const offered = await broadcastJob(
+    input.jobId,
+    job.outward,
+    job.slot_date,
+    job.slot_window
+  );
+
+  const when = `${job.slot_date} (${job.slot_window.toUpperCase()})`;
+
+  // The customer is not being cancelled on — their slot and price stand.
+  await notifyCustomer(job, {
+    subject: `We're arranging another cleaner for ${job.ref}`,
+    body:
+      `${job.customer_name}, the cleaner booked for ${when} can no longer make ` +
+      `it, so we're arranging someone else.\\n\\n` +
+      `Your time slot and your ${gbpShort(job.total_pence)} price are unchanged` +
+      `${offered > 0 ? ", and we'll confirm your new cleaner shortly" : ""}.\\n\\n` +
+      `${offered === 0 ? "Our team will call you to confirm.\\n\\n" : ""}` +
+      `Anything you need: 0330 043 4811.`,
+    smsBody:
+      `${job.ref}: your cleaner for ${when} can't make it, so we're arranging ` +
+      `another. Same slot, same ${gbpShort(job.total_pence)} price` +
+      `${offered === 0 ? " — we'll call you to confirm." : "."}`,
+    jobId: input.jobId,
+  });
+
+  const cleaner = await getCleaner(droppedBy);
+  if (cleaner) {
+    await notifyCleaner(cleaner, {
+      subject: `Released — ${job.ref} on ${job.slot_date}`,
+      body:
+        `${cleaner.name}, ${job.ref} for ${when} has been taken off your diary ` +
+        `and offered to other cleaners. No commission is due.\\n\\n` +
+        (late
+          ? `This was inside ${LATE_DROP_HOURS} hours of the slot, so it's ` +
+            `recorded as a late drop. Repeated late drops are reviewed.`
+          : `Thanks for letting us know in good time.`),
+      smsBody:
+        `${job.ref} (${when}) released from your diary${late ? " — logged as a late drop." : "."}`,
+      jobId: input.jobId,
+    });
+  }
+
+  return { ok: true, offered, late };
+}
+
+export type CleanerReliability = {
+  completed: number;
+  drops: number;
+  late_drops: number;
+  recent_late_drops: number;
+};
+
+export async function cleanerReliability(
+  cleanerId: number
+): Promise<CleanerReliability> {
+  const row = await queryOne<CleanerReliability>(
+    `SELECT
+       (SELECT count(*)::int FROM jobs j
+         WHERE j.cleaner_id = $1 AND j.status = 'completed')        AS completed,
+       (SELECT count(*)::int FROM job_drops d WHERE d.cleaner_id = $1) AS drops,
+       (SELECT count(*)::int FROM job_drops d
+         WHERE d.cleaner_id = $1 AND d.hours_notice < $2)           AS late_drops,
+       (SELECT count(*)::int FROM job_drops d
+         WHERE d.cleaner_id = $1 AND d.hours_notice < $2
+           AND d.dropped_at > now() - ($3 || ' days')::interval)    AS recent_late_drops`,
+    [cleanerId, LATE_DROP_HOURS, String(DROP_REVIEW_DAYS)]
+  );
+  return row ?? { completed: 0, drops: 0, late_drops: 0, recent_late_drops: 0 };
+}

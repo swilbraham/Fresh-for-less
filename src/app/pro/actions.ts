@@ -20,6 +20,7 @@ import {
   setAvailability,
   setCleanerAreas,
   setNotificationPrefs,
+  releaseJob,
   setCleanerPassword,
   updateCleanerProfile,
   getCleanerPasswordHash,
@@ -283,4 +284,26 @@ export async function changePasswordAction(data: FormData) {
   await setCleanerPassword(cleaner.id, hashPassword(next));
   revalidatePath("/pro/coverage");
   redirect("/pro/coverage?saved=1");
+}
+
+
+/**
+ * A cleaner handing a job back. Better to make this easy than to have someone
+ * quietly not turn up — the job goes back to the market while there's still
+ * time to fill it, and the drop is recorded either way.
+ */
+export async function releaseJobAction(data: FormData) {
+  const cleaner = await requireCleaner();
+  const result = await releaseJob({
+    jobId: Number(field(data, "jobId", 12)),
+    by: "cleaner",
+    reason: field(data, "reason", 300),
+    expectCleanerId: cleaner.id,
+  });
+
+  revalidatePath("/pro/dashboard");
+  if (!result.ok) {
+    fail("/pro/dashboard", result.reason ?? "Couldn't release that job.");
+  }
+  redirect("/pro/dashboard?released=1");
 }

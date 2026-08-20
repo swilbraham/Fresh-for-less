@@ -6,7 +6,11 @@ import {
   listJobs,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
-import { cancelJobAction, rebroadcastJobAction } from "../actions";
+import {
+  cancelJobAction,
+  reassignJobAction,
+  rebroadcastJobAction,
+} from "../actions";
 import Link from "next/link";
 import { AdminNav, Alert, Card, StatusPill } from "@/components/marketplace/shell";
 
@@ -278,6 +282,18 @@ export default async function AdminJobsPage({
                               className="text-xs font-semibold text-primary-600 underline"
                             >
                               Re-broadcast
+                            </button>
+                          </form>
+                        )}
+                        {job.status === "accepted" && (
+                          <form action={reassignJobAction}>
+                            <input type="hidden" name="id" value={job.id} />
+                            <button
+                              type="submit"
+                              title="Take it off this cleaner and offer it to others — the customer keeps their slot"
+                              className="text-xs font-semibold text-primary-600 underline"
+                            >
+                              Reassign
                             </button>
                           </form>
                         )}

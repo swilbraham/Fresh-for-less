@@ -28,6 +28,7 @@ import { parseOutwardList } from "@/lib/marketplace/postcode";
 import { makeResetToken } from "@/lib/marketplace/auth";
 import {
   getCleanerPasswordHash,
+  releaseJob,
   setAvailability,
   setCleanerAreas,
   updateCleanerProfile,
@@ -232,6 +233,25 @@ export async function cancelJobAction(data: FormData) {
   );
   revalidatePath("/admin/jobs");
   redirect("/admin/jobs?saved=1");
+}
+
+/**
+ * Take a job off its cleaner and put it back out. Distinct from cancelling:
+ * the customer keeps their slot and price, so they must not be told their
+ * booking is cancelled.
+ */
+export async function reassignJobAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const result = await releaseJob({
+    jobId: Number(field(data, "id", 12)),
+    by: "admin",
+    reason: field(data, "reason", 300) || "Reassigned by the office",
+  });
+  revalidatePath("/admin/jobs");
+  if (!result.ok) {
+    fail("/admin/jobs", result.reason ?? "Couldn't reassign that job.");
+  }
+  redirect(`/admin/jobs?offered=${result.offered}`);
 }
 
 export async function rebroadcastJobAction(data: FormData) {

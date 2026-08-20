@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import {
+  cleanerReliability,
+  DROP_REVIEW_DAYS,
+  DROP_REVIEW_LIMIT,
   getAvailability,
   getCleanerAreas,
   listCleaners,
@@ -41,6 +44,14 @@ export default async function AdminCleanersPage({
       cleaners.map(
         async (cleaner) =>
           [cleaner.id, await getCleanerAreas(cleaner.id)] as const
+      )
+    )
+  );
+  const reliabilityByCleaner = new Map(
+    await Promise.all(
+      cleaners.map(
+        async (cleaner) =>
+          [cleaner.id, await cleanerReliability(cleaner.id)] as const
       )
     )
   );
@@ -85,6 +96,9 @@ export default async function AdminCleanersPage({
         <ul className="space-y-4">
           {cleaners.map((cleaner) => {
             const areas = areasByCleaner.get(cleaner.id) ?? [];
+            const record = reliabilityByCleaner.get(cleaner.id);
+            const underReview =
+              (record?.recent_late_drops ?? 0) >= DROP_REVIEW_LIMIT;
             const insuranceExpired =
               cleaner.insurance_expiry !== null &&
               cleaner.insurance_expiry < new Date().toISOString().slice(0, 10);
@@ -101,6 +115,11 @@ export default async function AdminCleanersPage({
                         {cleaner.business_name || cleaner.name}
                       </h2>
                       <StatusPill status={cleaner.status} />
+                      {underReview && (
+                        <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                          Review — {record?.recent_late_drops} late drops
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-slate-600">
                       {cleaner.name} · {cleaner.email} · {cleaner.phone}
@@ -141,7 +160,24 @@ export default async function AdminCleanersPage({
                       {cleaner.equipment ? ` · ${cleaner.equipment}` : ""}
                     </dd>
                   </div>
-                  <div className="sm:col-span-2">
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Reliability
+                    </dt>
+                    <dd
+                      className={
+                        underReview ? "font-semibold text-red-600" : "text-slate-700"
+                      }
+                    >
+                      {record?.completed ?? 0} completed ·{" "}
+                      {record?.drops ?? 0} handed back
+                      {(record?.late_drops ?? 0) > 0 &&
+                        `, ${record?.late_drops} inside 24h`}
+                      {underReview &&
+                        ` — ${record?.recent_late_drops} in the last ${DROP_REVIEW_DAYS} days`}
+                    </dd>
+                  </div>
+                  <div>
                     <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Covers ({areas.length})
                     </dt>

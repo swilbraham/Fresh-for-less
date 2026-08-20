@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -192,6 +192,22 @@ export const STATEMENTS: string[] = [
   // above. Jobs already booked keep the rate they were quoted at, so this only
   // affects new bookings. Ongoing changes belong in /admin/prices.
   `UPDATE settings SET commission_pct = 17.50 WHERE id = 1`,
+
+  // ---- Dropped jobs --------------------------------------------------------
+  // A cleaner walking away from an accepted job is the thing most likely to
+  // cost a customer, so it gets its own record rather than being inferred from
+  // a status change. Notice period is stored at the moment of the drop, since
+  // it can't be reconstructed afterwards.
+  `CREATE TABLE IF NOT EXISTS job_drops (
+     id           serial PRIMARY KEY,
+     job_id       int NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+     cleaner_id   int NOT NULL REFERENCES cleaners(id) ON DELETE CASCADE,
+     dropped_by   text NOT NULL DEFAULT 'cleaner',
+     hours_notice numeric(8,2) NOT NULL DEFAULT 0,
+     reason       text NOT NULL DEFAULT '',
+     dropped_at   timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS job_drops_cleaner ON job_drops (cleaner_id)`,
 
   // ---- Notification outbox ------------------------------------------------
   // Written on every broadcast/allocation event. A sender picks these up; with
