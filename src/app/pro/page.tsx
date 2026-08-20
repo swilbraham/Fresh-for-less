@@ -199,8 +199,8 @@ export default async function ProPage({
                   `Hand the job back from your dashboard and it goes straight to another cleaner. Drops inside ${LATE_DROP_HOURS} hours are recorded, and ${DROP_REVIEW_LIMIT} of them in ${DROP_REVIEW_DAYS} days means a conversation.`,
                 ],
                 [
-                  "Never turn up without notice",
-                  "A no-show costs the customer their day and us the relationship. It means suspension, not a warning.",
+                  "Never leave a customer waiting",
+                  "If you can't make it, hand the job back — even an hour before. Running late is recoverable; not turning up at all is not. A no-show means suspension, not a warning.",
                 ],
                 [
                   "Honour the price",
