@@ -257,7 +257,7 @@ export async function generateInvoicesAction(data: FormData) {
 
   const created = await generateCommissionInvoices(periodStart, periodEnd);
   revalidatePath("/admin/invoices");
-  redirect(`/admin/invoices?created=${created}`);
+  redirect(`/admin/invoices?created=${created.length}`);
 }
 
 export async function setInvoiceStatusAction(data: FormData) {

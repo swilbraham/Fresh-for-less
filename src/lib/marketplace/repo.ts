@@ -753,12 +753,20 @@ export async function listUninvoicedCommission(): Promise<
  * isn't already invoiced. The unique index on lines.job_id makes double-billing
  * impossible even if this is run twice.
  */
+export type RaisedInvoice = {
+  id: number;
+  ref: string;
+  cleanerId: number;
+  totalPence: number;
+  jobs: number;
+};
+
 export async function generateCommissionInvoices(
   periodStart: string,
   periodEnd: string
-): Promise<number> {
+): Promise<RaisedInvoice[]> {
   const pending = await listUninvoicedCommission();
-  let created = 0;
+  const created: RaisedInvoice[] = [];
 
   for (const group of pending) {
     const jobs = await query<{ id: number; commission_pence: number }>(
@@ -773,11 +781,12 @@ export async function generateCommissionInvoices(
     if (jobs.length === 0) continue;
 
     const total = jobs.reduce((sum, j) => sum + j.commission_pence, 0);
+    const ref = makeRef("CI");
     const invoice = await queryOne<{ id: number }>(
       `INSERT INTO commission_invoices
          (ref, cleaner_id, period_start, period_end, total_pence)
        VALUES ($1,$2,$3::date,$4::date,$5) RETURNING id`,
-      [makeRef("CI"), group.cleaner_id, periodStart, periodEnd, total]
+      [ref, group.cleaner_id, periodStart, periodEnd, total]
     );
 
     for (const job of jobs) {
@@ -787,10 +796,40 @@ export async function generateCommissionInvoices(
         [invoice!.id, job.id, job.commission_pence]
       );
     }
-    created += 1;
+    created.push({
+      id: invoice!.id,
+      ref,
+      cleanerId: group.cleaner_id,
+      totalPence: total,
+      jobs: jobs.length,
+    });
   }
 
   return created;
+}
+
+/** Tell a cleaner their commission invoice has been raised. */
+export async function notifyInvoiceRaised(
+  invoice: RaisedInvoice,
+  dueBy: string
+): Promise<void> {
+  const cleaner = await getCleaner(invoice.cleanerId);
+  if (!cleaner) return;
+
+  await notifyCleaner(cleaner, {
+    subject: `Commission invoice ${invoice.ref} — ${gbpShort(invoice.totalPence)}`,
+    body:
+      `${cleaner.name}, here's your commission invoice for last week.\n\n` +
+      `Invoice: ${invoice.ref}\n` +
+      `Jobs completed: ${invoice.jobs}\n` +
+      `Commission due: ${gbpShort(invoice.totalPence)}\n` +
+      `Payable by: ${dueBy}\n\n` +
+      `You can see the jobs it covers at ${siteUrl()}/pro/invoices.`,
+    smsBody:
+      `Commission invoice ${invoice.ref}: ${gbpShort(invoice.totalPence)} for ` +
+      `${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"}, due ${dueBy}. ` +
+      `${siteUrl()}/pro/invoices`,
+  });
 }
 
 export type InvoiceRow = {
