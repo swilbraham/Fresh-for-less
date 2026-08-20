@@ -54,7 +54,19 @@ export default async function DashboardPage({
   ]);
 
   const earned = done.reduce((sum, job) => sum + job.total_pence, 0);
-  const owed = invoices
+
+  // Everything earned on completed jobs, less whatever has actually been paid.
+  // Counting only issued invoices read as "you owe nothing" in the gap between
+  // finishing a job and the invoice being raised, which isn't true.
+  const commissionToDate = done.reduce(
+    (sum, job) => sum + job.commission_pence,
+    0
+  );
+  const commissionPaid = invoices
+    .filter((invoice) => invoice.status === "paid")
+    .reduce((sum, invoice) => sum + invoice.total_pence, 0);
+  const owed = Math.max(0, commissionToDate - commissionPaid);
+  const invoiced = invoices
     .filter((invoice) => invoice.status === "issued")
     .reduce((sum, invoice) => sum + invoice.total_pence, 0);
 
@@ -82,7 +94,17 @@ export default async function DashboardPage({
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
           <Stat label="Jobs completed" value={String(done.length)} />
           <Stat label="Collected from customers" value={gbp(earned)} />
-          <Stat label="Commission outstanding" value={gbp(owed)} />
+          <Stat
+            label="Commission owed"
+            value={gbp(owed)}
+            hint={
+              owed === 0
+                ? "Nothing to pay"
+                : invoiced > 0
+                  ? `${gbp(invoiced)} invoiced, rest to follow`
+                  : "Not invoiced yet"
+            }
+          />
         </div>
 
         {/* Live offers */}
@@ -310,7 +332,15 @@ export default async function DashboardPage({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -319,6 +349,7 @@ function Stat({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-2xl font-bold text-slate-900 tabular-nums">
         {value}
       </p>
+      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
     </div>
   );
 }
