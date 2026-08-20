@@ -877,7 +877,9 @@ async function sendEmail(
   body: string
 ): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.MARKETPLACE_FROM_EMAIL;
+  // RESEND_FROM is the name used elsewhere in Simon's projects — accept either
+  // so existing credentials can be copied across without renaming.
+  const from = process.env.MARKETPLACE_FROM_EMAIL ?? process.env.RESEND_FROM;
   if (!apiKey || !from) return false;
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -896,7 +898,12 @@ async function sendEmail(
 async function sendSms(to: string, body: string): Promise<boolean> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_FROM_NUMBER;
+  // TWILIO_SMS_FROM / TWILIO_PHONE_NUMBER are the names used elsewhere in
+  // Simon's projects — accept any of them.
+  const from =
+    process.env.TWILIO_FROM_NUMBER ??
+    process.env.TWILIO_SMS_FROM ??
+    process.env.TWILIO_PHONE_NUMBER;
   if (!sid || !token || !from) return false;
 
   const response = await fetch(
