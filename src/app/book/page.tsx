@@ -1,8 +1,8 @@
 import SiteHeader from "@/components/marketplace/SiteHeader";
 import Footer from "@/components/Footer";
 import type { Metadata } from "next";
-import Link from "next/link";
 import BookingFlow from "@/components/marketplace/BookingFlow";
+import BookingLanding from "@/components/marketplace/BookingLanding";
 import {
   getBundles,
   getPriceItems,
@@ -12,9 +12,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Book a carpet clean — instant fixed price",
+  title: "Book Carpet Cleaning Online — Instant Fixed Price, UK-Wide",
   description:
-    "Get an instant fixed price for carpet and upholstery cleaning, pick your date, and we'll match you with a vetted independent cleaner covering your postcode.",
+    "Get an instant fixed price for carpet and upholstery cleaning anywhere in the UK. No home visit, no haggling, nothing to pay upfront — just enter your postcode, pick a slot, and a vetted local cleaner is confirmed.",
   alternates: { canonical: "/book" },
 };
 
@@ -28,36 +28,56 @@ export default async function BookPage() {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-slate-50 pt-10">
-      <header className="mx-auto max-w-3xl px-4 pb-8 text-center">
-        <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
-          Instant fixed price
-        </p>
-        <h1 className="mt-2 text-3xl font-bold text-slate-900 sm:text-4xl">
-          Book a vetted carpet cleaner
-        </h1>
-        <p className="mx-auto mt-3 max-w-xl text-slate-600">
-          Your price is fixed before you book — no home visit, no haggling, no
-          surprises. Pick a time that suits you and we&apos;ll confirm your
-          vetted local cleaner.
-        </p>
+      <main className="min-h-screen bg-slate-50">
+      <header className="relative overflow-hidden bg-slate-900 pb-14 pt-14">
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,153,245,0.18),transparent_55%)]"
+        />
+        <div className="relative mx-auto max-w-3xl px-4 text-center">
+          <p className="text-sm font-semibold uppercase tracking-wide text-accent-400">
+            Carpet cleaning across the UK
+          </p>
+          <h1 className="mt-3 text-4xl font-bold leading-tight text-white sm:text-5xl">
+            Your fixed price in under a minute
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-slate-300">
+            No home visit, no haggling, nothing to pay upfront. Enter your
+            postcode, choose a slot, and we&apos;ll confirm a vetted local
+            cleaner.
+          </p>
+
+          <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300">
+            {[
+              "4.9/5 from 2,000+ homes",
+              "Insured & vetted cleaners",
+              "100% satisfaction guarantee",
+            ].map((point) => (
+              <li key={point} className="flex items-center gap-2">
+                <span className="text-accent-400">✓</span>
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
       </header>
 
-      <BookingFlow
-        items={items}
-        bundles={bundles}
-        minimumChargePence={settings.minimum_charge_pence}
-        commissionPct={Number(settings.commission_pct)}
-      />
+      <div className="pt-10">
+        <BookingFlow
+          items={items}
+          bundles={bundles}
+          minimumChargePence={settings.minimum_charge_pence}
+          commissionPct={Number(settings.commission_pct)}
+          landing={
+            <BookingLanding
+              items={items}
+              bundles={bundles}
+              minimumChargePence={settings.minimum_charge_pence}
+            />
+          }
+        />
+      </div>
 
-      <footer className="mx-auto max-w-3xl px-4 pb-16 pt-8 text-center text-sm text-slate-500">
-        <p>
-          Are you a carpet cleaner?{" "}
-          <Link href="/pro" className="font-semibold text-primary-600 underline">
-            Get jobs in your area
-          </Link>
-        </p>
-      </footer>
     </main>
       <Footer />
     </>

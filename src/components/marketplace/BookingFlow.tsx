@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { buildQuote, type Basket } from "@/lib/marketplace/pricing";
 import { gbp, gbpShort } from "@/lib/marketplace/money";
@@ -28,11 +28,14 @@ export default function BookingFlow({
   bundles,
   minimumChargePence,
   commissionPct,
+  landing,
 }: {
   items: PriceItem[];
   bundles: PriceBundle[];
   minimumChargePence: number;
   commissionPct: number;
+  /** Marketing content, shown only before the customer starts the quote. */
+  landing?: ReactNode;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("postcode");
@@ -179,7 +182,11 @@ export default function BookingFlow({
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-40">
       {/* Progress */}
-      <ol className="mb-8 flex flex-wrap gap-x-2 gap-y-1 text-sm">
+      <ol
+        className={`mb-8 flex-wrap gap-x-2 gap-y-1 text-sm ${
+          step === "postcode" ? "hidden" : "flex"
+        }`}
+      >
         {steps.map((s, index) => (
           <li key={s.key} className="flex items-center gap-2">
             <span
@@ -600,6 +607,8 @@ export default function BookingFlow({
           </div>
         </form>
       )}
+
+      {step === "postcode" && landing}
 
       {/* Sticky running price */}
       {step !== "postcode" && quote.total_pence > 0 && (
