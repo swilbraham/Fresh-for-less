@@ -54,7 +54,7 @@ const CLEANER_COLUMNS = `
 export async function getSettings(): Promise<Settings> {
   const row = await queryOne<Settings>(
     `SELECT commission_pct, minimum_charge_pence, min_notice_days, booking_email,
-            cancellation_notice_hours
+            cancellation_notice_hours, protection_pct, protection_enabled
        FROM settings WHERE id = 1`
   );
   if (!row) throw new Error("Marketplace settings row is missing.");
@@ -67,12 +67,16 @@ export async function updateSettings(input: {
   minNoticeDays: number;
   bookingEmail: string;
   cancellationNoticeHours: number;
+  protectionPct: number;
+  protectionEnabled: boolean;
 }): Promise<void> {
   await query(
     `UPDATE settings
         SET commission_pct = $1, minimum_charge_pence = $2,
             min_notice_days = $3, booking_email = $4,
-            cancellation_notice_hours = $5, updated_at = now()
+            cancellation_notice_hours = $5,
+            protection_pct = $6, protection_enabled = $7,
+            updated_at = now()
       WHERE id = 1`,
     [
       input.commissionPct,
@@ -80,6 +84,8 @@ export async function updateSettings(input: {
       input.minNoticeDays,
       input.bookingEmail,
       input.cancellationNoticeHours,
+      input.protectionPct,
+      input.protectionEnabled,
     ]
   );
 }
@@ -154,7 +160,10 @@ export async function deleteBundle(id: number): Promise<void> {
 // ----------------------------------------------------------------- quoting --
 
 /** The instant fixed price for a basket, always computed from live admin prices. */
-export async function quoteBasket(basket: Basket): Promise<Quote> {
+export async function quoteBasket(
+  basket: Basket,
+  protection = false
+): Promise<Quote> {
   const [settings, items, bundles] = await Promise.all([
     getSettings(),
     getPriceItems(true),
@@ -163,6 +172,8 @@ export async function quoteBasket(basket: Basket): Promise<Quote> {
   return buildQuote(basket, items, bundles, {
     minimumChargePence: settings.minimum_charge_pence,
     commissionPct: Number(settings.commission_pct),
+    protectionPct: Number(settings.protection_pct),
+    protection: protection && settings.protection_enabled,
   });
 }
 
@@ -401,6 +412,7 @@ export type BookingInput = {
   slotDate: string;
   slotWindow: SlotWindow;
   notes: string;
+  protection?: boolean;
 };
 
 export type BookingResult = {
@@ -421,7 +433,7 @@ export async function createBooking(
   if (!postcode) throw new Error("That postcode doesn't look right.");
   const outward = outwardOf(postcode)!;
 
-  const quote = await quoteBasket(input.basket);
+  const quote = await quoteBasket(input.basket, input.protection ?? false);
   if (quote.total_pence <= 0) {
     throw new Error("Choose at least one item to clean.");
   }

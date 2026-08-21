@@ -68,6 +68,8 @@ export default async function BookPage() {
           bundles={bundles}
           minimumChargePence={settings.minimum_charge_pence}
           commissionPct={Number(settings.commission_pct)}
+          protectionPct={Number(settings.protection_pct)}
+          protectionEnabled={settings.protection_enabled}
           landing={
             <BookingLanding
               items={items}

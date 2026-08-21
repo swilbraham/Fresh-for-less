@@ -13,6 +13,8 @@ export type Settings = {
   min_notice_days: number;
   booking_email: string;
   cancellation_notice_hours: number;
+  protection_pct: string | number;
+  protection_enabled: boolean;
 };
 
 export type PriceItem = {
@@ -51,6 +53,9 @@ export type Quote = {
   commission_pct: number;
   commission_pence: number;
   savings_pence: number;
+  /** Stain guard, when the customer opts in. */
+  protection_pence: number;
+  cleaning_pence: number;
 };
 
 export type Cleaner = {

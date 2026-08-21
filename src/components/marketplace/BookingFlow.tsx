@@ -28,12 +28,16 @@ export default function BookingFlow({
   bundles,
   minimumChargePence,
   commissionPct,
+  protectionPct,
+  protectionEnabled,
   landing,
 }: {
   items: PriceItem[];
   bundles: PriceBundle[];
   minimumChargePence: number;
   commissionPct: number;
+  protectionPct: number;
+  protectionEnabled: boolean;
   /** Marketing content, shown only before the customer starts the quote. */
   landing?: ReactNode;
 }) {
@@ -65,6 +69,7 @@ export default function BookingFlow({
   const [waitlist, setWaitlist] = useState({ name: "", email: "", phone: "" });
   const [joining, setJoining] = useState(false);
   const [waitlisted, setWaitlisted] = useState(false);
+  const [protection, setProtection] = useState(false);
 
   // The same pricing engine the server uses, so the figure on screen is the
   // figure that gets booked.
@@ -73,8 +78,19 @@ export default function BookingFlow({
       buildQuote(basket, items, bundles, {
         minimumChargePence,
         commissionPct,
+        protectionPct,
+        protection: protection && protectionEnabled,
       }),
-    [basket, items, bundles, minimumChargePence, commissionPct]
+    [
+      basket,
+      items,
+      bundles,
+      minimumChargePence,
+      commissionPct,
+      protectionPct,
+      protectionEnabled,
+      protection,
+    ]
   );
 
   const grouped = useMemo(() => {
@@ -153,6 +169,7 @@ export default function BookingFlow({
           slotDate,
           slotWindow,
           basket,
+          protection: protection && protectionEnabled,
         }),
       });
       const data = await response.json();
@@ -399,6 +416,31 @@ export default function BookingFlow({
               </ul>
             </section>
           ))}
+
+          {protectionEnabled && quote.cleaning_pence > 0 && (
+            <section className="rounded-2xl border-2 border-accent-200 bg-accent-50/50 p-6">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={protection}
+                  onChange={(e) => setProtection(e.target.checked)}
+                  className="mt-1 h-5 w-5 rounded border-slate-300 accent-accent-600"
+                />
+                <span>
+                  <span className="block font-bold text-slate-900">
+                    Add stain guard —{" "}
+                    {gbp(Math.round((quote.cleaning_pence * protectionPct) / 100))}
+                  </span>
+                  <span className="mt-1 block text-sm text-slate-600">
+                    A protective barrier applied to your carpets and upholstery
+                    once they&apos;re clean. Spills sit on the surface instead of
+                    soaking in, so they blot up before they stain — and the
+                    clean lasts noticeably longer.
+                  </span>
+                </span>
+              </label>
+            </section>
+          )}
 
           <div className="flex gap-3">
             <button

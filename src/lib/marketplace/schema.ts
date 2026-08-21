@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -208,6 +208,13 @@ export const STATEMENTS: string[] = [
      dropped_at   timestamptz NOT NULL DEFAULT now()
    )`,
   `CREATE INDEX IF NOT EXISTS job_drops_cleaner ON job_drops (cleaner_id)`,
+
+  // ---- Stain guard ---------------------------------------------------------
+  // Priced as a percentage of the clean rather than per item: the work scales
+  // with what's being treated, so a flat per-room figure would over-charge a
+  // small job and under-charge a whole house.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_pct numeric(5,2) NOT NULL DEFAULT 20.00`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_enabled boolean NOT NULL DEFAULT true`,
 
   // ---- Abuse control -------------------------------------------------------
   // Every booking texts cleaners, so an open booking endpoint is a way to spend

@@ -101,12 +101,19 @@ export async function savePricesAction(data: FormData) {
     fail("/admin/prices", "Cancellation notice must be between 0 and 336 hours.");
   }
 
+  const protectionPct = Number(field(data, "protectionPct", 6));
+  if (!Number.isFinite(protectionPct) || protectionPct < 0 || protectionPct > 100) {
+    fail("/admin/prices", "Stain guard must be between 0 and 100 percent.");
+  }
+
   await updateSettings({
     commissionPct,
     minimumChargePence,
     minNoticeDays,
     bookingEmail: field(data, "bookingEmail", 120),
     cancellationNoticeHours,
+    protectionPct,
+    protectionEnabled: data.get("protectionEnabled") === "on",
   });
 
   for (const item of await getPriceItems()) {

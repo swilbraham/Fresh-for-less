@@ -85,6 +85,7 @@ export async function POST(request: Request) {
       slotDate,
       slotWindow,
       notes,
+      protection: payload.protection === true,
     });
 
     return NextResponse.json({

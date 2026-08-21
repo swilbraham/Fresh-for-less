@@ -57,7 +57,14 @@ export function buildQuote(
   basket: Basket,
   items: PriceItem[],
   bundles: PriceBundle[],
-  opts: { minimumChargePence: number; commissionPct: number }
+  opts: {
+    minimumChargePence: number;
+    commissionPct: number;
+    /** Stain guard as a percentage of the cleaning total. */
+    protectionPct?: number;
+    /** Whether the customer has opted into stain guard. */
+    protection?: boolean;
+  }
 ): Quote {
   const lines: QuoteLine[] = [];
   let subtotal = 0;
@@ -98,16 +105,38 @@ export function buildQuote(
   }
 
   const minimumApplied = subtotal > 0 && subtotal < opts.minimumChargePence;
-  const total = subtotal === 0
+
+  // The minimum applies to the cleaning itself; stain guard is charged on top
+  // of whatever the clean actually comes to.
+  const cleaning = subtotal === 0
     ? 0
     : Math.max(subtotal, opts.minimumChargePence);
 
+  const protectionPct = opts.protectionPct ?? 0;
+  const protection =
+    opts.protection && cleaning > 0
+      ? Math.round((cleaning * protectionPct) / 100)
+      : 0;
+
+  if (protection > 0) {
+    lines.push({
+      code: "protection",
+      label: "Stain guard",
+      qty: 1,
+      amount_pence: protection,
+      note: `${protectionPct}% of the clean — carpets and upholstery`,
+    });
+  }
+
+  const total = cleaning + protection;
   const commissionPence = Math.round((total * opts.commissionPct) / 100);
 
   return {
     lines,
     subtotal_pence: subtotal,
     minimum_applied: minimumApplied,
+    cleaning_pence: cleaning,
+    protection_pence: protection,
     total_pence: total,
     commission_pct: opts.commissionPct,
     commission_pence: commissionPence,
