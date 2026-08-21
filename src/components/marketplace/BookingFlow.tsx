@@ -606,6 +606,16 @@ export default function BookingFlow({
             </p>
           </section>
 
+          <p className="text-xs text-slate-500">
+            When a cleaner accepts your job we share your name, address and
+            phone number with them so they can reach you and get to your home.
+            Nothing else is shared, and we never sell your details. See our{" "}
+            <a href="/privacy" className="underline" target="_blank" rel="noopener noreferrer">
+              privacy policy
+            </a>
+            .
+          </p>
+
           <div className="flex gap-3">
             <button
               type="button"

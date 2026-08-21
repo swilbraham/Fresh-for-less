@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { recordCoverageRequest } from "@/lib/marketplace/repo";
+import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,11 @@ export async function POST(request: Request) {
       { ok: false, error: "Please enter a valid email address." },
       { status: 400 }
     );
+  }
+
+  const limit = await hitRateLimit("waitlist", email, 5, 60 * 60);
+  if (!limit.allowed) {
+    return NextResponse.json({ ok: true });
   }
 
   try {

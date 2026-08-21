@@ -186,6 +186,28 @@ export default async function AdminPage({
           )}
         </Card>
 
+        <Card
+          title="Download your data"
+          description="Your own copy, in a format a spreadsheet or accountant can read. Worth doing monthly — these files contain customer names, addresses and phone numbers, so keep them somewhere private."
+          className="mt-8"
+        >
+          <div className="mt-4 flex flex-wrap gap-3">
+            {[
+              { type: "jobs", label: "Jobs" },
+              { type: "cleaners", label: "Cleaners" },
+              { type: "invoices", label: "Commission invoices" },
+            ].map((item) => (
+              <a
+                key={item.type}
+                href={`/admin/export?type=${item.type}`}
+                className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                {item.label} (CSV)
+              </a>
+            ))}
+          </div>
+        </Card>
+
         <form action={adminLogoutAction} className="mt-8">
           <button
             type="submit"

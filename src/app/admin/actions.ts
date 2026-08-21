@@ -24,6 +24,7 @@ import {
   getCleaner,
 } from "@/lib/marketplace/repo";
 import { penceFromInput } from "@/lib/marketplace/money";
+import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 import { parseOutwardList } from "@/lib/marketplace/postcode";
 import { makeResetToken } from "@/lib/marketplace/auth";
 import {
@@ -51,6 +52,13 @@ async function requireAdmin(path: string) {
 // ------------------------------------------------------------------ access --
 
 export async function adminLoginAction(data: FormData) {
+  // One shared password guards every customer record in the system, so this is
+  // the highest-value target on the site.
+  const attempts = await hitRateLimit("login:admin", "admin", 10, 15 * 60);
+  if (!attempts.allowed) {
+    fail("/admin", "Too many attempts. Please wait a few minutes.");
+  }
+
   if (!checkAdminPassword(field(data, "password", 200))) {
     fail("/admin", "Incorrect password.");
   }

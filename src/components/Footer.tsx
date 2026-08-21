@@ -67,6 +67,7 @@ export default function Footer() {
                 { label: "Training Course", href: "/training" },
                 { label: "Carpet Cleaner? Get Local Jobs", href: "/pro" },
                 { label: "Pay Online", href: "/pay/" },
+                { label: "Privacy Policy", href: "/privacy" },
               ].map((link) => (
                 <li key={link.label}>
                   <a href={link.href} className="text-sm text-slate-400 hover:text-white transition-colors">

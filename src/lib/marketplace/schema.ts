@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -208,6 +208,18 @@ export const STATEMENTS: string[] = [
      dropped_at   timestamptz NOT NULL DEFAULT now()
    )`,
   `CREATE INDEX IF NOT EXISTS job_drops_cleaner ON job_drops (cleaner_id)`,
+
+  // ---- Abuse control -------------------------------------------------------
+  // Every booking texts cleaners, so an open booking endpoint is a way to spend
+  // someone else's money and harass their network. Counters live in the
+  // database rather than memory because serverless instances don't share state.
+  `CREATE TABLE IF NOT EXISTS rate_limits (
+     bucket       text NOT NULL,
+     key          text NOT NULL,
+     window_start timestamptz NOT NULL DEFAULT now(),
+     count        int NOT NULL DEFAULT 0,
+     PRIMARY KEY (bucket, key)
+   )`,
 
   // ---- Notification outbox ------------------------------------------------
   // Written on every broadcast/allocation event. A sender picks these up; with

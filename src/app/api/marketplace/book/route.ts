@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createBooking } from "@/lib/marketplace/repo";
 import { normalisePostcode } from "@/lib/marketplace/postcode";
+import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,26 @@ export async function POST(request: Request) {
   for (const [code, qty] of Object.entries(rawBasket)) {
     const n = Math.floor(Number(qty));
     if (Number.isFinite(n) && n > 0) basket[text(code, 40)] = n;
+  }
+
+  // Each booking texts every covering cleaner, so an unthrottled endpoint is a
+  // way to spend someone else's SMS budget and spam their network.
+  const perContact = await hitRateLimit(
+    "book:contact",
+    customerPhone.replace(/\D/g, "") || customerEmail,
+    5,
+    60 * 60
+  );
+  const overall = await hitRateLimit("book:global", "all", 60, 60 * 60);
+  if (!perContact.allowed || !overall.allowed) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "We've had a lot of booking attempts just now. Please call 0330 043 4811 and we'll book you in.",
+      },
+      { status: 429 }
+    );
   }
 
   try {
