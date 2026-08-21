@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getJobByRef } from "@/lib/marketplace/repo";
 import { bookingToken } from "@/lib/marketplace/auth";
+import TrackBooking from "@/components/marketplace/TrackBooking";
 import { gbp } from "@/lib/marketplace/money";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,11 @@ export default async function ConfirmedPage({
   return (
     <>
       <SiteHeader />
+      <TrackBooking
+        valuePence={job.total_pence}
+        provisional={job.status === "provisional"}
+        reference={job.ref}
+      />
       <main className="min-h-screen bg-slate-50 pt-10 pb-20">
       <div className="mx-auto max-w-2xl px-4">
         <div className="rounded-2xl border border-accent-200 bg-white p-8 shadow-sm">

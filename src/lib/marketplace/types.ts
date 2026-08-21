@@ -1,5 +1,6 @@
 export type CleanerStatus = "pending" | "approved" | "suspended" | "rejected";
 export type JobStatus =
+  | "provisional"
   | "offered"
   | "accepted"
   | "completed"
