@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import {
@@ -125,7 +126,13 @@ export default async function AdminCleanersPage({
                       {cleaner.name} · {cleaner.email} · {cleaner.phone}
                     </p>
                     <p className="mt-1 text-sm text-slate-500">
-                      Applied {cleaner.created_at} · {cleaner.jobs_done} job
+                      <Link
+                        href={`/admin/jobs?q=${encodeURIComponent(cleaner.name)}`}
+                        className="font-semibold text-primary-600 underline"
+                      >
+                        View their jobs
+                      </Link>{" "}
+                      · Applied {cleaner.created_at} · {cleaner.jobs_done} job
                       {cleaner.jobs_done === 1 ? "" : "s"} completed
                     </p>
                   </div>

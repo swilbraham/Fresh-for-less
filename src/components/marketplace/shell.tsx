@@ -142,6 +142,7 @@ export function AvailabilityGrid({
 export function ProNav({ name }: { name: string }) {
   const links = [
     { href: "/pro/dashboard", label: "Jobs" },
+    { href: "/pro/history", label: "History" },
     { href: "/pro/coverage", label: "Coverage & diary" },
     { href: "/pro/invoices", label: "Commission" },
   ];

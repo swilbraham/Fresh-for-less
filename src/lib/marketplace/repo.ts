@@ -864,8 +864,10 @@ export type JobFilters = {
   /** Inclusive slot-date bounds, YYYY-MM-DD. */
   from?: string;
   to?: string;
-  /** Matches reference, customer name, postcode or town. */
+  /** Matches reference, customer name, postcode, town or cleaner name. */
   q?: string;
+  /** Restrict to one cleaner. Always forced server-side, never from input. */
+  cleanerId?: number;
   limit?: number;
 };
 
@@ -891,12 +893,20 @@ function jobFilterClause(filters: JobFilters): {
     params.push(filters.to);
     clauses.push(`j.slot_date <= $${params.length}::date`);
   }
+  if (filters.cleanerId) {
+    params.push(filters.cleanerId);
+    clauses.push(`j.cleaner_id = $${params.length}`);
+  }
   if (filters.q) {
     params.push(`%${filters.q.toLowerCase()}%`);
     const n = params.length;
     clauses.push(
       `(lower(j.ref) LIKE $${n} OR lower(j.customer_name) LIKE $${n}
-        OR lower(j.postcode) LIKE $${n} OR lower(j.town) LIKE $${n})`
+        OR lower(j.postcode) LIKE $${n} OR lower(j.town) LIKE $${n}
+        OR EXISTS (SELECT 1 FROM cleaners cf
+                    WHERE cf.id = j.cleaner_id
+                      AND (lower(cf.name) LIKE $${n}
+                        OR lower(cf.business_name) LIKE $${n})))`
     );
   }
 
