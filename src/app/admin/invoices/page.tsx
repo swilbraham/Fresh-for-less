@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import { listInvoices, listUninvoicedCommission } from "@/lib/marketplace/repo";
@@ -165,8 +166,13 @@ export default async function AdminInvoicesPage({
                 <tbody className="divide-y divide-slate-100">
                   {invoices.map((invoice) => (
                     <tr key={invoice.id}>
-                      <td className="py-2 font-medium text-slate-800">
-                        {invoice.ref}
+                      <td className="py-2 font-medium">
+                        <Link
+                          href={`/pro/invoices/${invoice.ref}`}
+                          className="text-primary-600 underline"
+                        >
+                          {invoice.ref}
+                        </Link>
                       </td>
                       <td className="py-2 text-slate-700">
                         {invoice.cleaner_name}

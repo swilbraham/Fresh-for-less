@@ -114,6 +114,15 @@ export async function savePricesAction(data: FormData) {
     cancellationNoticeHours,
     protectionPct,
     protectionEnabled: data.get("protectionEnabled") === "on",
+    payeeName: field(data, "payeeName", 120),
+    // Digits only — a stray space or dash makes a bank transfer fail.
+    payeeAccount: field(data, "payeeAccount", 20).replace(/\D/g, ""),
+    payeeSortCode: field(data, "payeeSortCode", 12).replace(/\D/g, ""),
+    payeeAddress: field(data, "payeeAddress", 300),
+    paymentTermsDays: Math.max(
+      0,
+      Math.min(90, Number(field(data, "paymentTermsDays", 3)) || 7)
+    ),
   });
 
   for (const item of await getPriceItems()) {

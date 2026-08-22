@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -215,6 +215,15 @@ export const STATEMENTS: string[] = [
   // small job and under-charge a whole house.
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_pct numeric(5,2) NOT NULL DEFAULT 20.00`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_enabled boolean NOT NULL DEFAULT true`,
+
+  // ---- Commission payment details ------------------------------------------
+  // Deliberately blank by default and entered through /admin/prices. The repo
+  // is public, so bank details must never live in source or in a migration.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_name       text NOT NULL DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_account    text NOT NULL DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_sort_code  text NOT NULL DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_address    text NOT NULL DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payment_terms_days int NOT NULL DEFAULT 7`,
 
   // ---- Abuse control -------------------------------------------------------
   // Every booking texts cleaners, so an open booking endpoint is a way to spend

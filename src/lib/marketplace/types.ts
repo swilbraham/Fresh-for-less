@@ -16,6 +16,11 @@ export type Settings = {
   cancellation_notice_hours: number;
   protection_pct: string | number;
   protection_enabled: boolean;
+  payee_name: string;
+  payee_account: string;
+  payee_sort_code: string;
+  payee_address: string;
+  payment_terms_days: number;
 };
 
 export type PriceItem = {

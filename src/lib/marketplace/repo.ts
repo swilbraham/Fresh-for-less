@@ -54,7 +54,9 @@ const CLEANER_COLUMNS = `
 export async function getSettings(): Promise<Settings> {
   const row = await queryOne<Settings>(
     `SELECT commission_pct, minimum_charge_pence, min_notice_days, booking_email,
-            cancellation_notice_hours, protection_pct, protection_enabled
+            cancellation_notice_hours, protection_pct, protection_enabled,
+            payee_name, payee_account, payee_sort_code, payee_address,
+            payment_terms_days
        FROM settings WHERE id = 1`
   );
   if (!row) throw new Error("Marketplace settings row is missing.");
@@ -69,6 +71,11 @@ export async function updateSettings(input: {
   cancellationNoticeHours: number;
   protectionPct: number;
   protectionEnabled: boolean;
+  payeeName: string;
+  payeeAccount: string;
+  payeeSortCode: string;
+  payeeAddress: string;
+  paymentTermsDays: number;
 }): Promise<void> {
   await query(
     `UPDATE settings
@@ -76,6 +83,8 @@ export async function updateSettings(input: {
             min_notice_days = $3, booking_email = $4,
             cancellation_notice_hours = $5,
             protection_pct = $6, protection_enabled = $7,
+            payee_name = $8, payee_account = $9, payee_sort_code = $10,
+            payee_address = $11, payment_terms_days = $12,
             updated_at = now()
       WHERE id = 1`,
     [
@@ -86,6 +95,11 @@ export async function updateSettings(input: {
       input.cancellationNoticeHours,
       input.protectionPct,
       input.protectionEnabled,
+      input.payeeName,
+      input.payeeAccount,
+      input.payeeSortCode,
+      input.payeeAddress,
+      input.paymentTermsDays,
     ]
   );
 }
@@ -1081,11 +1095,11 @@ export async function notifyInvoiceRaised(
       `Jobs completed: ${invoice.jobs}\n` +
       `Commission due: ${gbpShort(invoice.totalPence)}\n` +
       `Payable by: ${dueBy}\n\n` +
-      `You can see the jobs it covers at ${siteUrl()}/pro/invoices.`,
+      `View, print or pay it here:\n${siteUrl()}/pro/invoices/${invoice.ref}`,
     smsBody:
       `Commission invoice ${invoice.ref}: ${gbpShort(invoice.totalPence)} for ` +
       `${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"}, due ${dueBy}. ` +
-      `${siteUrl()}/pro/invoices`,
+      `${siteUrl()}/pro/invoices/${invoice.ref}`,
   });
 }
 
@@ -1867,4 +1881,52 @@ export async function cleanerReliability(
     [cleanerId, LATE_DROP_HOURS, String(DROP_REVIEW_DAYS)]
   );
   return row ?? { completed: 0, drops: 0, late_drops: 0, recent_late_drops: 0 };
+}
+
+
+// ------------------------------------------------------ invoice detail ----
+
+export type InvoiceLine = {
+  ref: string;
+  slot_date: string;
+  postcode: string;
+  customer_name: string;
+  total_pence: number;
+  commission_pct: string | number;
+  amount_pence: number;
+};
+
+/** One invoice with the jobs behind it, for the printable version. */
+export async function getInvoice(
+  ref: string
+): Promise<{ invoice: InvoiceRow; lines: InvoiceLine[] } | null> {
+  const invoice = await queryOne<InvoiceRow>(
+    `SELECT i.id, i.ref, i.cleaner_id, c.name AS cleaner_name,
+            to_char(i.period_start, 'YYYY-MM-DD') AS period_start,
+            to_char(i.period_end,   'YYYY-MM-DD') AS period_end,
+            i.total_pence, i.status,
+            to_char(i.issued_at, 'YYYY-MM-DD') AS issued_at,
+            to_char(i.paid_at,   'YYYY-MM-DD') AS paid_at,
+            (SELECT count(*)::int FROM commission_invoice_lines l
+              WHERE l.invoice_id = i.id) AS jobs
+       FROM commission_invoices i
+       JOIN cleaners c ON c.id = i.cleaner_id
+      WHERE i.ref = $1`,
+    [ref]
+  );
+  if (!invoice) return null;
+
+  const lines = await query<InvoiceLine>(
+    `SELECT j.ref,
+            to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date,
+            j.postcode, j.customer_name, j.total_pence, j.commission_pct,
+            l.amount_pence
+       FROM commission_invoice_lines l
+       JOIN jobs j ON j.id = l.job_id
+      WHERE l.invoice_id = $1
+      ORDER BY j.slot_date`,
+    [invoice.id]
+  );
+
+  return { invoice, lines };
 }

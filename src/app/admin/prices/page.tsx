@@ -46,7 +46,7 @@ export default async function AdminPricesPage({
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Prices updated. Live on /book now.</Alert>}
 
-        <form action={savePricesAction} className="space-y-6">
+        <form id="prices-form" action={savePricesAction} className="space-y-6">
           <Card
             title="Platform settings"
             description="These apply nationally to every job and every cleaner."
@@ -273,6 +273,87 @@ export default async function AdminPricesPage({
             Save prices &amp; settings
           </button>
         </form>
+
+        <Card
+          title="Commission payment details"
+          description="Shown on every commission invoice so cleaners know who to pay and how. Stored here rather than in the code — this repository is public."
+          className="mt-8"
+        >
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label htmlFor="payeeName" className="block text-sm font-semibold text-slate-700">
+                Account name
+              </label>
+              <input
+                id="payeeName"
+                name="payeeName"
+                form="prices-form"
+                defaultValue={settings.payee_name}
+                placeholder="e.g. Wirral Carpet Cleaning Limited"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5"
+              />
+            </div>
+            <div>
+              <label htmlFor="payeeSortCode" className="block text-sm font-semibold text-slate-700">
+                Sort code
+              </label>
+              <input
+                id="payeeSortCode"
+                name="payeeSortCode"
+                form="prices-form"
+                defaultValue={settings.payee_sort_code}
+                placeholder="000000"
+                inputMode="numeric"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 tabular-nums"
+              />
+            </div>
+            <div>
+              <label htmlFor="payeeAccount" className="block text-sm font-semibold text-slate-700">
+                Account number
+              </label>
+              <input
+                id="payeeAccount"
+                name="payeeAccount"
+                form="prices-form"
+                defaultValue={settings.payee_account}
+                placeholder="00000000"
+                inputMode="numeric"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 tabular-nums"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="payeeAddress" className="block text-sm font-semibold text-slate-700">
+                Your business address (appears on the invoice)
+              </label>
+              <textarea
+                id="payeeAddress"
+                name="payeeAddress"
+                form="prices-form"
+                rows={3}
+                defaultValue={settings.payee_address}
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5"
+              />
+            </div>
+            <div>
+              <label htmlFor="paymentTermsDays" className="block text-sm font-semibold text-slate-700">
+                Payment terms (days)
+              </label>
+              <input
+                id="paymentTermsDays"
+                name="paymentTermsDays"
+                form="prices-form"
+                type="number"
+                min="0"
+                max="90"
+                defaultValue={settings.payment_terms_days}
+                className="mt-1 w-32 rounded-xl border border-slate-300 px-4 py-2.5"
+              />
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Saved with the <strong>Save prices &amp; settings</strong> button above.
+          </p>
+        </Card>
 
         {/* Bundle offers */}
         <Card

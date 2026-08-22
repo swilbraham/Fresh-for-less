@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentCleaner } from "@/lib/marketplace/auth";
 import { listInvoices, listJobsForCleaner } from "@/lib/marketplace/repo";
@@ -81,8 +82,13 @@ export default async function InvoicesPage() {
                 <tbody className="divide-y divide-slate-100">
                   {invoices.map((invoice) => (
                     <tr key={invoice.id}>
-                      <td className="py-2 font-medium text-slate-800">
-                        {invoice.ref}
+                      <td className="py-2 font-medium">
+                        <Link
+                          href={`/pro/invoices/${invoice.ref}`}
+                          className="text-primary-600 underline"
+                        >
+                          {invoice.ref}
+                        </Link>
                       </td>
                       <td className="py-2 text-slate-600">
                         {invoice.period_start} → {invoice.period_end}
