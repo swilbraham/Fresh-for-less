@@ -176,6 +176,41 @@ export default async function AdminPricesPage({
                   window is flagged as a late cancellation for you and the cleaner.
                 </p>
               </div>
+              <div className="sm:col-span-2 rounded-xl border border-primary-200 bg-primary-50/40 p-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="adminSmsEnabled"
+                    defaultChecked={settings.admin_sms_enabled}
+                    className="mt-1 h-5 w-5 rounded border-slate-300 accent-primary-600"
+                  />
+                  <span className="font-semibold text-slate-800">
+                    Text me every booking
+                  </span>
+                </label>
+                <div className="mt-3">
+                  <label
+                    htmlFor="adminMobile"
+                    className="block text-sm font-semibold text-slate-700"
+                  >
+                    Your mobile
+                  </label>
+                  <input
+                    id="adminMobile"
+                    name="adminMobile"
+                    type="tel"
+                    defaultValue={settings.admin_mobile}
+                    placeholder="07700 900123"
+                    className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 sm:w-64"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    A text the moment any booking lands, wherever it is, with
+                    how many cleaners it went to — or a warning if nobody
+                    covers it. Separate from job offers you get as a cleaner.
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <label
                   htmlFor="bookingEmail"

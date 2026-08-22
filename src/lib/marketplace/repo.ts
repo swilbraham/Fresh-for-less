@@ -56,7 +56,8 @@ export async function getSettings(): Promise<Settings> {
     `SELECT commission_pct, minimum_charge_pence, min_notice_days, booking_email,
             cancellation_notice_hours, protection_pct, protection_enabled,
             payee_name, payee_account, payee_sort_code, payee_address,
-            payment_terms_days, legal_footer
+            payment_terms_days, legal_footer,
+            admin_mobile, admin_sms_enabled
        FROM settings WHERE id = 1`
   );
   if (!row) throw new Error("Marketplace settings row is missing.");
@@ -77,6 +78,8 @@ export async function updateSettings(input: {
   payeeAddress: string;
   paymentTermsDays: number;
   legalFooter: string;
+  adminMobile: string;
+  adminSmsEnabled: boolean;
 }): Promise<void> {
   await query(
     `UPDATE settings
@@ -87,6 +90,7 @@ export async function updateSettings(input: {
             payee_name = $8, payee_account = $9, payee_sort_code = $10,
             payee_address = $11, payment_terms_days = $12,
             legal_footer = $13,
+            admin_mobile = $14, admin_sms_enabled = $15,
             updated_at = now()
       WHERE id = 1`,
     [
@@ -103,6 +107,8 @@ export async function updateSettings(input: {
       input.payeeAddress,
       input.paymentTermsDays,
       input.legalFooter,
+      input.adminMobile,
+      input.adminSmsEnabled,
     ]
   );
 }
@@ -564,6 +570,18 @@ export async function createBooking(
       jobId: saved.id,
     });
   }
+
+  await notifyAdmin({
+    subject: `New booking ${saved.ref} — ${saved.postcode}`,
+    smsBody: covered
+      ? `NEW BOOKING ${saved.ref}: ${saved.postcode}, ${saved.slot_date} ` +
+        `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
+        `Offered to ${offered} cleaner${offered === 1 ? "" : "s"}.`
+      : `NEW REQUEST ${saved.ref}: ${saved.postcode}, ${saved.slot_date} ` +
+        `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
+        `NO COVER — promised confirmation within 24h.`,
+    jobId: saved.id,
+  });
 
   const manageLink = bookingUrl(saved.ref, siteUrl());
   await notifyCustomer(saved, {
@@ -1362,6 +1380,29 @@ export async function notifyCustomer(
     recipient: job.customer_email,
     subject: input.subject,
     body: input.body,
+    jobId: input.jobId,
+  });
+}
+
+/**
+ * Text the office. Separate from the cleaner broadcast on purpose: the office
+ * wants to know a booking landed and whether anyone can take it, which is a
+ * different question from "do you want this job".
+ */
+export async function notifyAdmin(input: {
+  subject: string;
+  smsBody: string;
+  jobId?: number;
+}): Promise<void> {
+  const settings = await getSettings();
+  const mobile = toE164(settings.admin_mobile);
+  if (!settings.admin_sms_enabled || !mobile) return;
+
+  await notify({
+    channel: "sms",
+    recipient: mobile,
+    subject: input.subject,
+    body: input.smsBody,
     jobId: input.jobId,
   });
 }

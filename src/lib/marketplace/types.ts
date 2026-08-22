@@ -22,6 +22,8 @@ export type Settings = {
   payee_address: string;
   payment_terms_days: number;
   legal_footer: string;
+  admin_mobile: string;
+  admin_sms_enabled: boolean;
 };
 
 export type PriceItem = {

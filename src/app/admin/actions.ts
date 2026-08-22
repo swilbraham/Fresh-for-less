@@ -125,6 +125,8 @@ export async function savePricesAction(data: FormData) {
       Math.min(90, Number(field(data, "paymentTermsDays", 3)) || 7)
     ),
     legalFooter: field(data, "legalFooter", 300),
+    adminMobile: field(data, "adminMobile", 30),
+    adminSmsEnabled: data.get("adminSmsEnabled") === "on",
   });
 
   for (const item of await getPriceItems()) {

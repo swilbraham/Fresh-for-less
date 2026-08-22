@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -193,14 +193,54 @@ export const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS coverage_requests_outward
      ON coverage_requests (outward)`,
 
-  // ---- One-off settings change, 2026-08-21 (commission) -------------------
-  // Commission to 20%, set before the first outside cleaner joins: a rate is
-  // easy to establish and painful to raise, and someone who never knew 17.5%
-  // won't feel it. Jobs already booked keep the rate they were quoted at, so
-  // nothing is rewritten. The price-list statements this replaces have already
-  // run and live on in the seeded defaults — replaying them on a later bump
-  // would quietly undo admin edits. Ongoing changes belong in /admin/prices.
-  `UPDATE settings SET commission_pct = 20.00 WHERE id = 1`,
+  // ==== POST-LAUNCH ADDITIONS — DO NOT PUT ONE-OFF DATA CHANGES IN HERE =====
+  // Schema that arrived after the first release. One-off data changes belong
+  // at the very end of this array, below the sentinel, because they get
+  // replaced wholesale on each bump and have twice eaten neighbouring
+  // statements that lived next to them.
+
+  // Stain guard, priced as a percentage of the clean.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_pct numeric(5,2) NOT NULL DEFAULT 20.00`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_enabled boolean NOT NULL DEFAULT true`,
+
+  // Commission payment details, entered through /admin/prices. Blank by
+  // default — the repository is public, so bank details never live in source.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_name       text NOT NULL DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_account    text NOT NULL DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_sort_code  text NOT NULL DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_address    text NOT NULL DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payment_terms_days int NOT NULL DEFAULT 7`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS legal_footer     text NOT NULL DEFAULT ''`,
+
+  // Office alerts. Email doesn't send on this domain, so without a mobile the
+  // office has no way of knowing a booking landed.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS admin_mobile      text NOT NULL DEFAULT ''`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS admin_sms_enabled boolean NOT NULL DEFAULT true`,
+
+  // A cleaner walking away from an accepted job is the thing most likely to
+  // cost a customer, so it gets its own record. Notice given is stored at the
+  // moment of the drop because it can't be reconstructed afterwards.
+  `CREATE TABLE IF NOT EXISTS job_drops (
+     id           serial PRIMARY KEY,
+     job_id       int NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+     cleaner_id   int NOT NULL REFERENCES cleaners(id) ON DELETE CASCADE,
+     dropped_by   text NOT NULL DEFAULT 'cleaner',
+     hours_notice numeric(8,2) NOT NULL DEFAULT 0,
+     reason       text NOT NULL DEFAULT '',
+     dropped_at   timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS job_drops_cleaner ON job_drops (cleaner_id)`,
+
+  // Every booking texts cleaners, so an open booking endpoint is a way to
+  // spend someone else's money. Counters live in the database because
+  // serverless instances don't share memory.
+  `CREATE TABLE IF NOT EXISTS rate_limits (
+     bucket       text NOT NULL,
+     key          text NOT NULL,
+     window_start timestamptz NOT NULL DEFAULT now(),
+     count        int NOT NULL DEFAULT 0,
+     PRIMARY KEY (bucket, key)
+   )`,
 
   // ---- Notification outbox ------------------------------------------------
   // Written on every broadcast/allocation event. A sender picks these up; with
@@ -216,6 +256,17 @@ export const STATEMENTS: string[] = [
      sent_at    timestamptz,
      error      text
    )`,
+
+  // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
+  // ---- One-off settings change, 2026-08-21 (commission) -------------------
+  // Commission to 20%, set before the first outside cleaner joins: a rate is
+  // easy to establish and painful to raise, and someone who never knew 17.5%
+  // won't feel it. Jobs already booked keep the rate they were quoted at, so
+  // nothing is rewritten. The price-list statements this replaces have already
+  // run and live on in the seeded defaults — replaying them on a later bump
+  // would quietly undo admin edits. Ongoing changes belong in /admin/prices.
+  `UPDATE settings SET commission_pct = 20.00 WHERE id = 1`,
+
 ];
 
 /** Default national price list — admin can change every figure from /admin. */
