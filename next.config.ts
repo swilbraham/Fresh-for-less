@@ -5,8 +5,14 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite"],
   async redirects() {
     return [
-      { source: "/3for75", destination: "/3for79", permanent: true },
-      { source: "/3for75/:path*", destination: "/3for79", permanent: true },
+      // Retired offers. 301 rather than 404 so old ad links, printed material
+      // and anything Google still has indexed lands on live pricing.
+      { source: "/3for75", destination: "/book", permanent: true },
+      { source: "/3for75/:path*", destination: "/book", permanent: true },
+      { source: "/3for79", destination: "/book", permanent: true },
+      { source: "/3for79/:path*", destination: "/book", permanent: true },
+      { source: "/3for49", destination: "/book", permanent: true },
+      { source: "/3for49/:path*", destination: "/book", permanent: true },
     ];
   },
 };
