@@ -1,3 +1,4 @@
+import { COMPANY_DISCLOSURE } from "@/lib/company";
 export default function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-slate-950">
@@ -119,6 +120,9 @@ export default function Footer() {
         <div className="mt-12 border-t border-slate-800 pt-8 text-center">
           <p className="text-sm text-slate-500">
             &copy; {new Date().getFullYear()} Fresh For Less Carpet Cleaning. All rights reserved.
+          </p>
+          <p className="mx-auto mt-2 max-w-2xl text-xs leading-relaxed text-slate-600">
+            {COMPANY_DISCLOSURE}
           </p>
         </div>
       </div>

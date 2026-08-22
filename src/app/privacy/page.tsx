@@ -26,7 +26,10 @@ export default function PrivacyPage() {
               <p className="mt-2">
                 Fresh For Less Carpet Cleaning provides carpet and upholstery
                 cleaning, and operates a network of independent cleaners through
-                this website. We are the data controller for the information
+                this website. It is a trading name of Wirral Carpet Cleaning
+                Limited (registered in England and Wales, company number
+                11103869, registered office 8 Overton Way, Prenton, Wirral,
+                CH43 2LF), which is the data controller for the information
                 described here. You can reach us on{" "}
                 <a href="tel:03300434811" className="font-semibold underline">
                   0330 043 4811

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { currentCleaner, isAdmin } from "@/lib/marketplace/auth";
 import { getCleaner, getInvoice, getSettings } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
+import { COMPANY_DISCLOSURE } from "@/lib/company";
 
 export const dynamic = "force-dynamic";
 
@@ -246,11 +247,9 @@ export default async function InvoicePage({
             job price directly from each customer on the day.
           </p>
 
-          {settings.legal_footer && (
-            <p className="mt-4 border-t border-slate-200 pt-4 text-xs text-slate-500">
-              {settings.legal_footer}
-            </p>
-          )}
+          <p className="mt-4 border-t border-slate-200 pt-4 text-xs text-slate-500">
+            {settings.legal_footer || COMPANY_DISCLOSURE}
+          </p>
         </article>
       </div>
     </main>
