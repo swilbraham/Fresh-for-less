@@ -180,6 +180,22 @@ export async function addPriceItemAction(data: FormData) {
   redirect("/admin/prices?saved=1");
 }
 
+/**
+ * Bound-argument variant for the per-row Remove button.
+ *
+ * A button using formAction can't also carry name/value data — React claims
+ * that slot to encode the server action reference, so a `name="code"` field is
+ * silently overwritten and the delete arrives with nothing to delete. Binding
+ * the code into the action sidesteps the collision entirely.
+ */
+export async function removePriceItemAction(code: string, _data: FormData) {
+  await requireAdmin("/admin/prices");
+  await deletePriceItem(code);
+  revalidatePath("/admin/prices");
+  revalidatePath("/book");
+  redirect("/admin/prices?saved=1");
+}
+
 export async function deletePriceItemAction(data: FormData) {
   await requireAdmin("/admin/prices");
   await deletePriceItem(field(data, "code", 40));

@@ -7,9 +7,11 @@ import {
   addPriceItemAction,
   deleteBundleAction,
   deletePriceItemAction,
+  removePriceItemAction,
   savePricesAction,
 } from "../actions";
 import { AdminNav, Alert, Card } from "@/components/marketplace/shell";
+import ConfirmButton from "@/components/marketplace/ConfirmButton";
 
 export const dynamic = "force-dynamic";
 
@@ -243,6 +245,7 @@ export default async function AdminPricesPage({
                     <th className="py-2 font-semibold">Price (£)</th>
                     <th className="py-2 font-semibold">Max qty</th>
                     <th className="py-2 font-semibold" />
+                    <th className="py-2 text-right font-semibold">Remove</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -294,6 +297,15 @@ export default async function AdminPricesPage({
                       </td>
                       <td className="py-2 text-right text-xs text-slate-400">
                         {item.code}
+                      </td>
+                      <td className="py-2 text-right">
+                        <ConfirmButton
+                          action={removePriceItemAction.bind(null, item.code)}
+                          confirmText={`Delete "${item.label}" permanently? Untick Live instead if you only want to hide it from customers.`}
+                          className="text-xs font-semibold text-red-600 underline"
+                        >
+                          Remove
+                        </ConfirmButton>
                       </td>
                     </tr>
                   ))}
@@ -535,31 +547,6 @@ export default async function AdminPricesPage({
               Add item
             </button>
           </form>
-
-          <details className="mt-6">
-            <summary className="cursor-pointer text-sm font-semibold text-slate-600">
-              Remove an item permanently
-            </summary>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {items.map((item) => (
-                <li key={item.code}>
-                  <form action={deletePriceItemAction}>
-                    <input type="hidden" name="code" value={item.code} />
-                    <button
-                      type="submit"
-                      className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-red-100 hover:text-red-700"
-                    >
-                      {item.label} ×
-                    </button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs text-slate-500">
-              Deleting also removes any offers attached to it. Untick
-              &ldquo;live&rdquo; above instead if you only want to hide it.
-            </p>
-          </details>
         </Card>
       </div>
     </main>
