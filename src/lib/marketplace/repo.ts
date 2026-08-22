@@ -287,18 +287,31 @@ export async function getCleanerAreas(cleanerId: number): Promise<string[]> {
   return rows.map((r) => r.outward);
 }
 
+/**
+ * Replace a cleaner's coverage in two round trips rather than one per postcode.
+ *
+ * The previous version deleted then inserted row by row: 136 sequential HTTP
+ * queries for a realistic patch, which is instant against the embedded local
+ * database and slow enough on Neon to hit the serverless timeout. Insert first,
+ * then prune, so a failure mid-way can never leave a cleaner covering nothing.
+ */
 export async function setCleanerAreas(
   cleanerId: number,
   outwards: string[]
 ): Promise<void> {
-  await query(`DELETE FROM cleaner_areas WHERE cleaner_id = $1`, [cleanerId]);
-  for (const outward of outwards) {
+  if (outwards.length > 0) {
     await query(
-      `INSERT INTO cleaner_areas (cleaner_id, outward) VALUES ($1,$2)
+      `INSERT INTO cleaner_areas (cleaner_id, outward)
+       SELECT $1, unnest($2::text[])
        ON CONFLICT DO NOTHING`,
-      [cleanerId, outward]
+      [cleanerId, outwards]
     );
   }
+  await query(
+    `DELETE FROM cleaner_areas
+      WHERE cleaner_id = $1 AND NOT (outward = ANY($2::text[]))`,
+    [cleanerId, outwards]
+  );
 }
 
 export type Availability = { weekday: number; am: boolean; pm: boolean };
@@ -317,17 +330,30 @@ export async function setAvailability(
   cleanerId: number,
   rows: Availability[]
 ): Promise<void> {
-  await query(`DELETE FROM cleaner_availability WHERE cleaner_id = $1`, [
-    cleanerId,
-  ]);
-  for (const row of rows) {
-    if (!row.am && !row.pm) continue;
+  const working = rows.filter((row) => row.am || row.pm);
+
+  // Same batching as coverage — one query per operation, not one per weekday.
+  if (working.length > 0) {
     await query(
       `INSERT INTO cleaner_availability (cleaner_id, weekday, am, pm)
-       VALUES ($1,$2,$3,$4)`,
-      [cleanerId, row.weekday, row.am, row.pm]
+       SELECT $1, w.weekday, w.am, w.pm
+         FROM unnest($2::int[], $3::boolean[], $4::boolean[])
+              AS w(weekday, am, pm)
+       ON CONFLICT (cleaner_id, weekday) DO UPDATE
+         SET am = EXCLUDED.am, pm = EXCLUDED.pm`,
+      [
+        cleanerId,
+        working.map((row) => row.weekday),
+        working.map((row) => row.am),
+        working.map((row) => row.pm),
+      ]
     );
   }
+  await query(
+    `DELETE FROM cleaner_availability
+      WHERE cleaner_id = $1 AND NOT (weekday = ANY($2::int[]))`,
+    [cleanerId, working.map((row) => row.weekday)]
+  );
 }
 
 export type Blackout = { day: string; am: boolean; pm: boolean };

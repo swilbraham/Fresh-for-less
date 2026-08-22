@@ -9,13 +9,13 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
   `CREATE TABLE IF NOT EXISTS settings (
      id                  int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-     commission_pct      numeric(5,2) NOT NULL DEFAULT 17.50,
+     commission_pct      numeric(5,2) NOT NULL DEFAULT 20.00,
      minimum_charge_pence int NOT NULL DEFAULT 9000,
      min_notice_days     int NOT NULL DEFAULT 1,
      booking_email       text NOT NULL DEFAULT 'info@freshforlesscarpetcleaning.co.uk',
@@ -193,34 +193,14 @@ export const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS coverage_requests_outward
      ON coverage_requests (outward)`,
 
-  // ---- One-off price list change, 2026-08-21 ------------------------------
-  // Fills the gaps a real job kept hitting: corner suites had no entry so
-  // customers guessed, and rug and mattress were one price regardless of size
-  // which ambushed the cleaner. Hard floors are deliberately NOT bookable —
-  // the work varies too much to price sight-unseen, so the booking page points
-  // those customers at the phone instead. Runs once on the version bump above.
-  // Previous one-off statements are deliberately replaced rather than
-  // accumulated. Ongoing changes belong in /admin/prices.
-  `UPDATE price_items SET label = 'Rug (small)', hint = 'Up to 2m x 3m'
-     WHERE code = 'rug'`,
-  `UPDATE price_items SET label = 'Mattress (single or double)'
-     WHERE code = 'mattress'`,
-  `DELETE FROM price_items WHERE code = 'hardfloor'`,
-  `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
-     VALUES ('rug_large', 'Rug (large)', 'Over 2m x 3m', 'carpet', 5500, 6, 55)
-     ON CONFLICT (code) DO NOTHING`,
-  `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
-     VALUES ('sofa_corner', 'Corner sofa (5 seats)', 'L-shaped or corner suite', 'upholstery', 15000, 2, 72)
-     ON CONFLICT (code) DO NOTHING`,
-  `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
-     VALUES ('sofa_corner_large', 'Corner sofa (6-7 seats)', 'Larger L-shaped or corner suite', 'upholstery', 19500, 2, 74)
-     ON CONFLICT (code) DO NOTHING`,
-  `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
-     VALUES ('dining_chair', 'Dining chair', 'Fabric seat pad or fully upholstered', 'upholstery', 1200, 12, 85)
-     ON CONFLICT (code) DO NOTHING`,
-  `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
-     VALUES ('mattress_large', 'Mattress (king or larger)', 'King or super king, both sides', 'upholstery', 5000, 4, 95)
-     ON CONFLICT (code) DO NOTHING`,
+  // ---- One-off settings change, 2026-08-21 (commission) -------------------
+  // Commission to 20%, set before the first outside cleaner joins: a rate is
+  // easy to establish and painful to raise, and someone who never knew 17.5%
+  // won't feel it. Jobs already booked keep the rate they were quoted at, so
+  // nothing is rewritten. The price-list statements this replaces have already
+  // run and live on in the seeded defaults — replaying them on a later bump
+  // would quietly undo admin edits. Ongoing changes belong in /admin/prices.
+  `UPDATE settings SET commission_pct = 20.00 WHERE id = 1`,
 
   // ---- Notification outbox ------------------------------------------------
   // Written on every broadcast/allocation event. A sender picks these up; with
