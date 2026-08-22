@@ -17,7 +17,13 @@ export const COMPANY = {
   registeredOffice: "8 Overton Way, Prenton, Wirral, CH43 2LF",
 } as const;
 
-export const COMPANY_DISCLOSURE =
-  `${COMPANY.tradingName} is a trading name of ${COMPANY.registeredName}, ` +
-  `registered in ${COMPANY.placeOfRegistration}, company number ${COMPANY.number}. ` +
-  `Registered office: ${COMPANY.registeredOffice}.`;
+// Joined rather than concatenated: the production minifier drops a trailing
+// space at the end of a template literal, which silently ran the sentence
+// together ("…Limitedregistered in…") in the deployed build while dev looked
+// fine. Keeping punctuation attached to the words and letting join() supply the
+// spaces means there is no trailing whitespace left to lose.
+export const COMPANY_DISCLOSURE = [
+  `${COMPANY.tradingName} is a trading name of ${COMPANY.registeredName},`,
+  `registered in ${COMPANY.placeOfRegistration}, company number ${COMPANY.number}.`,
+  `Registered office: ${COMPANY.registeredOffice}.`,
+].join(" ");
