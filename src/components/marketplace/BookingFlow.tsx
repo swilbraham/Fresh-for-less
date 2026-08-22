@@ -103,6 +103,32 @@ export default function BookingFlow({
     return [...map.entries()];
   }, [items]);
 
+  /**
+   * Offers already apply automatically in the pricing engine, but a customer
+   * choosing rooms can't see one coming. Telling them they're one room away
+   * from a fixed price is the cheapest upsell available.
+   */
+  const offers = useMemo(
+    () =>
+      bundles
+        .filter((bundle) => bundle.active !== false)
+        .map((bundle) => {
+          const item = items.find((i) => i.code === bundle.item_code);
+          const have = Math.floor(Number(basket[bundle.item_code] ?? 0));
+          return {
+            id: bundle.id,
+            label: bundle.label,
+            unit: (item?.label ?? bundle.item_code).toLowerCase(),
+            needed: Math.max(0, bundle.qty - have),
+            applied: have >= bundle.qty,
+            qty: bundle.qty,
+            pricePence: bundle.price_pence,
+          };
+        })
+        .sort((a, b) => a.needed - b.needed),
+    [bundles, items, basket]
+  );
+
   const selectedSlot = coverage?.slots.find((s) => s.day === slotDate);
 
   async function checkPostcode(event: React.FormEvent) {
@@ -359,6 +385,53 @@ export default function BookingFlow({
             Cleaners available in <strong>{coverage?.outward}</strong> — pick what
             needs cleaning and your price updates instantly.
           </div>
+
+          {offers.length > 0 && (
+            <ul className="space-y-2">
+              {offers.map((offer) => (
+                <li
+                  key={offer.id}
+                  className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${
+                    offer.applied
+                      ? "border-accent-300 bg-accent-50 text-accent-900"
+                      : "border-amber-300 bg-amber-50 text-amber-900"
+                  }`}
+                >
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base font-bold ${
+                      offer.applied
+                        ? "bg-accent-600 text-white"
+                        : "bg-amber-500 text-white"
+                    }`}
+                  >
+                    {offer.applied ? "✓" : "%"}
+                  </span>
+                  <span>
+                    {offer.applied ? (
+                      <>
+                        <strong>{offer.label}</strong> applied — that&apos;s the
+                        best price for {offer.qty} {offer.unit}s.
+                      </>
+                    ) : offer.needed === offer.qty ? (
+                      <>
+                        <strong>{offer.label}</strong> — add {offer.qty}{" "}
+                        {offer.unit}s and it applies automatically.
+                      </>
+                    ) : (
+                      <>
+                        Add{" "}
+                        <strong>
+                          {offer.needed} more {offer.unit}
+                          {offer.needed === 1 ? "" : "s"}
+                        </strong>{" "}
+                        for <strong>{offer.label}</strong>.
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {grouped.map(([kind, kindItems]) => (
             <section
