@@ -245,6 +245,12 @@ export default async function InvoicePage({
             This invoice covers platform commission only. You collected the full
             job price directly from each customer on the day.
           </p>
+
+          {settings.legal_footer && (
+            <p className="mt-4 border-t border-slate-200 pt-4 text-xs text-slate-500">
+              {settings.legal_footer}
+            </p>
+          )}
         </article>
       </div>
     </main>

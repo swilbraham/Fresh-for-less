@@ -334,6 +334,25 @@ export default async function AdminPricesPage({
                 className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5"
               />
             </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="legalFooter" className="block text-sm font-semibold text-slate-700">
+                Legal footer (appears at the bottom of every invoice)
+              </label>
+              <textarea
+                id="legalFooter"
+                name="legalFooter"
+                form="prices-form"
+                rows={2}
+                defaultValue={settings.legal_footer}
+                placeholder="Fresh For Less Carpet Cleaning is a trading name of Wirral Carpet Cleaning Limited, registered in England and Wales no. 00000000. Registered office: …"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                A limited company must show its registered name, company number
+                and registered office on business documents — include all three.
+              </p>
+            </div>
+
             <div>
               <label htmlFor="paymentTermsDays" className="block text-sm font-semibold text-slate-700">
                 Payment terms (days)

@@ -56,7 +56,7 @@ export async function getSettings(): Promise<Settings> {
     `SELECT commission_pct, minimum_charge_pence, min_notice_days, booking_email,
             cancellation_notice_hours, protection_pct, protection_enabled,
             payee_name, payee_account, payee_sort_code, payee_address,
-            payment_terms_days
+            payment_terms_days, legal_footer
        FROM settings WHERE id = 1`
   );
   if (!row) throw new Error("Marketplace settings row is missing.");
@@ -76,6 +76,7 @@ export async function updateSettings(input: {
   payeeSortCode: string;
   payeeAddress: string;
   paymentTermsDays: number;
+  legalFooter: string;
 }): Promise<void> {
   await query(
     `UPDATE settings
@@ -85,6 +86,7 @@ export async function updateSettings(input: {
             protection_pct = $6, protection_enabled = $7,
             payee_name = $8, payee_account = $9, payee_sort_code = $10,
             payee_address = $11, payment_terms_days = $12,
+            legal_footer = $13,
             updated_at = now()
       WHERE id = 1`,
     [
@@ -100,6 +102,7 @@ export async function updateSettings(input: {
       input.payeeSortCode,
       input.payeeAddress,
       input.paymentTermsDays,
+      input.legalFooter,
     ]
   );
 }

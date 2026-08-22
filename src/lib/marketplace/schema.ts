@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -224,6 +224,9 @@ export const STATEMENTS: string[] = [
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_sort_code  text NOT NULL DEFAULT ''`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_address    text NOT NULL DEFAULT ''`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payment_terms_days int NOT NULL DEFAULT 7`,
+  // Free text rather than a hard-coded sentence: a limited company must show
+  // its registered name, number and office, and only Simon knows those.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS legal_footer text NOT NULL DEFAULT ''`,
 
   // ---- Abuse control -------------------------------------------------------
   // Every booking texts cleaners, so an open booking endpoint is a way to spend

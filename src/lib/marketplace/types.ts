@@ -21,6 +21,7 @@ export type Settings = {
   payee_sort_code: string;
   payee_address: string;
   payment_terms_days: number;
+  legal_footer: string;
 };
 
 export type PriceItem = {

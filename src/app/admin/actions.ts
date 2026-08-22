@@ -123,6 +123,7 @@ export async function savePricesAction(data: FormData) {
       0,
       Math.min(90, Number(field(data, "paymentTermsDays", 3)) || 7)
     ),
+    legalFooter: field(data, "legalFooter", 300),
   });
 
   for (const item of await getPriceItems()) {
