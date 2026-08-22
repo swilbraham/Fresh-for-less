@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -195,21 +195,19 @@ export const STATEMENTS: string[] = [
 
   // ---- One-off price list change, 2026-08-21 ------------------------------
   // Fills the gaps a real job kept hitting: corner suites had no entry so
-  // customers guessed, rug and mattress were one price regardless of size
-  // which ambushed the cleaner, dining chairs were unsellable, and hard floor
-  // cleaning was advertised in the footer but not bookable. Runs once on the
-  // version bump above. Previous one-off statements are deliberately replaced
-  // rather than accumulated — replaying them later would quietly undo admin
-  // edits. Ongoing changes belong in /admin/prices.
+  // customers guessed, and rug and mattress were one price regardless of size
+  // which ambushed the cleaner. Hard floors are deliberately NOT bookable —
+  // the work varies too much to price sight-unseen, so the booking page points
+  // those customers at the phone instead. Runs once on the version bump above.
+  // Previous one-off statements are deliberately replaced rather than
+  // accumulated. Ongoing changes belong in /admin/prices.
   `UPDATE price_items SET label = 'Rug (small)', hint = 'Up to 2m x 3m'
      WHERE code = 'rug'`,
   `UPDATE price_items SET label = 'Mattress (single or double)'
      WHERE code = 'mattress'`,
+  `DELETE FROM price_items WHERE code = 'hardfloor'`,
   `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
      VALUES ('rug_large', 'Rug (large)', 'Over 2m x 3m', 'carpet', 5500, 6, 55)
-     ON CONFLICT (code) DO NOTHING`,
-  `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
-     VALUES ('hardfloor', 'Hard floor cleaning', 'Tile, vinyl, laminate or wood, per room', 'hardfloor', 5500, 10, 58)
      ON CONFLICT (code) DO NOTHING`,
   `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
      VALUES ('sofa_corner', 'Corner sofa (5 seats)', 'L-shaped or corner suite', 'upholstery', 15000, 2, 72)
@@ -251,7 +249,6 @@ export const SEED: [string, unknown[]][] = [
     ["hall", "Hallway", "Entrance hall or corridor", "carpet", 1500, 3, 40],
     ["rug", "Rug (small)", "Up to 2m x 3m", "carpet", 3000, 8, 50],
     ["rug_large", "Rug (large)", "Over 2m x 3m", "carpet", 5500, 6, 55],
-    ["hardfloor", "Hard floor cleaning", "Tile, vinyl, laminate or wood, per room", "hardfloor", 5500, 10, 58],
     ["sofa2", "2-seater sofa", "Fabric upholstery clean", "upholstery", 6000, 4, 60],
     ["sofa3", "3-seater sofa", "Fabric upholstery clean", "upholstery", 9000, 4, 70],
     ["sofa_corner", "Corner sofa (5 seats)", "L-shaped or corner suite", "upholstery", 15000, 2, 72],

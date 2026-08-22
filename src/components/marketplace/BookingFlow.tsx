@@ -516,6 +516,19 @@ export default function BookingFlow({
             </section>
           )}
 
+          <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+            <strong className="text-slate-900">
+              Hard floors, curtains or something unusual?
+            </strong>{" "}
+            We don&apos;t price those online because the work varies too much to
+            quote sight-unseen. Call{" "}
+            <a href="tel:03300434811" className="font-semibold text-primary-600 underline">
+              0330 043 4811
+            </a>{" "}
+            and we&apos;ll give you a price — you can still book everything else
+            here.
+          </p>
+
           <div className="flex gap-3">
             <button
               type="button"
