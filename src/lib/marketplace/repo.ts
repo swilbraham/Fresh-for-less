@@ -330,24 +330,39 @@ export async function setAvailability(
   }
 }
 
-export async function getBlackouts(cleanerId: number): Promise<string[]> {
-  const rows = await query<{ day: string }>(
-    `SELECT to_char(day, 'YYYY-MM-DD') AS day FROM cleaner_blackouts
-      WHERE cleaner_id = $1 AND day >= CURRENT_DATE ORDER BY day`,
+export type Blackout = { day: string; am: boolean; pm: boolean };
+
+export async function getBlackouts(cleanerId: number): Promise<Blackout[]> {
+  return query<Blackout>(
+    `SELECT to_char(day, 'YYYY-MM-DD') AS day, am, pm
+       FROM cleaner_blackouts
+      WHERE cleaner_id = $1 AND day >= CURRENT_DATE
+      ORDER BY day`,
     [cleanerId]
   );
-  return rows.map((r) => r.day);
 }
 
+/** Block a half-day, a whole day, or a run of days in one go. */
 export async function addBlackout(
   cleanerId: number,
-  day: string
-): Promise<void> {
-  await query(
-    `INSERT INTO cleaner_blackouts (cleaner_id, day) VALUES ($1, $2::date)
-     ON CONFLICT DO NOTHING`,
-    [cleanerId, day]
+  from: string,
+  to: string,
+  am: boolean,
+  pm: boolean
+): Promise<number> {
+  if (!am && !pm) return 0;
+
+  const rows = await query<{ day: string }>(
+    `INSERT INTO cleaner_blackouts (cleaner_id, day, am, pm)
+     SELECT $1, d::date, $4, $5
+       FROM generate_series($2::date, $3::date, interval '1 day') AS d
+     ON CONFLICT (cleaner_id, day) DO UPDATE
+       SET am = cleaner_blackouts.am OR EXCLUDED.am,
+           pm = cleaner_blackouts.pm OR EXCLUDED.pm
+     RETURNING to_char(day, 'YYYY-MM-DD') AS day`,
+    [cleanerId, from, to, am, pm]
   );
+  return rows.length;
 }
 
 export async function removeBlackout(
@@ -384,6 +399,7 @@ export async function findMatchingCleaners(
         AND NOT EXISTS (
           SELECT 1 FROM cleaner_blackouts b
            WHERE b.cleaner_id = c.id AND b.day = $2::date
+             AND ((b.am AND $3 = 'am') OR (b.pm AND $3 = 'pm'))
         )
         AND NOT EXISTS (
           SELECT 1 FROM jobs j
@@ -1364,7 +1380,7 @@ export async function getOpenSlots(
        WHERE c.status = 'approved'
          AND NOT EXISTS (
            SELECT 1 FROM cleaner_blackouts b
-            WHERE b.cleaner_id = c.id AND b.day = d.day
+            WHERE b.cleaner_id = c.id AND b.day = d.day AND b.${window}
          )
          AND NOT EXISTS (
            SELECT 1 FROM jobs j
@@ -1442,6 +1458,7 @@ export async function isCleanerFreeAt(
           AND NOT EXISTS (
             SELECT 1 FROM cleaner_blackouts b
              WHERE b.cleaner_id = c.id AND b.day = $2::date
+               AND ((b.am AND $3 = 'am') OR (b.pm AND $3 = 'pm'))
           )
           AND NOT EXISTS (
             SELECT 1 FROM jobs j

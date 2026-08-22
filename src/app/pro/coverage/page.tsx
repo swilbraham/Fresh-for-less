@@ -188,37 +188,84 @@ export default async function CoveragePage({
           description="Block out individual dates — holidays, other work, anything. You won't be offered jobs on these days."
           className="mt-6"
         >
-          <form action={addBlackoutAction} className="mt-4 flex flex-wrap gap-3">
-            <input
-              type="date"
-              name="day"
-              required
-              className="rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-primary-500"
-            />
-            <button
-              type="submit"
-              className="rounded-xl border border-slate-300 px-5 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100"
-            >
-              Block this date
-            </button>
+          <form action={addBlackoutAction} className="mt-4 space-y-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label htmlFor="day" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  From
+                </label>
+                <input
+                  id="day"
+                  type="date"
+                  name="day"
+                  required
+                  className="mt-1 rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-primary-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="toDay" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  To (optional)
+                </label>
+                <input
+                  id="toDay"
+                  type="date"
+                  name="toDay"
+                  className="mt-1 rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-primary-500"
+                />
+              </div>
+              <button
+                type="submit"
+                className="rounded-xl border border-slate-300 px-5 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                Block time off
+              </button>
+            </div>
+
+            <fieldset className="flex flex-wrap items-center gap-4">
+              <legend className="sr-only">Which half of the day</legend>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  name="blockAm"
+                  className="h-4 w-4 rounded border-slate-300 accent-primary-600"
+                />
+                Morning only
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  name="blockPm"
+                  className="h-4 w-4 rounded border-slate-300 accent-primary-600"
+                />
+                Afternoon only
+              </label>
+              <span className="text-xs text-slate-500">
+                Leave both unticked for the whole day. Tick one to keep working
+                the other half — useful when you have your own job booked in.
+              </span>
+            </fieldset>
           </form>
 
           {blackouts.length > 0 && (
             <ul className="mt-4 flex flex-wrap gap-2">
-              {blackouts.map((day) => (
-                <li key={day}>
+              {blackouts.map((blackout) => (
+                <li key={blackout.day}>
                   <form action={removeBlackoutAction}>
-                    <input type="hidden" name="day" value={day} />
+                    <input type="hidden" name="day" value={blackout.day} />
                     <button
                       type="submit"
-                      title="Remove this day off"
+                      title="Remove this time off"
                       className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-red-100 hover:text-red-700"
                     >
-                      {new Date(`${day}T12:00:00`).toLocaleDateString("en-GB", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                      })}{" "}
+                      {new Date(`${blackout.day}T12:00:00`).toLocaleDateString(
+                        "en-GB",
+                        { weekday: "short", day: "numeric", month: "short" }
+                      )}
+                      {blackout.am && blackout.pm
+                        ? ""
+                        : blackout.am
+                          ? " (morning)"
+                          : " (afternoon)"}{" "}
                       ×
                     </button>
                   </form>

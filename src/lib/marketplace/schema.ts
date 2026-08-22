@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -91,6 +91,12 @@ export const STATEMENTS: string[] = [
      day        date NOT NULL,
      PRIMARY KEY (cleaner_id, day)
    )`,
+
+  // Half-day days off. Cleaners have their own work outside the platform, and
+  // blocking a whole day to cover one private afternoon cost them the morning
+  // too. Existing rows default to both halves, which is what they meant.
+  `ALTER TABLE cleaner_blackouts ADD COLUMN IF NOT EXISTS am boolean NOT NULL DEFAULT true`,
+  `ALTER TABLE cleaner_blackouts ADD COLUMN IF NOT EXISTS pm boolean NOT NULL DEFAULT true`,
 
   // ---- Jobs ---------------------------------------------------------------
   `CREATE TABLE IF NOT EXISTS jobs (

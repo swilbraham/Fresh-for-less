@@ -187,11 +187,34 @@ export async function saveCoverageAction(data: FormData) {
 
 export async function addBlackoutAction(data: FormData) {
   const cleaner = await requireCleaner();
-  const day = field(data, "day", 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+  const from = field(data, "day", 10);
+  const to = field(data, "toDay", 10) || from;
+
+  const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (!isDate(from) || !isDate(to)) {
     fail("/pro/coverage", "Pick a valid date to block out.");
   }
-  await addBlackout(cleaner.id, day);
+  if (to < from) {
+    fail("/pro/coverage", "The end date is before the start date.");
+  }
+
+  // A run longer than a season is almost certainly a typo, and it would write
+  // a row per day.
+  const days =
+    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
+      86_400_000 +
+    1;
+  if (days > 120) {
+    fail("/pro/coverage", "Block out 120 days at most in one go.");
+  }
+
+  // Nothing ticked means the whole day off — the common case.
+  const amTicked = data.get("blockAm") === "on";
+  const pmTicked = data.get("blockPm") === "on";
+  const am = amTicked || !pmTicked;
+  const pm = pmTicked || !amTicked;
+
+  await addBlackout(cleaner.id, from, to, am, pm);
   revalidatePath("/pro/coverage");
   redirect("/pro/coverage?saved=1");
 }
