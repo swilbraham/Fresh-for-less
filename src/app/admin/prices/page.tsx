@@ -20,6 +20,7 @@ export const metadata = {
 
 const KINDS = [
   { value: "carpet", label: "Carpets & stairs" },
+  { value: "hardfloor", label: "Hard floors" },
   { value: "upholstery", label: "Upholstery" },
   { value: "extra", label: "Optional extras" },
 ];

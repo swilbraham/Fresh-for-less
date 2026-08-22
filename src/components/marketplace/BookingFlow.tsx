@@ -11,6 +11,7 @@ type Step = "postcode" | "items" | "slot" | "details";
 
 const KIND_LABELS: Record<string, string> = {
   carpet: "Carpets & stairs",
+  hardfloor: "Hard floors",
   upholstery: "Upholstery",
   extra: "Optional extras",
 };
