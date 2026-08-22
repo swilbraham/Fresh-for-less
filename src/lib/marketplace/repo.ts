@@ -1950,3 +1950,71 @@ export async function getInvoice(
 
   return { invoice, lines };
 }
+
+// -------------------------------------- activating provisional bookings ---
+
+/**
+ * Release provisional bookings that a newly-covered area can now service.
+ *
+ * A provisional booking carries a promise to confirm within 24 hours. Approving
+ * a cleaner, or a cleaner widening their patch, is exactly the moment that
+ * promise becomes keepable — leaving those jobs sitting in the queue until
+ * someone notices is how the promise gets broken.
+ */
+export async function activateProvisionalJobs(
+  cleanerId: number
+): Promise<number> {
+  const areas = await getCleanerAreas(cleanerId);
+  if (areas.length === 0) return 0;
+
+  const waiting = await query<Job>(
+    `SELECT ${JOB_COLUMNS}
+       FROM jobs j
+      WHERE j.status = 'provisional'
+        AND j.outward = ANY($1)
+        AND j.slot_date >= CURRENT_DATE
+      ORDER BY j.slot_date`,
+    [areas]
+  );
+
+  let activated = 0;
+  for (const job of waiting) {
+    // Covering the postcode isn't enough — they have to be free that half-day.
+    const matches = await findMatchingCleaners(
+      job.outward,
+      job.slot_date,
+      job.slot_window
+    );
+    if (matches.length === 0) continue;
+
+    const moved = await query<{ id: number }>(
+      `UPDATE jobs SET status = 'offered'
+        WHERE id = $1 AND status = 'provisional'
+        RETURNING id`,
+      [job.id]
+    );
+    if (moved.length === 0) continue;
+
+    await broadcastJob(job.id, job.outward, job.slot_date, job.slot_window);
+
+    await notifyCustomer(job, {
+      subject: `Good news — we can cover ${job.outward} for ${job.ref}`,
+      body:
+        `${job.customer_name}, we've got a cleaner covering ${job.outward} now, ` +
+        `so your request for ${job.slot_date} ` +
+        `(${job.slot_window.toUpperCase()}) is going out to them.\n\n` +
+        `Your ${gbpShort(job.total_pence)} price is unchanged and there's still ` +
+        `nothing to pay until the day. We'll confirm who's coming shortly.`,
+      smsBody:
+        `${job.ref}: good news, we now cover ${job.outward}. Your ` +
+        `${job.slot_date} ${job.slot_window.toUpperCase()} booking is with ` +
+        `cleaners now — we'll confirm shortly. ${gbpShort(job.total_pence)}, ` +
+        `nothing to pay until the day.`,
+      jobId: job.id,
+    });
+
+    activated += 1;
+  }
+
+  return activated;
+}

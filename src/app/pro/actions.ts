@@ -20,6 +20,7 @@ import {
   setAvailability,
   setCleanerAreas,
   setNotificationPrefs,
+  activateProvisionalJobs,
   releaseJob,
   setCleanerPassword,
   updateCleanerProfile,
@@ -177,6 +178,8 @@ export async function saveCoverageAction(data: FormData) {
 
   await setCleanerAreas(cleaner.id, codes);
   await setAvailability(cleaner.id, availability);
+  // Widening their patch may unlock bookings already waiting there.
+  await activateProvisionalJobs(cleaner.id);
   await setNotificationPrefs(cleaner.id, {
     sms: data.get("notifySms") === "on",
     email: data.get("notifyEmail") === "on",

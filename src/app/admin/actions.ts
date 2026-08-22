@@ -28,6 +28,7 @@ import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 import { parseOutwardList } from "@/lib/marketplace/postcode";
 import { makeResetToken } from "@/lib/marketplace/auth";
 import {
+  activateProvisionalJobs,
   assignJob,
   getCleanerPasswordHash,
   releaseJob,
@@ -232,6 +233,9 @@ export async function setCleanerStatusAction(data: FormData) {
   await setCleanerStatus(id, status, field(data, "adminNotes", 1000) || undefined);
 
   if (status === "approved") {
+    // Anyone who booked provisionally in their patch has been waiting on
+    // exactly this.
+    await activateProvisionalJobs(id);
     const cleaner = await getCleaner(id);
     if (cleaner) {
       await notify({
@@ -397,6 +401,7 @@ export async function updateCleanerCoverageAction(data: FormData) {
 
   await setCleanerAreas(id, codes);
   await setAvailability(id, availability);
+  await activateProvisionalJobs(id);
   revalidatePath("/admin/cleaners");
   redirect("/admin/cleaners?saved=1");
 }
