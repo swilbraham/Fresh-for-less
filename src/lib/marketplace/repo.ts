@@ -1085,39 +1085,55 @@ export async function generateCommissionInvoices(
   const created: RaisedInvoice[] = [];
 
   for (const group of pending) {
-    const jobs = await query<{ id: number; commission_pence: number }>(
-      `SELECT j.id, j.commission_pence
-         FROM jobs j
-        WHERE j.status = 'completed' AND j.cleaner_id = $1
-          AND NOT EXISTS (
-            SELECT 1 FROM commission_invoice_lines l WHERE l.job_id = j.id
-          )`,
-      [group.cleaner_id]
-    );
-    if (jobs.length === 0) continue;
-
-    const total = jobs.reduce((sum, j) => sum + j.commission_pence, 0);
-    const ref = makeRef("CI");
+    // Three queries per cleaner regardless of how many jobs they completed.
+    // This previously inserted one line at a time, so a busy week meant a
+    // query per job and the weekly run grew with volume until it would
+    // eventually outlast the serverless timeout.
     const invoice = await queryOne<{ id: number }>(
       `INSERT INTO commission_invoices
          (ref, cleaner_id, period_start, period_end, total_pence)
-       VALUES ($1,$2,$3::date,$4::date,$5) RETURNING id`,
-      [ref, group.cleaner_id, periodStart, periodEnd, total]
+       VALUES ($1,$2,$3::date,$4::date,0) RETURNING id`,
+      [makeRef("CI"), group.cleaner_id, periodStart, periodEnd]
+    );
+    if (!invoice) continue;
+
+    // Selected straight from jobs rather than round-tripped through the app.
+    // The unique index on job_id means a job can never land on two invoices,
+    // even if this runs twice.
+    const lines = await query<{ amount_pence: number }>(
+      `INSERT INTO commission_invoice_lines (invoice_id, job_id, amount_pence)
+       SELECT $1, j.id, j.commission_pence
+         FROM jobs j
+        WHERE j.status = 'completed'
+          AND j.cleaner_id = $2
+          AND NOT EXISTS (
+            SELECT 1 FROM commission_invoice_lines l WHERE l.job_id = j.id
+          )
+       ON CONFLICT (job_id) DO NOTHING
+       RETURNING amount_pence`,
+      [invoice.id, group.cleaner_id]
     );
 
-    for (const job of jobs) {
-      await query(
-        `INSERT INTO commission_invoice_lines (invoice_id, job_id, amount_pence)
-         VALUES ($1,$2,$3) ON CONFLICT (job_id) DO NOTHING`,
-        [invoice!.id, job.id, job.commission_pence]
-      );
+    // Another run may have claimed the jobs in between — don't leave an empty
+    // invoice behind.
+    if (lines.length === 0) {
+      await query(`DELETE FROM commission_invoices WHERE id = $1`, [invoice.id]);
+      continue;
     }
+
+    const total = lines.reduce((sum, line) => sum + line.amount_pence, 0);
+    const saved = await queryOne<{ ref: string }>(
+      `UPDATE commission_invoices SET total_pence = $2 WHERE id = $1
+       RETURNING ref`,
+      [invoice.id, total]
+    );
+
     created.push({
-      id: invoice!.id,
-      ref,
+      id: invoice.id,
+      ref: saved!.ref,
       cleanerId: group.cleaner_id,
       totalPence: total,
-      jobs: jobs.length,
+      jobs: lines.length,
     });
   }
 
