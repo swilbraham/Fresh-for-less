@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -193,58 +193,15 @@ export const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS coverage_requests_outward
      ON coverage_requests (outward)`,
 
-  // ---- One-off settings change, 2026-08-20 (commission rate) --------------
-  // Requested directly: commission set to 17.5%. Runs once, on the version bump
-  // above. Jobs already booked keep the rate they were quoted at, so this only
-  // affects new bookings. Ongoing changes belong in /admin/prices.
-  `UPDATE settings SET commission_pct = 17.50 WHERE id = 1`,
-
-  // ---- Dropped jobs --------------------------------------------------------
-  // A cleaner walking away from an accepted job is the thing most likely to
-  // cost a customer, so it gets its own record rather than being inferred from
-  // a status change. Notice period is stored at the moment of the drop, since
-  // it can't be reconstructed afterwards.
-  `CREATE TABLE IF NOT EXISTS job_drops (
-     id           serial PRIMARY KEY,
-     job_id       int NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-     cleaner_id   int NOT NULL REFERENCES cleaners(id) ON DELETE CASCADE,
-     dropped_by   text NOT NULL DEFAULT 'cleaner',
-     hours_notice numeric(8,2) NOT NULL DEFAULT 0,
-     reason       text NOT NULL DEFAULT '',
-     dropped_at   timestamptz NOT NULL DEFAULT now()
-   )`,
-  `CREATE INDEX IF NOT EXISTS job_drops_cleaner ON job_drops (cleaner_id)`,
-
-  // ---- Stain guard ---------------------------------------------------------
-  // Priced as a percentage of the clean rather than per item: the work scales
-  // with what's being treated, so a flat per-room figure would over-charge a
-  // small job and under-charge a whole house.
-  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_pct numeric(5,2) NOT NULL DEFAULT 20.00`,
-  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_enabled boolean NOT NULL DEFAULT true`,
-
-  // ---- Commission payment details ------------------------------------------
-  // Deliberately blank by default and entered through /admin/prices. The repo
-  // is public, so bank details must never live in source or in a migration.
-  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_name       text NOT NULL DEFAULT ''`,
-  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_account    text NOT NULL DEFAULT ''`,
-  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_sort_code  text NOT NULL DEFAULT ''`,
-  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payee_address    text NOT NULL DEFAULT ''`,
-  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS payment_terms_days int NOT NULL DEFAULT 7`,
-  // Free text rather than a hard-coded sentence: a limited company must show
-  // its registered name, number and office, and only Simon knows those.
-  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS legal_footer text NOT NULL DEFAULT ''`,
-
-  // ---- Abuse control -------------------------------------------------------
-  // Every booking texts cleaners, so an open booking endpoint is a way to spend
-  // someone else's money and harass their network. Counters live in the
-  // database rather than memory because serverless instances don't share state.
-  `CREATE TABLE IF NOT EXISTS rate_limits (
-     bucket       text NOT NULL,
-     key          text NOT NULL,
-     window_start timestamptz NOT NULL DEFAULT now(),
-     count        int NOT NULL DEFAULT 0,
-     PRIMARY KEY (bucket, key)
-   )`,
+  // ---- One-off price change, 2026-08-21 -----------------------------------
+  // Rooms to £45 and staircases to £45. At £35 a room the "3 rooms for £99"
+  // offer only saved £6, which read as no offer at all once it was promoted on
+  // the booking page; at £45 it saves £36 and the headline stands up. Runs once
+  // on the version bump above. Previous one-off statements are deliberately
+  // replaced rather than accumulated — replaying them later would quietly undo
+  // admin edits. Ongoing changes belong in /admin/prices.
+  `UPDATE price_items SET unit_price_pence = 4500 WHERE code = 'room'`,
+  `UPDATE price_items SET unit_price_pence = 4500 WHERE code = 'stairs'`,
 
   // ---- Notification outbox ------------------------------------------------
   // Written on every broadcast/allocation event. A sender picks these up; with
@@ -267,8 +224,8 @@ export const SEED: [string, unknown[]][] = [
   ["INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING", []],
 
   ...([
-    ["room", "Carpeted room", "Bedroom, lounge, dining room", "carpet", 3500, 12, 10],
-    ["stairs", "Staircase", "One flight, up to 14 steps", "carpet", 3000, 3, 20],
+    ["room", "Carpeted room", "Bedroom, lounge, dining room", "carpet", 4500, 12, 10],
+    ["stairs", "Staircase", "One flight, up to 14 steps", "carpet", 4500, 3, 20],
     ["landing", "Landing", "Upstairs landing area", "carpet", 1500, 3, 30],
     ["hall", "Hallway", "Entrance hall or corridor", "carpet", 1500, 3, 40],
     ["rug", "Rug", "Any size up to 2m x 3m", "carpet", 3000, 8, 50],
