@@ -46,11 +46,11 @@ export default async function AdminJobsPage({
   const isGroup = group === "outstanding" || group === "attention";
   // Upcoming work reads soonest-first; finished work reads newest-first.
   const sortOrder =
-    sort === "soonest" || sort === "latest"
-      ? (sort as "soonest" | "latest")
+    sort === "soonest" || sort === "latest" || sort === "newest"
+      ? (sort as "soonest" | "latest" | "newest")
       : isGroup
         ? "soonest"
-        : "latest";
+        : "newest";
 
   const filters = {
     status,
@@ -208,7 +208,17 @@ export default async function AdminJobsPage({
                   : "bg-white text-slate-600 ring-1 ring-slate-200"
               }`}
             >
-              Latest first
+              Latest slot
+            </Link>
+            <Link
+              href={href({ sort: "newest" })}
+              className={`rounded-lg px-2.5 py-1 font-medium ${
+                sortOrder === "newest"
+                  ? "bg-primary-600 text-white"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200"
+              }`}
+            >
+              Just booked
             </Link>
           </span>
         </div>
@@ -357,6 +367,9 @@ export default async function AdminJobsPage({
                       {job.slot_date}
                       <span className="ml-1 uppercase text-xs">
                         {job.slot_window}
+                      </span>
+                      <span className="block text-xs text-slate-400">
+                        booked {job.created_at}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">

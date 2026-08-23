@@ -1039,8 +1039,12 @@ export type JobFilters = {
    * the jobs that quietly go wrong because nobody marked them done.
    */
   group?: "outstanding" | "attention";
-  /** Upcoming work reads best soonest-first; history reads best newest-first. */
-  sort?: "soonest" | "latest";
+  /**
+   * "soonest"/"latest" order by the slot; "newest" orders by when the booking
+   * was taken, which is a different question and the one you ask when
+   * something has just come in.
+   */
+  sort?: "soonest" | "latest" | "newest";
   limit?: number;
 };
 
@@ -1108,8 +1112,11 @@ export async function listJobs(filters: JobFilters = {}): Promise<JobRow[]> {
        FROM jobs j
        LEFT JOIN cleaners c ON c.id = j.cleaner_id
       ${where}
-      ORDER BY j.slot_date ${filters.sort === "soonest" ? "ASC" : "DESC"},
-               j.created_at DESC
+      ORDER BY ${
+        filters.sort === "newest"
+          ? "j.created_at DESC"
+          : `j.slot_date ${filters.sort === "soonest" ? "ASC" : "DESC"}, j.created_at DESC`
+      }
       LIMIT $${params.length}`,
     params
   );
