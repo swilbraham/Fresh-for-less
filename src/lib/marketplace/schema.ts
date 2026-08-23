@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -258,6 +258,37 @@ export const STATEMENTS: string[] = [
    )`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
+  // ---- One-off changes, 2026-08-21 ----------------------------------------
+  // Mattresses dropped from the bookable list, stain guard confirmed on at 20%,
+  // and the stale 4-rooms-for-£99 bundle removed — it survived an earlier
+  // migration that was replaced before it ever ran against production, and was
+  // charging four rooms at the three-room price.
+  //
+  // Written to be safe to re-run, and every statement below is verified against
+  // production after deploying rather than assumed: a one-off that is replaced
+  // before it executes is silently lost, which is exactly how the 4-room bundle
+  // survived. Ongoing changes belong in /admin/prices.
+  `UPDATE settings SET commission_pct = 20.00 WHERE id = 1`,
+  `UPDATE settings SET protection_enabled = true, protection_pct = 20.00 WHERE id = 1`,
+  `DELETE FROM price_bundles WHERE item_code = 'room' AND qty = 4`,
+  `DELETE FROM price_items WHERE code IN ('mattress', 'mattress_large')`,
+
+  // ---- Notification outbox ------------------------------------------------
+  // Written on every broadcast/allocation event. A sender picks these up; with
+  // no mail provider configured they still give admin a full audit trail.
+  `CREATE TABLE IF NOT EXISTS notifications (
+     id         serial PRIMARY KEY,
+     channel    text NOT NULL DEFAULT 'email',
+     recipient  text NOT NULL,
+     subject    text NOT NULL,
+     body       text NOT NULL,
+     job_id     int REFERENCES jobs(id) ON DELETE CASCADE,
+     created_at timestamptz NOT NULL DEFAULT now(),
+     sent_at    timestamptz,
+     error      text
+   )`,
+
+  // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off settings change, 2026-08-21 (commission) -------------------
   // Commission to 20%, set before the first outside cleaner joins: a rate is
   // easy to establish and painful to raise, and someone who never knew 17.5%
@@ -286,8 +317,6 @@ export const SEED: [string, unknown[]][] = [
     ["sofa_corner_large", "Corner sofa (6-7 seats)", "Larger L-shaped or corner suite", "upholstery", 19500, 2, 74],
     ["armchair", "Armchair", "Single fabric chair", "upholstery", 3000, 8, 80],
     ["dining_chair", "Dining chair", "Fabric seat pad or fully upholstered", "upholstery", 1200, 12, 85],
-    ["mattress", "Mattress (single or double)", "Single or double, both sides", "upholstery", 3500, 6, 90],
-    ["mattress_large", "Mattress (king or larger)", "King or super king, both sides", "upholstery", 5000, 4, 95],
     ["stain", "Heavy stain treatment", "Per affected area", "extra", 1500, 10, 100],
     ["pet", "Pet odour treatment", "Per room treated", "extra", 2000, 10, 110],
   ] as const).map(
