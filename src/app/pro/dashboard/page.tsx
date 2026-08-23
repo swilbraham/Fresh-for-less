@@ -33,7 +33,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Your jobs", robots: { index: false } };
 
-function slotLabel(job: Job): string {
+// Takes only what it needs, so it works for a redacted offer as well as a job.
+function slotLabel(job: Pick<Job, "slot_date" | "slot_window">): string {
   const date = new Date(`${job.slot_date}T12:00:00`).toLocaleDateString(
     "en-GB",
     { weekday: "short", day: "numeric", month: "short" }

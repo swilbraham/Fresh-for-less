@@ -39,6 +39,23 @@ const JOB_COLUMNS = `
   )) / 3600 AS hours_until_slot
 `;
 
+/**
+ * What a cleaner may see about a job they have NOT accepted.
+ *
+ * Deliberately excludes the customer's name, phone, email and street address —
+ * a job is broadcast to everyone covering the postcode, so before someone
+ * commits, those details would be handed to cleaners who never take the work.
+ * Enforced in the query rather than the template: hiding a field in JSX leaves
+ * it one careless edit from being rendered, whereas never selecting it makes
+ * that edit a compile error.
+ */
+const OFFER_COLUMNS = `
+  j.id, j.ref, j.outward, j.town,
+  to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date,
+  j.slot_window, j.items, j.notes,
+  j.total_pence, j.commission_pct, j.commission_pence, j.status
+`;
+
 const CLEANER_COLUMNS = `
   c.id, c.name, c.business_name, c.email, c.phone, c.status,
   c.insurance_provider,
@@ -922,9 +939,28 @@ export async function getJobByRef(ref: string): Promise<Job | null> {
 }
 
 /** Live offers a cleaner can still accept. */
-export async function listOffersForCleaner(cleanerId: number): Promise<Job[]> {
-  return query<Job>(
-    `SELECT ${JOB_COLUMNS}
+/** A job as it appears to a cleaner deciding whether to accept it. */
+export type JobOffer = Pick<
+  Job,
+  | "id"
+  | "ref"
+  | "outward"
+  | "town"
+  | "slot_date"
+  | "slot_window"
+  | "items"
+  | "notes"
+  | "total_pence"
+  | "commission_pct"
+  | "commission_pence"
+  | "status"
+>;
+
+export async function listOffersForCleaner(
+  cleanerId: number
+): Promise<JobOffer[]> {
+  return query<JobOffer>(
+    `SELECT ${OFFER_COLUMNS}
        FROM jobs j
        JOIN job_offers o ON o.job_id = j.id AND o.cleaner_id = $1
       WHERE j.status = 'offered'
