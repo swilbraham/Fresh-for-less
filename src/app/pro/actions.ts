@@ -19,6 +19,8 @@ import {
   removeBlackout,
   setAvailability,
   setCleanerAreas,
+  notifyAdmin,
+  siteUrl,
   setNotificationPrefs,
   activateProvisionalJobs,
   releaseJob,
@@ -141,6 +143,24 @@ export async function registerAction(data: FormData) {
 
   await setCleanerAreas(cleanerId, codes);
   await setAvailability(cleanerId, availability);
+
+  // Nothing told the office a cleaner had applied, so someone could sit
+  // unapproved for days — and an approval is the difference between a job
+  // being fillable and not. Areas are summarised rather than listed: a
+  // realistic patch is over a hundred postcodes.
+  const patch =
+    codes.length > 3
+      ? `${codes.slice(0, 3).join(" ")} +${codes.length - 3} more`
+      : codes.join(" ");
+  await notifyAdmin({
+    subject: `New cleaner application — ${name}`,
+    smsBody:
+      `NEW CLEANER: ${name}` +
+      `${field(data, "businessName", 120) ? ` (${field(data, "businessName", 120)})` : ""}` +
+      `, ${phone}. Covers ${patch}. ` +
+      `Approve: ${siteUrl()}/admin/cleaners`,
+  });
+
   await notify({
     recipient: email,
     subject: "Your Fresh For Less cleaner application",

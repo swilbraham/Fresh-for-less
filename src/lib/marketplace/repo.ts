@@ -1307,7 +1307,7 @@ export async function setInvoiceStatus(
 // ----------------------------------------------------------- notifications --
 
 /** Public base URL, used to build tappable links inside SMS. */
-function siteUrl(): string {
+export function siteUrl(): string {
   const explicit = process.env.MARKETPLACE_BASE_URL;
   if (explicit) return explicit.replace(/\/$/, "");
   // On a Vercel preview build there's no custom domain, so links must point at
