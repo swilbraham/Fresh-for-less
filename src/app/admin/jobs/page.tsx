@@ -231,8 +231,20 @@ export default async function AdminJobsPage({
                       job.status === "cancelled" ? "bg-slate-50/60 text-slate-400" : ""
                     }
                   >
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      {job.ref}
+                    <td className="px-4 py-3 font-medium">
+                      <Link
+                        href={`/admin/jobs/${job.ref}`}
+                        className="text-primary-600 underline"
+                      >
+                        {job.ref}
+                      </Link>
+                      {job.items.length > 0 && (
+                        <span className="block text-xs font-normal text-slate-500">
+                          {job.items
+                            .map((line) => `${line.qty}× ${line.label}`)
+                            .join(", ")}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-slate-800">{job.customer_name}</p>

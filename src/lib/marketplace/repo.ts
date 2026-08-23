@@ -2101,3 +2101,51 @@ export async function activateProvisionalJobs(
 
   return activated;
 }
+
+// ------------------------------------------------------- job detail -------
+
+export type JobOfferRow = {
+  cleaner_id: number;
+  cleaner_name: string;
+  business_name: string;
+  phone: string;
+  sent_at: string;
+  response: string | null;
+  responded_at: string | null;
+};
+
+/** Who a job went to and what they did about it. */
+export async function getJobOffers(jobId: number): Promise<JobOfferRow[]> {
+  return query<JobOfferRow>(
+    `SELECT o.cleaner_id, c.name AS cleaner_name, c.business_name, c.phone,
+            to_char(o.sent_at,      'YYYY-MM-DD HH24:MI') AS sent_at,
+            o.response,
+            to_char(o.responded_at, 'YYYY-MM-DD HH24:MI') AS responded_at
+       FROM job_offers o
+       JOIN cleaners c ON c.id = o.cleaner_id
+      WHERE o.job_id = $1
+      ORDER BY o.sent_at`,
+    [jobId]
+  );
+}
+
+export type JobDropRow = {
+  cleaner_name: string;
+  dropped_by: string;
+  hours_notice: string | number;
+  reason: string;
+  dropped_at: string;
+};
+
+/** Anyone who took this job and then handed it back. */
+export async function getJobDrops(jobId: number): Promise<JobDropRow[]> {
+  return query<JobDropRow>(
+    `SELECT c.name AS cleaner_name, d.dropped_by, d.hours_notice, d.reason,
+            to_char(d.dropped_at, 'YYYY-MM-DD HH24:MI') AS dropped_at
+       FROM job_drops d
+       JOIN cleaners c ON c.id = d.cleaner_id
+      WHERE d.job_id = $1
+      ORDER BY d.dropped_at`,
+    [jobId]
+  );
+}
