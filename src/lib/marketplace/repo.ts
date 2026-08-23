@@ -760,9 +760,43 @@ async function confirmCleanerToCustomer(
  * real one. Deliberately skips the coverage and availability checks: the office
  * has spoken to them and knows better than the rota does.
  */
+/**
+ * Drop the commission on one job — a free first job for a new cleaner, or
+ * making good after something went wrong.
+ *
+ * Refused once the job is on an invoice: the invoice total is already fixed and
+ * the cleaner may have paid it, so zeroing the job behind it would leave the
+ * books disagreeing with themselves.
+ */
+export async function waiveCommission(
+  jobId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const invoiced = await queryOne<{ id: number }>(
+    `SELECT invoice_id AS id FROM commission_invoice_lines WHERE job_id = $1`,
+    [jobId]
+  );
+  if (invoiced) {
+    return {
+      ok: false,
+      reason: "That job is already on an invoice, so its commission can't be changed.",
+    };
+  }
+
+  const done = await query<{ id: number }>(
+    `UPDATE jobs SET commission_pct = 0, commission_pence = 0
+      WHERE id = $1 AND status <> 'cancelled'
+      RETURNING id`,
+    [jobId]
+  );
+  return done.length > 0
+    ? { ok: true }
+    : { ok: false, reason: "That job can't be changed." };
+}
+
 export async function assignJob(
   jobId: number,
-  cleanerId: number
+  cleanerId: number,
+  waive = false
 ): Promise<{ ok: boolean; reason?: string }> {
   const job = await getJob(jobId);
   const cleaner = await getCleaner(cleanerId);
@@ -790,6 +824,8 @@ export async function assignJob(
     [jobId, cleanerId]
   );
 
+  if (waive) await waiveCommission(jobId);
+
   const assigned = (await getJob(jobId))!;
   await confirmCleanerToCustomer(assigned, cleaner);
 
@@ -800,14 +836,18 @@ export async function assignJob(
       `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
       `Address: ${job.address_line}${job.town ? `, ${job.town}` : ""}, ${job.postcode}\n` +
       `Customer: ${job.customer_name}, ${job.customer_phone}\n` +
-      `Collect: ${gbpShort(job.total_pence)} — you keep ` +
-      `${gbpShort(job.total_pence - job.commission_pence)}\n\n` +
-      `${COMMISSION_TERMS_SHORT}`,
+      `Collect: ${gbpShort(assigned.total_pence)} — you keep ` +
+      `${gbpShort(assigned.total_pence - assigned.commission_pence)}\n\n` +
+      `${assigned.commission_pence === 0
+        ? "No commission on this one — the full amount is yours."
+        : COMMISSION_TERMS_SHORT}`,
     smsBody:
-      `Job ${job.ref} is in your diary: ${job.slot_date} ` +
-      `${job.slot_window.toUpperCase()}, ${job.postcode}. Collect ` +
-      `${gbpShort(job.total_pence)}, you keep ` +
-      `${gbpShort(job.total_pence - job.commission_pence)}. ${siteUrl()}/pro/dashboard`,
+      `Job ${assigned.ref} is in your diary: ${assigned.slot_date} ` +
+      `${assigned.slot_window.toUpperCase()}, ${assigned.postcode}. Collect ` +
+      `${gbpShort(assigned.total_pence)}, you keep ` +
+      `${gbpShort(assigned.total_pence - assigned.commission_pence)}` +
+      `${assigned.commission_pence === 0 ? " (no commission)" : ""}. ` +
+      `${siteUrl()}/pro/dashboard`,
     jobId,
   });
 
@@ -1110,6 +1150,7 @@ export async function listUninvoicedCommission(): Promise<
        FROM jobs j
        JOIN cleaners c ON c.id = j.cleaner_id
       WHERE j.status = 'completed'
+        AND j.commission_pence > 0
         AND NOT EXISTS (
           SELECT 1 FROM commission_invoice_lines l WHERE l.job_id = j.id
         )
@@ -1160,6 +1201,7 @@ export async function generateCommissionInvoices(
          FROM jobs j
         WHERE j.status = 'completed'
           AND j.cleaner_id = $2
+          AND j.commission_pence > 0
           AND NOT EXISTS (
             SELECT 1 FROM commission_invoice_lines l WHERE l.job_id = j.id
           )

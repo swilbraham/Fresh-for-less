@@ -12,6 +12,7 @@ import { AdminNav, Alert, Card, StatusPill } from "@/components/marketplace/shel
 import {
   assignJobAction,
   cancelJobAction,
+  waiveCommissionAction,
   reassignJobAction,
   rebroadcastJobAction,
 } from "../../actions";
@@ -34,12 +35,12 @@ export default async function AdminJobPage({
   searchParams,
 }: {
   params: Promise<{ ref: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; waived?: string }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
 
   const { ref } = await params;
-  const { error } = await searchParams;
+  const { error, waived } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
@@ -76,6 +77,11 @@ export default async function AdminJobPage({
         </div>
 
         {error && <Alert>{error}</Alert>}
+        {waived && (
+          <Alert tone="success">
+            Commission waived — this job won&apos;t be invoiced.
+          </Alert>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card title="The job">
@@ -104,7 +110,14 @@ export default async function AdminJobPage({
 
             <dl className="mt-4 space-y-1 border-t border-slate-200 pt-3 text-sm">
               <Row label="Customer pays" value={gbp(job.total_pence)} strong />
-              <Row label={`Commission (${Number(job.commission_pct)}%)`} value={gbp(job.commission_pence)} />
+              <Row
+                label={
+                  job.commission_pence === 0
+                    ? "Commission — waived"
+                    : `Commission (${Number(job.commission_pct)}%)`
+                }
+                value={gbp(job.commission_pence)}
+              />
               <Row label="Cleaner keeps" value={gbp(keeps)} />
             </dl>
 
@@ -158,6 +171,14 @@ export default async function AdminJobPage({
                   >
                     Assign
                   </button>
+                  <label className="flex w-full items-center gap-2 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      name="waiveCommission"
+                      className="h-4 w-4 rounded border-slate-300 accent-accent-600"
+                    />
+                    No commission on this job — don&apos;t invoice it
+                  </label>
                 </form>
               )}
 
@@ -176,6 +197,15 @@ export default async function AdminJobPage({
                       <input type="hidden" name="id" value={job.id} />
                       <button type="submit" className="font-semibold text-primary-600 underline">
                         Re-broadcast
+                      </button>
+                    </form>
+                  )}
+                  {job.commission_pence > 0 && (
+                    <form action={waiveCommissionAction}>
+                      <input type="hidden" name="id" value={job.id} />
+                      <input type="hidden" name="ref" value={job.ref} />
+                      <button type="submit" className="font-semibold text-slate-600 underline">
+                        Waive commission
                       </button>
                     </form>
                   )}

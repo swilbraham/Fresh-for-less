@@ -32,6 +32,7 @@ import {
   assignJob,
   getCleanerPasswordHash,
   releaseJob,
+  waiveCommission,
   setAvailability,
   setCleanerAreas,
   updateCleanerProfile,
@@ -295,10 +296,26 @@ export async function assignJobAction(data: FormData) {
   const cleanerId = Number(field(data, "cleanerId", 12));
   if (!cleanerId) fail("/admin/jobs", "Pick a cleaner to assign it to.");
 
-  const result = await assignJob(jobId, cleanerId);
+  const result = await assignJob(
+    jobId,
+    cleanerId,
+    data.get("waiveCommission") === "on"
+  );
   revalidatePath("/admin/jobs");
   if (!result.ok) fail("/admin/jobs", result.reason ?? "Couldn't assign that job.");
   redirect("/admin/jobs?assigned=1");
+}
+
+/** Drop the commission on a job that's already booked in. */
+export async function waiveCommissionAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const result = await waiveCommission(Number(field(data, "id", 12)));
+  revalidatePath(`/admin/jobs/${ref}`);
+  if (!result.ok) {
+    redirect(`/admin/jobs/${ref}?error=${encodeURIComponent(result.reason ?? "Couldn't change that.")}`);
+  }
+  redirect(`/admin/jobs/${ref}?waived=1`);
 }
 
 export async function reassignJobAction(data: FormData) {
