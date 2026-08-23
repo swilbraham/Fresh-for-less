@@ -32,15 +32,34 @@ export default async function AdminJobsPage({
     offered?: string;
     assigned?: string;
     status?: string;
+    group?: string;
+    sort?: string;
     from?: string;
     to?: string;
     q?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, offered, assigned, status, from, to, q } = await searchParams;
+  const { error, saved, offered, assigned, status, group, sort, from, to, q } =
+    await searchParams;
 
-  const filters = { status, from, to, q };
+  const isGroup = group === "outstanding" || group === "attention";
+  // Upcoming work reads soonest-first; finished work reads newest-first.
+  const sortOrder =
+    sort === "soonest" || sort === "latest"
+      ? (sort as "soonest" | "latest")
+      : isGroup
+        ? "soonest"
+        : "latest";
+
+  const filters = {
+    status,
+    from,
+    to,
+    q,
+    group: isGroup ? (group as "outstanding" | "attention") : undefined,
+    sort: sortOrder,
+  };
   const [jobs, totals, counts, approvedCleaners] = await Promise.all([
     listJobs(filters),
     jobTotals(filters),
@@ -58,17 +77,30 @@ export default async function AdminJobsPage({
   ] as const;
 
   // Preserve the other filters when switching status tab.
-  const tabHref = (next?: string) => {
+  const href = (over: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
-    if (next) params.set("status", next);
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-    if (q) params.set("q", q);
+    const merged = { status, group, sort, from, to, q, ...over };
+    for (const [key, value] of Object.entries(merged)) {
+      if (value) params.set(key, value);
+    }
     const query = params.toString();
     return query ? `/admin/jobs?${query}` : "/admin/jobs";
   };
+  const tabHref = (next?: string) =>
+    href({ status: next, group: undefined });
 
-  const filtered = Boolean(status || from || to || q);
+  const filtered = Boolean(status || group || from || to || q);
+
+  const iso = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+      date.getDate()
+    ).padStart(2, "0")}`;
+  const today = iso(new Date());
+  const inDays = (days: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return iso(date);
+  };
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -91,12 +123,34 @@ export default async function AdminJobsPage({
           <Link
             href={tabHref()}
             className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-              !status
+              !status && !isGroup
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-primary-300"
             }`}
           >
-            All ({Object.values(counts).reduce((a, b) => a + b, 0)})
+            All ({counts.__all ?? 0})
+          </Link>
+          <Link
+            href={href({ group: "outstanding", status: undefined })}
+            className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+              group === "outstanding"
+                ? "bg-slate-900 text-white"
+                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-primary-300"
+            }`}
+          >
+            Outstanding ({counts.__outstanding ?? 0})
+          </Link>
+          <Link
+            href={href({ group: "attention", status: undefined })}
+            className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+              group === "attention"
+                ? "bg-red-600 text-white"
+                : (counts.__attention ?? 0) > 0
+                  ? "bg-red-50 text-red-700 ring-1 ring-red-200"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200"
+            }`}
+          >
+            Needs attention ({counts.__attention ?? 0})
           </Link>
           {STATUSES.map((value) => (
             <Link
@@ -114,8 +168,55 @@ export default async function AdminJobsPage({
         </nav>
 
         {/* Date range and search */}
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-slate-500">Quick view:</span>
+          {[
+            { label: "Today", from: today, to: today },
+            { label: "Next 7 days", from: today, to: inDays(7) },
+            { label: "Next 30 days", from: today, to: inDays(30) },
+            { label: "Last 30 days", from: inDays(-30), to: today },
+          ].map((range) => (
+            <Link
+              key={range.label}
+              href={href({ from: range.from, to: range.to })}
+              className={`rounded-lg px-2.5 py-1 font-medium transition ${
+                from === range.from && to === range.to
+                  ? "bg-primary-600 text-white"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-primary-300"
+              }`}
+            >
+              {range.label}
+            </Link>
+          ))}
+          <span className="ml-auto flex items-center gap-2 text-slate-500">
+            Sort:
+            <Link
+              href={href({ sort: "soonest" })}
+              className={`rounded-lg px-2.5 py-1 font-medium ${
+                sortOrder === "soonest"
+                  ? "bg-primary-600 text-white"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200"
+              }`}
+            >
+              Soonest first
+            </Link>
+            <Link
+              href={href({ sort: "latest" })}
+              className={`rounded-lg px-2.5 py-1 font-medium ${
+                sortOrder === "latest"
+                  ? "bg-primary-600 text-white"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200"
+              }`}
+            >
+              Latest first
+            </Link>
+          </span>
+        </div>
+
         <form method="get" className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4">
           {status && <input type="hidden" name="status" value={status} />}
+          {isGroup && <input type="hidden" name="group" value={group} />}
+          <input type="hidden" name="sort" value={sortOrder} />
           <div>
             <label htmlFor="from" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
               Slot from

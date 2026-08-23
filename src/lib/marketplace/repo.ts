@@ -1033,6 +1033,14 @@ export type JobFilters = {
   q?: string;
   /** Restrict to one cleaner. Always forced server-side, never from input. */
   cleanerId?: number;
+  /**
+   * Coarser than status: "outstanding" is anything not finished, "attention"
+   * is anything whose slot has passed without being completed or cancelled —
+   * the jobs that quietly go wrong because nobody marked them done.
+   */
+  group?: "outstanding" | "attention";
+  /** Upcoming work reads best soonest-first; history reads best newest-first. */
+  sort?: "soonest" | "latest";
   limit?: number;
 };
 
@@ -1057,6 +1065,14 @@ function jobFilterClause(filters: JobFilters): {
   if (filters.to) {
     params.push(filters.to);
     clauses.push(`j.slot_date <= $${params.length}::date`);
+  }
+  if (filters.group === "outstanding") {
+    clauses.push(`j.status NOT IN ('completed', 'cancelled')`);
+  }
+  if (filters.group === "attention") {
+    clauses.push(
+      `j.status NOT IN ('completed', 'cancelled') AND j.slot_date < CURRENT_DATE`
+    );
   }
   if (filters.cleanerId) {
     params.push(filters.cleanerId);
@@ -1092,7 +1108,8 @@ export async function listJobs(filters: JobFilters = {}): Promise<JobRow[]> {
        FROM jobs j
        LEFT JOIN cleaners c ON c.id = j.cleaner_id
       ${where}
-      ORDER BY j.slot_date DESC, j.created_at DESC
+      ORDER BY j.slot_date ${filters.sort === "soonest" ? "ASC" : "DESC"},
+               j.created_at DESC
       LIMIT $${params.length}`,
     params
   );
@@ -1128,12 +1145,34 @@ export async function jobTotals(
 export async function jobStatusCounts(
   filters: JobFilters = {}
 ): Promise<Record<string, number>> {
-  const { where, params } = jobFilterClause({ ...filters, status: undefined });
-  const rows = await query<{ status: string; n: number }>(
-    `SELECT j.status, count(*)::int AS n FROM jobs j ${where} GROUP BY j.status`,
+  // Counts ignore status and group so the tabs always show what's behind them,
+  // not what's left after the tab you're already on.
+  const { where, params } = jobFilterClause({
+    ...filters,
+    status: undefined,
+    group: undefined,
+  });
+  const rows = await query<{
+    status: string;
+    n: number;
+    overdue: number;
+  }>(
+    `SELECT j.status, count(*)::int AS n,
+            count(*) FILTER (
+              WHERE j.status NOT IN ('completed','cancelled')
+                AND j.slot_date < CURRENT_DATE
+            )::int AS overdue
+       FROM jobs j ${where} GROUP BY j.status`,
     params
   );
-  return Object.fromEntries(rows.map((r) => [r.status, r.n]));
+
+  const counts = Object.fromEntries(rows.map((r) => [r.status, r.n]));
+  counts.__outstanding = rows
+    .filter((r) => !["completed", "cancelled"].includes(r.status))
+    .reduce((sum, r) => sum + r.n, 0);
+  counts.__attention = rows.reduce((sum, r) => sum + r.overdue, 0);
+  counts.__all = rows.reduce((sum, r) => sum + r.n, 0);
+  return counts;
 }
 
 // ------------------------------------------------------------- commissions --
