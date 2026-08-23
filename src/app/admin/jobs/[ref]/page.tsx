@@ -4,10 +4,12 @@ import { isAdmin } from "@/lib/marketplace/auth";
 import {
   getJobByRef,
   getJobDrops,
+  getJobMessages,
   getJobOffers,
   listCleaners,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
+import { toE164 } from "@/lib/marketplace/phone";
 import { AdminNav, Alert, Card, StatusPill } from "@/components/marketplace/shell";
 import {
   assignJobAction,
@@ -45,11 +47,30 @@ export default async function AdminJobPage({
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
 
-  const [offers, drops, cleaners] = await Promise.all([
+  const [offers, drops, cleaners, messages] = await Promise.all([
     getJobOffers(job.id),
     getJobDrops(job.id),
     listCleaners("approved"),
+    getJobMessages(job.id),
   ]);
+
+  /**
+   * Match messages to a cleaner by the address they were actually sent to.
+   * Being offered a job and being reachable are different things.
+   */
+  const deliveryFor = (phone: string, email: string) => {
+    const mobile = toE164(phone);
+    const mine = messages.filter(
+      (m) => m.recipient === mobile || m.recipient === email
+    );
+    const sms = mine.find((m) => m.channel === "sms");
+    if (!sms) return { label: "no text sent", tone: "text-amber-700" };
+    if (sms.error)
+      return { label: `text failed: ${sms.error.slice(0, 40)}`, tone: "text-red-600" };
+    if (sms.sent_at)
+      return { label: `texted ${sms.sent_at}`, tone: "text-accent-700" };
+    return { label: "text logged, not delivered", tone: "text-amber-700" };
+  };
 
   const keeps = job.total_pence - job.commission_pence;
   const open = !["completed", "cancelled"].includes(job.status);
@@ -237,6 +258,11 @@ export default async function AdminJobPage({
                     <span className="block text-xs text-slate-500">
                       {offer.phone} · offered {offer.sent_at}
                     </span>
+                    <span
+                      className={`block text-xs font-medium ${deliveryFor(offer.phone, "").tone}`}
+                    >
+                      {deliveryFor(offer.phone, "").label}
+                    </span>
                   </span>
                   <span
                     className={`text-xs font-semibold ${
@@ -254,6 +280,59 @@ export default async function AdminJobPage({
                 </li>
               ))}
             </ul>
+          )}
+        </Card>
+
+        <Card title={`Messages sent (${messages.length})`} className="mt-6">
+          {messages.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">
+              Nothing sent for this job yet.
+            </p>
+          ) : (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="py-2 font-semibold">When</th>
+                    <th className="py-2 font-semibold">Channel</th>
+                    <th className="py-2 font-semibold">To</th>
+                    <th className="py-2 font-semibold">Message</th>
+                    <th className="py-2 font-semibold">Delivery</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {messages.map((message) => (
+                    <tr key={message.id}>
+                      <td className="py-2 whitespace-nowrap text-slate-500">
+                        {message.created_at}
+                      </td>
+                      <td className="py-2">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase text-slate-600">
+                          {message.channel}
+                        </span>
+                      </td>
+                      <td className="py-2 text-slate-700">{message.recipient}</td>
+                      <td className="py-2 text-slate-600">{message.subject}</td>
+                      <td
+                        className={`py-2 text-xs font-medium ${
+                          message.error
+                            ? "text-red-600"
+                            : message.sent_at
+                              ? "text-accent-700"
+                              : "text-slate-400"
+                        }`}
+                      >
+                        {message.error
+                          ? `failed: ${message.error.slice(0, 40)}`
+                          : message.sent_at
+                            ? `sent ${message.sent_at}`
+                            : "logged only"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
 

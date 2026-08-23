@@ -2227,3 +2227,33 @@ export async function getJobDrops(jobId: number): Promise<JobDropRow[]> {
     [jobId]
   );
 }
+
+export type JobMessage = {
+  id: number;
+  channel: string;
+  recipient: string;
+  subject: string;
+  created_at: string;
+  sent_at: string | null;
+  error: string | null;
+};
+
+/**
+ * Every message generated for one job.
+ *
+ * Being on the offer list only means a job was *addressed* to a cleaner — the
+ * text may have bounced, or their number may not be a mobile. Without this,
+ * a cleaner who never received the offer looks identical to one ignoring it.
+ */
+export async function getJobMessages(jobId: number): Promise<JobMessage[]> {
+  return query<JobMessage>(
+    `SELECT id, channel, recipient, subject,
+            to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            to_char(sent_at,    'HH24:MI')            AS sent_at,
+            error
+       FROM notifications
+      WHERE job_id = $1
+      ORDER BY id`,
+    [jobId]
+  );
+}
