@@ -29,9 +29,11 @@ import { parseOutwardList } from "@/lib/marketplace/postcode";
 import { makeResetToken } from "@/lib/marketplace/auth";
 import {
   activateProvisionalJobs,
+  adjustJobPrice,
   assignJob,
   getCleanerPasswordHash,
   releaseJob,
+  createBooking,
   waiveCommission,
   setAvailability,
   setCleanerAreas,
@@ -472,4 +474,70 @@ export async function issueResetLinkAction(data: FormData) {
 
   revalidatePath("/admin/cleaners");
   redirect(`/admin/cleaners?reset=${encodeURIComponent(link)}`);
+}
+
+
+// ------------------------------------------------- booking by phone -------
+
+/**
+ * Take a booking over the phone.
+ *
+ * Runs through exactly the same path as a customer booking — same pricing, same
+ * broadcast, same messages — so a phone job is indistinguishable to cleaners
+ * from one booked online. Anything else would mean two sets of behaviour to
+ * keep in step.
+ */
+export async function createPhoneBookingAction(data: FormData) {
+  await requireAdmin("/admin/jobs/new");
+
+  const customerName = field(data, "customerName", 80);
+  const customerPhone = field(data, "customerPhone", 30);
+  const postcode = field(data, "postcode", 12);
+  const slotDate = field(data, "slotDate", 10);
+
+  const fail2 = (message: string): never =>
+    redirect(`/admin/jobs/new?error=${encodeURIComponent(message)}`);
+
+  if (customerName.length < 2) fail2("Enter the customer's name.");
+  if (customerPhone.replace(/\D/g, "").length < 10) {
+    fail2("Enter a valid phone number.");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(slotDate)) fail2("Pick a date.");
+
+  const basket: Record<string, number> = {};
+  for (const [key, value] of data.entries()) {
+    if (!key.startsWith("qty-")) continue;
+    const quantity = Math.floor(Number(value));
+    if (Number.isFinite(quantity) && quantity > 0) {
+      basket[key.slice(4)] = quantity;
+    }
+  }
+  if (Object.keys(basket).length === 0) fail2("Add at least one item.");
+
+  let result;
+  try {
+    result = await createBooking({
+      basket,
+      customerName,
+      customerEmail: field(data, "customerEmail", 120),
+      customerPhone,
+      addressLine: field(data, "addressLine", 160),
+      town: field(data, "town", 80),
+      postcode,
+      slotDate,
+      slotWindow: field(data, "slotWindow", 2) === "pm" ? "pm" : "am",
+      notes: field(data, "notes", 600),
+      protection: data.get("protection") === "on",
+    });
+  } catch (error) {
+    fail2(String((error as Error)?.message ?? "Couldn't create that booking."));
+  }
+
+  const agreed = penceFromInput(field(data, "agreedPrice", 12));
+  if (agreed !== null && agreed > 0) {
+    await adjustJobPrice(result!.job.id, agreed);
+  }
+
+  revalidatePath("/admin/jobs");
+  redirect(`/admin/jobs/${result!.job.ref}`);
 }

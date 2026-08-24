@@ -1499,13 +1499,16 @@ export async function notifyCustomer(
       jobId: input.jobId,
     });
   }
-  await notify({
-    channel: "email",
-    recipient: job.customer_email,
-    subject: input.subject,
-    body: input.body,
-    jobId: input.jobId,
-  });
+  // A phone booking may have no email at all; don't queue a message to nowhere.
+  if (job.customer_email.trim()) {
+    await notify({
+      channel: "email",
+      recipient: job.customer_email,
+      subject: input.subject,
+      body: input.body,
+      jobId: input.jobId,
+    });
+  }
 }
 
 /**
@@ -2301,5 +2304,45 @@ export async function getJobMessages(jobId: number): Promise<JobMessage[]> {
       WHERE job_id = $1
       ORDER BY id`,
     [jobId]
+  );
+}
+
+
+/**
+ * Adjust a job to a price agreed on the phone.
+ *
+ * Recorded as an extra line rather than by quietly rewriting the total, so the
+ * itemisation still adds up to what the customer was told — the cleaner sees
+ * the same breakdown the customer agreed to.
+ */
+export async function adjustJobPrice(
+  jobId: number,
+  agreedPence: number
+): Promise<void> {
+  const job = await getJob(jobId);
+  if (!job) return;
+
+  const difference = agreedPence - job.total_pence;
+  if (difference === 0) return;
+
+  const items = [
+    ...job.items,
+    {
+      code: "adjustment",
+      label: difference > 0 ? "Agreed extra" : "Agreed discount",
+      qty: 1,
+      amount_pence: difference,
+      note: "Agreed over the phone",
+    },
+  ];
+  const commission = Math.round(
+    (agreedPence * Number(job.commission_pct)) / 100
+  );
+
+  await query(
+    `UPDATE jobs
+        SET items = $2::jsonb, total_pence = $3, commission_pence = $4
+      WHERE id = $1`,
+    [jobId, JSON.stringify(items), agreedPence, commission]
   );
 }
