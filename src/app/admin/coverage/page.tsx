@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import { listCoverage, listUncoveredDemand } from "@/lib/marketplace/repo";
 import { AdminNav, Card } from "@/components/marketplace/shell";
+import CopyButton from "@/components/marketplace/CopyButton";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,10 @@ export default async function CoveragePage() {
   const producing = covered.filter((a) => a.jobs > 0);
   const idle = covered.length - producing.length;
 
+  const allDistricts = covered.map((a) => a.outward).join(", ");
+  const earningDistricts = producing.map((a) => a.outward).join(", ");
+  const gapDistricts = gaps.map((g) => g.outward).join(", ");
+
   return (
     <main className="min-h-screen bg-slate-50">
       <AdminNav />
@@ -80,6 +85,41 @@ export default async function CoveragePage() {
             </div>
           ))}
         </div>
+
+        <Card
+          title="Copy for advertising"
+          description="Google Ads accepts UK postcode districts as they are. Meta does not — it wants towns or a dropped pin with a radius, so paste these somewhere you can read them off rather than straight into Meta."
+          className="mb-6"
+        >
+          <div className="mt-4 flex flex-wrap gap-3">
+            <CopyButton
+              text={allDistricts}
+              label={`Copy all ${covered.length} districts`}
+              className="bg-slate-900 text-white hover:bg-slate-800"
+            />
+            {producing.length > 0 && (
+              <CopyButton
+                text={earningDistricts}
+                label={`Copy the ${producing.length} that earn`}
+                className="border border-accent-300 text-accent-800 hover:bg-accent-50"
+              />
+            )}
+            {gaps.length > 0 && (
+              <CopyButton
+                text={gapDistricts}
+                label={`Copy the ${gaps.length} gaps`}
+                className="border border-amber-300 text-amber-800 hover:bg-amber-50"
+              />
+            )}
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            For Meta, target the towns instead, or drop pins with a radius —
+            Manchester +9 miles and Warrington +11 miles cover most of this
+            patch between them. Spending against districts you cover but which
+            have never produced a job is the easiest money to waste, which is
+            what the middle button is for.
+          </p>
+        </Card>
 
         {gaps.length > 0 && (
           <Card
