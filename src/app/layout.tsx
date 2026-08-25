@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { GOOGLE_ADS_ID } from "@/lib/analytics";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -145,6 +146,17 @@ fbq('track', 'PageView');`}
             src="https://www.facebook.com/tr?id=613073519035884&ev=PageView&noscript=1"
           />
         </noscript>
+        <Script
+          id="google-ads-lib"
+          strategy="afterInteractive"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
+        />
+        <Script id="google-ads" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GOOGLE_ADS_ID}');`}
+        </Script>
       </head>
       <body className="font-sans">
         <script
