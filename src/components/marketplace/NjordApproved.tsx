@@ -79,7 +79,7 @@ export default function NjordApproved({
         </p>
       </div>
 
-      <ul className="grid gap-x-8 gap-y-5 px-6 py-6 @md:grid-cols-2">
+      <ul className="grid gap-x-8 gap-y-5 px-6 py-6 @lg:grid-cols-2">
         {points.map((point) => (
           <li key={point.title} className="flex gap-3">
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500/15 text-xs font-bold text-primary-400">
