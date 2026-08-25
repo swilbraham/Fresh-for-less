@@ -92,6 +92,22 @@ export default function NjordApproved({
           </li>
         ))}
       </ul>
+
+      {cleaner && (
+        <div className="border-t border-slate-800 px-6 py-4 text-center">
+          <p className="text-sm text-slate-400">
+            Training and approval is run by Njord Chemicals —{" "}
+            <a
+              href="https://www.njordchemicals.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-primary-400 underline underline-offset-2 hover:text-primary-300"
+            >
+              njordchemicals.com
+            </a>
+          </p>
+        </div>
+      )}
     </section>
   );
 }
