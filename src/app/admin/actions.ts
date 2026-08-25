@@ -23,7 +23,7 @@ import {
   notify,
   getCleaner,
 } from "@/lib/marketplace/repo";
-import { penceFromInput } from "@/lib/marketplace/money";
+import { penceFromInput, gbpShort } from "@/lib/marketplace/money";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 import { parseOutwardList } from "@/lib/marketplace/postcode";
 import { makeResetToken } from "@/lib/marketplace/auth";
@@ -35,6 +35,9 @@ import {
   releaseJob,
   createBooking,
   waiveCommission,
+  setJobCommission,
+  getJob,
+  notifyCleaner,
   setAvailability,
   setCleanerAreas,
   updateCleanerProfile,
@@ -318,6 +321,59 @@ export async function waiveCommissionAction(data: FormData) {
     redirect(`/admin/jobs/${ref}?error=${encodeURIComponent(result.reason ?? "Couldn't change that.")}`);
   }
   redirect(`/admin/jobs/${ref}?waived=1`);
+}
+
+/**
+ * Set a one-off commission rate on a single job.
+ *
+ * If a cleaner already holds the job they've been told what they keep, so a
+ * change to the figure has to reach them — otherwise the Monday invoice is the
+ * first they hear of it.
+ */
+export async function setJobCommissionAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const jobId = Number(field(data, "id", 12));
+  const raw = field(data, "pct", 10).replace("%", "").trim();
+  const pct = Number(raw);
+
+  if (raw === "" || !Number.isFinite(pct)) {
+    redirect(`/admin/jobs/${ref}?error=${encodeURIComponent("Enter a commission percentage.")}`);
+  }
+
+  const result = await setJobCommission(jobId, pct);
+  revalidatePath(`/admin/jobs/${ref}`);
+  if (!result.ok) {
+    redirect(`/admin/jobs/${ref}?error=${encodeURIComponent(result.reason ?? "Couldn't change that.")}`);
+  }
+
+  if (result.changed) {
+    const job = await getJob(jobId);
+    if (job?.cleaner_id && ["accepted", "completed"].includes(job.status)) {
+      const cleaner = await getCleaner(job.cleaner_id);
+      if (cleaner) {
+        const keeps = gbpShort(job.total_pence - job.commission_pence);
+        await notifyCleaner(cleaner, {
+          jobId,
+          subject: `Commission changed on ${job.ref}`,
+          body:
+            `${cleaner.name}, we've changed the commission on ${job.ref}.\n\n` +
+            `Customer pays: ${gbpShort(job.total_pence)}\n` +
+            `${job.commission_pence === 0
+              ? "Commission: none on this one."
+              : `Commission (${Number(job.commission_pct)}%): ${gbpShort(job.commission_pence)}`}\n` +
+            `You keep: ${keeps}\n\n` +
+            `This is what your invoice will show.`,
+          smsBody:
+            `Fresh For Less: commission on ${job.ref} is now ` +
+            `${job.commission_pence === 0 ? "waived" : `${Number(job.commission_pct)}% (${gbpShort(job.commission_pence)})`}. ` +
+            `You keep ${keeps}.`,
+        });
+      }
+    }
+  }
+
+  redirect(`/admin/jobs/${ref}?commission=1`);
 }
 
 export async function reassignJobAction(data: FormData) {

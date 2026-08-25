@@ -5,6 +5,7 @@ import {
   getJobByRef,
   getJobDrops,
   getJobMessages,
+  getJobInvoiceRef,
   getJobOffers,
   listCleaners,
 } from "@/lib/marketplace/repo";
@@ -15,6 +16,7 @@ import {
   assignJobAction,
   cancelJobAction,
   waiveCommissionAction,
+  setJobCommissionAction,
   reassignJobAction,
   rebroadcastJobAction,
 } from "../../actions";
@@ -37,22 +39,27 @@ export default async function AdminJobPage({
   searchParams,
 }: {
   params: Promise<{ ref: string }>;
-  searchParams: Promise<{ error?: string; waived?: string }>;
+  searchParams: Promise<{ error?: string; waived?: string; commission?: string }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
 
   const { ref } = await params;
-  const { error, waived } = await searchParams;
+  const { error, waived, commission } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
 
-  const [offers, drops, cleaners, messages] = await Promise.all([
+  const [offers, drops, cleaners, messages, invoiceRef] = await Promise.all([
     getJobOffers(job.id),
     getJobDrops(job.id),
     listCleaners("approved"),
     getJobMessages(job.id),
+    getJobInvoiceRef(job.id),
   ]);
+
+  // Commission stays adjustable after the job is done — that's when a goodwill
+  // discount usually gets agreed — but not once it's been billed.
+  const commissionEditable = job.status !== "cancelled" && !invoiceRef;
 
   /**
    * Match messages to a cleaner by the address they were actually sent to.
@@ -98,6 +105,11 @@ export default async function AdminJobPage({
         </div>
 
         {error && <Alert>{error}</Alert>}
+        {commission && (
+          <Alert tone="info">
+            Commission updated. {job.cleaner_id ? "The cleaner has been texted the new figure." : ""}
+          </Alert>
+        )}
         {waived && (
           <Alert tone="success">
             Commission waived — this job won&apos;t be invoiced.
@@ -221,15 +233,6 @@ export default async function AdminJobPage({
                       </button>
                     </form>
                   )}
-                  {job.commission_pence > 0 && (
-                    <form action={waiveCommissionAction}>
-                      <input type="hidden" name="id" value={job.id} />
-                      <input type="hidden" name="ref" value={job.ref} />
-                      <button type="submit" className="font-semibold text-slate-600 underline">
-                        Waive commission
-                      </button>
-                    </form>
-                  )}
                   <form action={cancelJobAction}>
                     <input type="hidden" name="id" value={job.id} />
                     <button type="submit" className="font-semibold text-red-600 underline">
@@ -237,6 +240,48 @@ export default async function AdminJobPage({
                     </button>
                   </form>
                 </div>
+              )}
+
+              {commissionEditable && (
+                <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 text-xs">
+                  <form action={setJobCommissionAction} className="flex items-center gap-2">
+                    <input type="hidden" name="id" value={job.id} />
+                    <input type="hidden" name="ref" value={job.ref} />
+                    <label htmlFor="pct" className="text-slate-600">
+                      Commission on this job
+                    </label>
+                    <input
+                      id="pct"
+                      name="pct"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      defaultValue={Number(job.commission_pct)}
+                      className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-right tabular-nums"
+                    />
+                    <span className="text-slate-500">%</span>
+                    <button type="submit" className="font-semibold text-primary-600 underline">
+                      Save
+                    </button>
+                  </form>
+                  {job.commission_pence > 0 && (
+                    <form action={waiveCommissionAction}>
+                      <input type="hidden" name="id" value={job.id} />
+                      <input type="hidden" name="ref" value={job.ref} />
+                      <button type="submit" className="font-semibold text-slate-600 underline">
+                        Waive
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {invoiceRef && (
+                <p className="mt-4 border-t border-slate-100 pt-4 text-xs text-slate-500">
+                  Commission is fixed — this job is on invoice{" "}
+                  <span className="font-semibold text-slate-700">{invoiceRef}</span>.
+                </p>
               )}
             </Card>
           </div>

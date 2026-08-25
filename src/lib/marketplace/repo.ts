@@ -768,9 +768,26 @@ async function confirmCleanerToCustomer(
  * the cleaner may have paid it, so zeroing the job behind it would leave the
  * books disagreeing with themselves.
  */
-export async function waiveCommission(
-  jobId: number
-): Promise<{ ok: boolean; reason?: string }> {
+/**
+ * Override the commission rate on a single job.
+ *
+ * Jobs carry their own rate rather than reading the global setting, so a
+ * one-off deal never moves when the national rate changes. Recomputed from
+ * total_pence with the same rounding as the original quote, so the figure on
+ * the invoice always matches the rate shown.
+ *
+ * Refuses once the job is invoiced — the cleaner has been billed by then.
+ */
+export async function setJobCommission(
+  jobId: number,
+  pct: number
+): Promise<{ ok: boolean; reason?: string; changed?: boolean }> {
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+    return { ok: false, reason: "Commission has to be between 0% and 100%." };
+  }
+  // numeric(5,2) — anything finer is silently rounded by the column anyway.
+  const rate = Math.round(pct * 100) / 100;
+
   const invoiced = await queryOne<{ id: number }>(
     `SELECT invoice_id AS id FROM commission_invoice_lines WHERE job_id = $1`,
     [jobId]
@@ -782,15 +799,44 @@ export async function waiveCommission(
     };
   }
 
-  const done = await query<{ id: number }>(
-    `UPDATE jobs SET commission_pct = 0, commission_pence = 0
-      WHERE id = $1 AND status <> 'cancelled'
-      RETURNING id`,
+  const before = await queryOne<{ commission_pence: number }>(
+    `SELECT commission_pence FROM jobs WHERE id = $1`,
     [jobId]
   );
-  return done.length > 0
-    ? { ok: true }
-    : { ok: false, reason: "That job can't be changed." };
+
+  const done = await query<{ id: number; commission_pence: number }>(
+    `UPDATE jobs
+        SET commission_pct = $2::numeric,
+            commission_pence = round(total_pence * $2::numeric / 100.0)
+      WHERE id = $1 AND status <> 'cancelled'
+      RETURNING id, commission_pence`,
+    [jobId, rate]
+  );
+  if (done.length === 0) {
+    return { ok: false, reason: "That job can't be changed." };
+  }
+  return {
+    ok: true,
+    changed: before ? before.commission_pence !== done[0].commission_pence : true,
+  };
+}
+
+/** The invoice a job has landed on, if any — commission is fixed from then on. */
+export async function getJobInvoiceRef(jobId: number): Promise<string | null> {
+  const row = await queryOne<{ ref: string }>(
+    `SELECT i.ref FROM commission_invoice_lines l
+       JOIN commission_invoices i ON i.id = l.invoice_id
+      WHERE l.job_id = $1`,
+    [jobId]
+  );
+  return row?.ref ?? null;
+}
+
+/** Shorthand for the common case: this one's on us. */
+export async function waiveCommission(
+  jobId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  return setJobCommission(jobId, 0);
 }
 
 export async function assignJob(
