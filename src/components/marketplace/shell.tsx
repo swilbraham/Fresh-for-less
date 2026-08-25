@@ -170,6 +170,7 @@ export function AdminNav() {
     { href: "/admin", label: "Overview" },
     { href: "/admin/prices", label: "Prices & commission" },
     { href: "/admin/cleaners", label: "Cleaners" },
+    { href: "/admin/coverage", label: "Coverage" },
     { href: "/admin/jobs", label: "Jobs" },
     { href: "/admin/invoices", label: "Commission invoices" },
   ];

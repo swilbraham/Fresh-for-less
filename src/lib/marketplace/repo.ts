@@ -2346,3 +2346,60 @@ export async function adjustJobPrice(
     [jobId, JSON.stringify(items), agreedPence, commission]
   );
 }
+
+// ---------------------------------------------------------- coverage map --
+
+export type CoverageArea = {
+  outward: string;
+  cleaners: string;
+  cleaner_count: number;
+  jobs: number;
+  requests: number;
+};
+
+/**
+ * Every postcode a cleaner claims, with who claims it and what it has actually
+ * produced. Claiming an area and it being worth covering are different things —
+ * a district with cover but no jobs is wasted reach, and one with jobs but no
+ * cover is lost work.
+ */
+export async function listCoverage(): Promise<CoverageArea[]> {
+  return query<CoverageArea>(
+    `SELECT a.outward,
+            string_agg(DISTINCT c.name, ', ') AS cleaners,
+            count(DISTINCT c.id)::int         AS cleaner_count,
+            (SELECT count(*)::int FROM jobs j
+              WHERE j.outward = a.outward
+                AND j.status <> 'cancelled')  AS jobs,
+            (SELECT count(*)::int FROM coverage_requests r
+              WHERE r.outward = a.outward)    AS requests
+       FROM cleaner_areas a
+       JOIN cleaners c ON c.id = a.cleaner_id AND c.status = 'approved'
+      GROUP BY a.outward
+      ORDER BY a.outward`
+  );
+}
+
+/** Postcodes that have produced work or enquiries but nobody covers. */
+export async function listUncoveredDemand(): Promise<
+  { outward: string; jobs: number; requests: number }[]
+> {
+  return query(
+    `SELECT d.outward,
+            (SELECT count(*)::int FROM jobs j
+              WHERE j.outward = d.outward AND j.status <> 'cancelled') AS jobs,
+            (SELECT count(*)::int FROM coverage_requests r
+              WHERE r.outward = d.outward)                             AS requests
+       FROM (
+         SELECT outward FROM jobs
+         UNION
+         SELECT outward FROM coverage_requests
+       ) d
+      WHERE NOT EXISTS (
+        SELECT 1 FROM cleaner_areas a
+          JOIN cleaners c ON c.id = a.cleaner_id AND c.status = 'approved'
+         WHERE a.outward = d.outward
+      )
+      ORDER BY d.outward`
+  );
+}
