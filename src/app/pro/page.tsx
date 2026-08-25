@@ -19,6 +19,7 @@ import {
 } from "@/lib/marketplace/repo";
 import { loginAction } from "./actions";
 import { Alert, Card, Field } from "@/components/marketplace/shell";
+import NjordApproved from "@/components/marketplace/NjordApproved";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +115,10 @@ export default async function ProPage({
               </li>
             ))}
           </ul>
+
+          <div className="mt-8">
+            <NjordApproved audience="cleaner" />
+          </div>
 
           <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900">
