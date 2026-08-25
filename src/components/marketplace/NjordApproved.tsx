@@ -14,15 +14,11 @@ type Point = { title: string; body: string };
 const FOR_CLEANERS: Point[] = [
   {
     title: "Trained & Certified",
-    body: "Professionally trained and certified by Njord.",
+    body: "Professionally trained and certified.",
   },
   {
     title: "Fully Insured",
     body: "Valid public liability insurance must be maintained.",
-  },
-  {
-    title: "Njord System",
-    body: "Jobs are completed exclusively using professional Njord Chemicals products and the Njord cleaning system.",
   },
   {
     title: "Greener Cleaning",
@@ -41,15 +37,11 @@ const FOR_CLEANERS: Point[] = [
 const FOR_CUSTOMERS: Point[] = [
   {
     title: "Trained & Certified",
-    body: "Your cleaner is professionally trained and certified by Njord — not someone who bought a machine last week.",
+    body: "Your cleaner is professionally trained and certified — not someone who bought a machine last week.",
   },
   {
     title: "Fully Insured",
     body: "Valid public liability insurance, checked before they are approved and kept current.",
-  },
-  {
-    title: "The Njord System",
-    body: "Every job uses professional Njord Chemicals products and the Njord cleaning system, so you get the same method whoever turns up.",
   },
   {
     title: "Greener Cleaning",

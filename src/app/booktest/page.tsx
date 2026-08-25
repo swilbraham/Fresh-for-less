@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Book Carpet Cleaning — Njord Approved Cleaners",
   description:
-    "An instant fixed price for carpet and upholstery cleaning, carried out by a Njord Approved cleaner — trained, certified, insured and using the Njord cleaning system.",
+    "An instant fixed price for carpet and upholstery cleaning, carried out by a Njord Approved cleaner — trained, certified, insured and accountable for the work.",
   // A working duplicate of /book. Kept out of the index so it can't compete
   // with the real booking page or pick up ad traffic by accident.
   robots: { index: false, follow: false },
@@ -54,7 +54,7 @@ export default async function BookTestPage() {
               {[
                 "Trained & certified",
                 "Fully insured",
-                "The Njord cleaning system",
+                "Greener cleaning methods",
               ].map((point) => (
                 <li key={point} className="flex items-center gap-2">
                   <span className="text-primary-400">✓</span>
