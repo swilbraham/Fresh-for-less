@@ -53,9 +53,9 @@ export default async function CoveragePage() {
   const producing = covered.filter((a) => a.jobs > 0);
   const idle = covered.length - producing.length;
 
-  const allDistricts = covered.map((a) => a.outward).join(", ");
-  const earningDistricts = producing.map((a) => a.outward).join(", ");
-  const gapDistricts = gaps.map((g) => g.outward).join(", ");
+  const allDistricts = covered.map((a) => a.outward).join("\n");
+  const earningDistricts = producing.map((a) => a.outward).join("\n");
+  const gapDistricts = gaps.map((g) => g.outward).join("\n");
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -88,7 +88,7 @@ export default async function CoveragePage() {
 
         <Card
           title="Copy for advertising"
-          description="Google Ads accepts UK postcode districts as they are. Meta does not — it wants towns or a dropped pin with a radius, so paste these somewhere you can read them off rather than straight into Meta."
+          description="One district per line, which is the format Google Ads bulk location entry expects — a comma-separated list is read as a single location and matches nothing. Meta won't take districts at all; it wants towns or a dropped pin with a radius."
           className="mb-6"
         >
           <div className="mt-4 flex flex-wrap gap-3">
