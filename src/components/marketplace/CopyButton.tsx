@@ -20,15 +20,20 @@ export default function CopyButton({
   className?: string;
 }) {
   const [state, setState] = useState<"idle" | "done" | "manual">("idle");
+  const [shown, setShown] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
       setState("done");
+      // Always reveal what was copied. Format matters here — Google Ads needs
+      // one per line — and a silent clipboard leaves no way to check.
+      setShown(true);
       setTimeout(() => setState("idle"), 2500);
     } catch {
       setState("manual");
+      setShown(true);
       // Reveal and select it so the keyboard shortcut has something to act on.
       requestAnimationFrame(() => {
         field.current?.focus();
@@ -38,7 +43,7 @@ export default function CopyButton({
   };
 
   return (
-    <div className={state === "manual" ? "w-full" : ""}>
+    <div className={shown ? "w-full" : ""}>
       <button
         type="button"
         onClick={copy}
@@ -47,11 +52,12 @@ export default function CopyButton({
         {state === "done" ? "Copied ✓" : label}
       </button>
 
-      {state === "manual" && (
+      {shown && (
         <div className="mt-2">
           <p className="text-xs text-slate-500">
-            Your browser blocked the clipboard — it&apos;s selected below, press
-            Ctrl+C (or Cmd+C).
+            {state === "manual"
+              ? "Your browser blocked the clipboard — it's selected below, press Ctrl+C (or Cmd+C)."
+              : "Copied. This is exactly what's on your clipboard — one per line, ready for Google Ads."}
           </p>
           <textarea
             ref={field}
