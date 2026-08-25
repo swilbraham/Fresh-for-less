@@ -72,7 +72,7 @@ export default async function ProPage({
       <SiteHeader />
       <main className="min-h-screen bg-slate-50 pt-10 pb-20">
       <div className="mx-auto grid max-w-5xl gap-10 px-4 lg:grid-cols-2">
-        <div className={returning ? "order-2" : ""}>
+        <div className={returning ? "order-2 min-w-0" : "min-w-0"}>
           <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
             For carpet cleaners
           </p>
@@ -246,7 +246,7 @@ export default async function ProPage({
           </Link>
         </div>
 
-        <div className={returning ? "order-1" : ""}>
+        <div className={returning ? "order-1 min-w-0" : "min-w-0"}>
           {error && <Alert>{error}</Alert>}
           {returning && !error && (
             <Alert tone="info">
