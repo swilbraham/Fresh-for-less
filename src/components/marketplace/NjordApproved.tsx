@@ -66,7 +66,7 @@ export default function NjordApproved({
   const points = cleaner ? FOR_CLEANERS : FOR_CUSTOMERS;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
+    <section className="@container overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
       <div className="border-b border-slate-800 bg-slate-950/40 px-6 py-6 text-center">
         <NjordBadge className="mx-auto h-auto w-full max-w-[280px]" />
         <h2 className="mt-4 text-lg font-bold text-white">
@@ -79,7 +79,7 @@ export default function NjordApproved({
         </p>
       </div>
 
-      <ul className="grid gap-x-8 gap-y-5 px-6 py-6 sm:grid-cols-2">
+      <ul className="grid gap-x-8 gap-y-5 px-6 py-6 @md:grid-cols-2">
         {points.map((point) => (
           <li key={point.title} className="flex gap-3">
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500/15 text-xs font-bold text-primary-400">
