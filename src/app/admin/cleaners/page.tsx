@@ -34,12 +34,55 @@ export const metadata = {
 export default async function AdminCleanersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string; reset?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    saved?: string;
+    reset?: string;
+    q?: string;
+    sort?: string;
+    status?: string;
+  }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, reset } = await searchParams;
+  const { error, saved, reset, q, sort, status } = await searchParams;
 
-  const cleaners = await listCleaners();
+  const all = await listCleaners();
+
+  const term = (q ?? "").trim().toLowerCase();
+  const sortKey = sort ?? "name";
+
+  const matches = all.filter((c) => {
+    if (status && c.status !== status) return false;
+    if (!term) return true;
+    return [c.name, c.business_name, c.email, c.phone]
+      .filter(Boolean)
+      .some((v) => v.toLowerCase().includes(term));
+  });
+
+  const byName = (a: string, b: string) =>
+    a.localeCompare(b, "en-GB", { sensitivity: "base" });
+
+  const cleaners = [...matches].sort((a, b) => {
+    switch (sortKey) {
+      case "business":
+        return byName(a.business_name || a.name, b.business_name || b.name);
+      case "newest":
+        return b.created_at.localeCompare(a.created_at);
+      case "oldest":
+        return a.created_at.localeCompare(b.created_at);
+      case "jobs":
+        return b.jobs_done - a.jobs_done || byName(a.name, b.name);
+      case "areas":
+        return b.areas - a.areas || byName(a.name, b.name);
+      case "status":
+        return byName(a.status, b.status) || byName(a.name, b.name);
+      default:
+        return byName(a.name, b.name);
+    }
+  });
+
+  // Only the cleaners actually on screen need their detail loaded — these are
+  // three queries each, so fetching for the whole list would be wasted work.
   const areasByCleaner = new Map(
     await Promise.all(
       cleaners.map(
@@ -82,14 +125,95 @@ export default async function AdminCleanersPage({
           </Alert>
         )}
 
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">
-          Cleaners ({cleaners.length})
+        <h1 className="mb-4 text-2xl font-bold text-slate-900">
+          Cleaners{" "}
+          <span className="font-normal text-slate-400">
+            ({cleaners.length === all.length
+              ? cleaners.length
+              : `${cleaners.length} of ${all.length}`})
+          </span>
         </h1>
 
-        {cleaners.length === 0 && (
+        {/* A GET form so a filtered view is a shareable, reloadable URL. */}
+        <form
+          method="GET"
+          className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        >
+          <label className="min-w-[200px] flex-1 text-sm">
+            <span className="block font-semibold text-slate-700">Search</span>
+            <input
+              type="search"
+              name="q"
+              defaultValue={q ?? ""}
+              placeholder="Name, business, email or phone"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+            />
+          </label>
+
+          <label className="text-sm">
+            <span className="block font-semibold text-slate-700">Status</span>
+            <select
+              name="status"
+              defaultValue={status ?? ""}
+              className="mt-1 rounded-xl border border-slate-300 px-3 py-2"
+            >
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="suspended">Suspended</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+
+          <label className="text-sm">
+            <span className="block font-semibold text-slate-700">Sort by</span>
+            <select
+              name="sort"
+              defaultValue={sortKey}
+              className="mt-1 rounded-xl border border-slate-300 px-3 py-2"
+            >
+              <option value="name">Name (A–Z)</option>
+              <option value="business">Business name (A–Z)</option>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="jobs">Most jobs done</option>
+              <option value="areas">Most areas covered</option>
+              <option value="status">Status</option>
+            </select>
+          </label>
+
+          <button
+            type="submit"
+            className="rounded-xl bg-primary-600 px-5 py-2 text-sm font-semibold text-white"
+          >
+            Apply
+          </button>
+          {(term || status || (sort && sort !== "name")) && (
+            <Link
+              href="/admin/cleaners"
+              className="py-2 text-sm font-semibold text-slate-600 underline"
+            >
+              Clear
+            </Link>
+          )}
+        </form>
+
+        {all.length === 0 && (
           <Card>
             <p className="text-sm text-slate-500">
               No applications yet. Cleaners apply at <code>/pro/register</code>.
+            </p>
+          </Card>
+        )}
+
+        {all.length > 0 && cleaners.length === 0 && (
+          <Card>
+            <p className="text-sm text-slate-500">
+              No cleaner matches that search.{" "}
+              <Link href="/admin/cleaners" className="font-semibold text-primary-600 underline">
+                Clear it
+              </Link>{" "}
+              to see all {all.length}.
             </p>
           </Card>
         )}
