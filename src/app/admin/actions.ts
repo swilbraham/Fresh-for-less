@@ -37,6 +37,7 @@ import {
   waiveCommission,
   setJobCommission,
   textCleaner,
+  textCustomer,
   getJob,
   notifyCleaner,
   setAvailability,
@@ -387,6 +388,23 @@ export async function textCleanerAction(data: FormData) {
   if (!body) redirect(`${back}&error=${encodeURIComponent("Write a message first.")}`);
 
   const result = await textCleaner(cleanerId, body);
+  revalidatePath("/admin/messages");
+  if (!result.ok) {
+    redirect(`${back}&error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`);
+  }
+  redirect(`${back}&sent=1`);
+}
+
+/** Text the customer on a job from /admin/messages. */
+export async function textCustomerAction(data: FormData) {
+  await requireAdmin("/admin/messages");
+  const jobId = Number(field(data, "jobId", 12));
+  const body = field(data, "body", 600);
+  const back = `/admin/messages?job=${jobId}`;
+
+  if (!body) redirect(`${back}&error=${encodeURIComponent("Write a message first.")}`);
+
+  const result = await textCustomer(jobId, body);
   revalidatePath("/admin/messages");
   if (!result.ok) {
     redirect(`${back}&error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`);

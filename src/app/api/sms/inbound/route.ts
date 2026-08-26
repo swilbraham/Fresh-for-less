@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   const providerId = params.MessageSid ?? "";
   if (!from || !providerId) return twiml();
 
-  const { cleanerId, duplicate } = await recordInboundSms({
+  const { cleanerId, jobId, duplicate } = await recordInboundSms({
     from,
     body,
     providerId,
@@ -71,13 +71,17 @@ export async function POST(request: Request) {
 
   // Twilio retries on any non-2xx, so a redelivery must not text again.
   if (!duplicate) {
+    const link = cleanerId
+      ? `${siteUrl()}/admin/messages?cleaner=${cleanerId}`
+      : jobId
+        ? `${siteUrl()}/admin/messages?job=${jobId}`
+        : `${siteUrl()}/admin/messages`;
     await notifyAdmin({
-      subject: "Reply from a cleaner",
+      subject: "Reply received",
       smsBody:
         `${from} replied:\n\n${body.slice(0, 300)}\n\n` +
-        (cleanerId
-          ? `${siteUrl()}/admin/messages?cleaner=${cleanerId}`
-          : `Not matched to a cleaner. ${siteUrl()}/admin/messages`),
+        (cleanerId || jobId ? link : `Not matched to anyone. ${link}`),
+      jobId: jobId ?? undefined,
     });
   }
 

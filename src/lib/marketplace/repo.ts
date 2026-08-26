@@ -1429,12 +1429,91 @@ export async function textCleaner(
   return { ok: true };
 }
 
+/**
+ * Text the customer on a job.
+ *
+ * Keyed on the job rather than the person: there is no customer account, and
+ * the same household booking twice is two separate jobs with their own detail.
+ */
+export async function textCustomer(
+  jobId: number,
+  body: string
+): Promise<{ ok: boolean; reason?: string }> {
+  const job = await getJob(jobId);
+  if (!job) return { ok: false, reason: "That job no longer exists." };
+
+  const mobile = toE164(job.customer_phone);
+  if (!mobile || !isMobile(job.customer_phone)) {
+    return {
+      ok: false,
+      reason: `${job.customer_name} has a landline on file, so they can't be texted.`,
+    };
+  }
+
+  await notify({
+    channel: "sms",
+    recipient: mobile,
+    subject: `Message to ${job.customer_name} (${job.ref})`,
+    body,
+    jobId,
+  });
+  return { ok: true };
+}
+
+/** Every message to or from one job's customer, oldest first. */
+export async function getCustomerThread(jobId: number): Promise<
+  {
+    id: number;
+    direction: string;
+    body: string;
+    created_at: string;
+    sent_at: string | null;
+    error: string | null;
+  }[]
+> {
+  const job = await getJob(jobId);
+  if (!job) return [];
+  const digits = job.customer_phone.replace(/[^0-9]/g, "").slice(-9);
+  if (!digits) return [];
+  return query(
+    `SELECT id, direction, body, created_at, sent_at, error
+       FROM notifications
+      WHERE channel = 'sms'
+        AND regexp_replace(recipient, '[^0-9]', '', 'g') LIKE $1
+      ORDER BY created_at ASC
+      LIMIT 200`,
+    [`%${digits}`]
+  );
+}
+
+/** Customers worth showing in the message list — most recent booking first. */
+export async function listCustomerThreads(limit = 40): Promise<
+  { job_id: number; ref: string; customer_name: string; customer_phone: string;
+    slot_date: string; status: string; replies: number }[]
+> {
+  return query(
+    `SELECT DISTINCT ON (regexp_replace(j.customer_phone, '[^0-9]', '', 'g'))
+            j.id AS job_id, j.ref, j.customer_name, j.customer_phone,
+            to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date, j.status,
+            (SELECT count(*)::int FROM notifications n
+              WHERE n.direction = 'in'
+                AND regexp_replace(n.recipient, '[^0-9]', '', 'g')
+                    LIKE '%' || right(regexp_replace(j.customer_phone, '[^0-9]', '', 'g'), 9)
+            ) AS replies
+       FROM jobs j
+      WHERE j.status <> 'cancelled'
+      ORDER BY regexp_replace(j.customer_phone, '[^0-9]', '', 'g'), j.created_at DESC
+      LIMIT $1`,
+    [limit]
+  );
+}
+
 /** Record a reply that arrived from a cleaner's handset. */
 export async function recordInboundSms(input: {
   from: string;
   body: string;
   providerId: string;
-}): Promise<{ cleanerId: number | null; duplicate: boolean }> {
+}): Promise<{ cleanerId: number | null; jobId: number | null; duplicate: boolean }> {
   const from = toE164(input.from) ?? input.from;
   const cleaner = await queryOne<{ id: number; name: string }>(
     `SELECT id, name FROM cleaners
@@ -1445,17 +1524,36 @@ export async function recordInboundSms(input: {
     [`%${from.replace(/[^0-9]/g, "").slice(-9)}`]
   );
 
+  // Not a cleaner? It may be a customer replying about their booking.
+  const job = cleaner
+    ? null
+    : await queryOne<{ id: number; ref: string; customer_name: string }>(
+        `SELECT id, ref, customer_name FROM jobs
+          WHERE regexp_replace(customer_phone, '[^0-9]', '', 'g') LIKE $1
+          ORDER BY created_at DESC LIMIT 1`,
+        [`%${from.replace(/[^0-9]/g, "").slice(-9)}`]
+      );
+
+  const subject = cleaner
+    ? `Reply from ${cleaner.name}`
+    : job
+      ? `Reply from ${job.customer_name} (${job.ref})`
+      : "Reply from an unknown number";
+
   const row = await queryOne<{ id: number }>(
     `INSERT INTO notifications
-       (channel, direction, recipient, subject, body, provider_id)
-     VALUES ('sms', 'in', $1, $2, $3, $4)
+       (channel, direction, recipient, subject, body, provider_id, job_id)
+     VALUES ('sms', 'in', $1, $2, $3, $4, $5)
      ON CONFLICT (provider_id) WHERE provider_id IS NOT NULL DO NOTHING
      RETURNING id`,
-    [from, cleaner ? `Reply from ${cleaner.name}` : "Reply from an unknown number",
-     input.body, input.providerId]
+    [from, subject, input.body, input.providerId, job?.id ?? null]
   );
 
-  return { cleanerId: cleaner?.id ?? null, duplicate: row === null };
+  return {
+    cleanerId: cleaner?.id ?? null,
+    jobId: job?.id ?? null,
+    duplicate: row === null,
+  };
 }
 
 /** One cleaner's full message history, oldest first. */
