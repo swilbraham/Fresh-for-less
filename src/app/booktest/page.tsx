@@ -71,6 +71,7 @@ export default async function BookTestPage() {
             items={items}
             bundles={bundles}
             minimumChargePence={settings.minimum_charge_pence}
+            minNoticeDays={settings.min_notice_days}
             commissionPct={Number(settings.commission_pct)}
             protectionPct={Number(settings.protection_pct)}
             protectionEnabled={settings.protection_enabled}

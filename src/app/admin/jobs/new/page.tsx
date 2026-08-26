@@ -27,8 +27,10 @@ export default async function NewJobPage({
     getSettings(),
   ]);
 
+  // Phone bookings deliberately ignore min_notice_days. That rule exists to
+  // stop the website promising a slot nobody can staff; on the phone the diary
+  // is in front of you, and urgent jobs are exactly what the number is for.
   const today = new Date();
-  today.setDate(today.getDate() + settings.min_notice_days);
   const earliest = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   return (

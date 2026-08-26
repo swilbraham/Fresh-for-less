@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -17,7 +17,7 @@ export const STATEMENTS: string[] = [
      id                  int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
      commission_pct      numeric(5,2) NOT NULL DEFAULT 20.00,
      minimum_charge_pence int NOT NULL DEFAULT 9000,
-     min_notice_days     int NOT NULL DEFAULT 1,
+     min_notice_days     int NOT NULL DEFAULT 3,
      booking_email       text NOT NULL DEFAULT 'info@freshforlesscarpetcleaning.co.uk',
      updated_at          timestamptz NOT NULL DEFAULT now()
    )`,
@@ -271,13 +271,12 @@ export const STATEMENTS: string[] = [
      ON notifications (provider_id) WHERE provider_id IS NOT NULL`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off price change, 2026-08-25 (dining chair) ---------------------
-  // The blanket +£15 took the dining chair from £12 to £27 — the same cash as
-  // a corner sofa, but a 125% rise on the cheapest item, and enough to lose a
-  // six-chair job. Settled at £20. The five other upholstery statements this
-  // replaces have already run and live on in the seeded defaults; replaying
-  // them on a later bump would undo admin edits.
-  `UPDATE price_items SET unit_price_pence = 2000 WHERE code = 'dining_chair'`,
+  // ---- One-off settings change, 2026-08-25 (notice period) -----------------
+  // Three days' minimum notice online. Same-day and next-day work still gets
+  // booked, but by phone, where the diary can actually be checked — an online
+  // booking nobody can reach a cleaner for becomes a broken promise. The
+  // dining-chair statement this replaces has already run.
+  `UPDATE settings SET min_notice_days = 3 WHERE id = 1`,
 
 ];
 

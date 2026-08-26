@@ -28,6 +28,7 @@ export default function BookingFlow({
   items,
   bundles,
   minimumChargePence,
+  minNoticeDays,
   commissionPct,
   protectionPct,
   protectionEnabled,
@@ -36,6 +37,7 @@ export default function BookingFlow({
   items: PriceItem[];
   bundles: PriceBundle[];
   minimumChargePence: number;
+  minNoticeDays: number;
   commissionPct: number;
   protectionPct: number;
   protectionEnabled: boolean;
@@ -560,6 +562,23 @@ export default function BookingFlow({
               {coverage?.provisional
                 ? `Tell us when suits and we'll try to cover ${coverage.outward}.`
                 : `Only dates with a cleaner free in ${coverage?.outward} are shown.`}
+            </p>
+
+            {/* Sooner than the notice period is still bookable — by phone,
+                where the diary can actually be checked. */}
+            <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              Booking online needs at least{" "}
+              <strong className="text-slate-900">
+                {minNoticeDays} days&apos; notice
+              </strong>
+              . Need us sooner than that?{" "}
+              <a
+                href="tel:03300434811"
+                className="font-semibold text-primary-600 underline"
+              >
+                Call 0330 043 4811
+              </a>{" "}
+              and we&apos;ll do our best to fit you in.
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {coverage?.slots.map((slot) => (
