@@ -58,6 +58,7 @@ export default async function ProPage({
     { label: "Three bedrooms", basket: { room: 3 } },
     { label: "Whole house — 4 rooms, stairs, landing", basket: { room: 4, stairs: 1, landing: 1 } },
     { label: "Three-seater sofa and an armchair", basket: { sofa3: 1, armchair: 1 } },
+    { label: "Corner sofa and two armchairs", basket: { sofa_corner: 1, armchair: 2 } },
   ];
 
   const examples = exampleBaskets
