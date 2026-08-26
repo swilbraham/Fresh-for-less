@@ -30,7 +30,7 @@ const FOR_CLEANERS: Point[] = [
   },
   {
     title: "Accountable",
-    body: "You stand behind your work. Complaints are dealt with promptly and put right, and approved status can be withdrawn if the standard slips.",
+    body: "Approved cleaners are expected to maintain these standards to remain part of the network.",
   },
 ];
 
@@ -53,7 +53,7 @@ const FOR_CUSTOMERS: Point[] = [
   },
   {
     title: "Accountable",
-    body: "Approved status has to be earned and kept. If a job is not right, tell us and we will put it right.",
+    body: "Cleaners are expected to maintain these standards to remain part of the network — approval has to be kept, not just earned.",
   },
 ];
 
@@ -75,7 +75,7 @@ export default function NjordApproved({
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
           {cleaner
             ? "Every cleaner receiving work through the network must meet the Njord Approved standard."
-            : "Work is offered only to Njord Approved cleaners — trained, insured, and held to a published standard."}
+            : "For customers, it means more than simply getting a cleaner."}
         </p>
       </div>
 
