@@ -258,37 +258,6 @@ export const STATEMENTS: string[] = [
    )`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off changes, 2026-08-21 ----------------------------------------
-  // Mattresses dropped from the bookable list, stain guard confirmed on at 20%,
-  // and the stale 4-rooms-for-£99 bundle removed — it survived an earlier
-  // migration that was replaced before it ever ran against production, and was
-  // charging four rooms at the three-room price.
-  //
-  // Written to be safe to re-run, and every statement below is verified against
-  // production after deploying rather than assumed: a one-off that is replaced
-  // before it executes is silently lost, which is exactly how the 4-room bundle
-  // survived. Ongoing changes belong in /admin/prices.
-  `UPDATE settings SET commission_pct = 20.00 WHERE id = 1`,
-  `UPDATE settings SET protection_enabled = true, protection_pct = 20.00 WHERE id = 1`,
-  `DELETE FROM price_bundles WHERE item_code = 'room' AND qty = 4`,
-  `DELETE FROM price_items WHERE code IN ('mattress', 'mattress_large')`,
-
-  // ---- Notification outbox ------------------------------------------------
-  // Written on every broadcast/allocation event. A sender picks these up; with
-  // no mail provider configured they still give admin a full audit trail.
-  `CREATE TABLE IF NOT EXISTS notifications (
-     id         serial PRIMARY KEY,
-     channel    text NOT NULL DEFAULT 'email',
-     recipient  text NOT NULL,
-     subject    text NOT NULL,
-     body       text NOT NULL,
-     job_id     int REFERENCES jobs(id) ON DELETE CASCADE,
-     created_at timestamptz NOT NULL DEFAULT now(),
-     sent_at    timestamptz,
-     error      text
-   )`,
-
-  // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off price change, 2026-08-25 (dining chair) ---------------------
   // The blanket +£15 took the dining chair from £12 to £27 — the same cash as
   // a corner sofa, but a 125% rise on the cheapest item, and enough to lose a
