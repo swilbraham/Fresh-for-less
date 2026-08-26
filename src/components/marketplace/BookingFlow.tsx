@@ -534,8 +534,10 @@ export default function BookingFlow({
           {/* The fixed price assumes a normally soiled carpet. Saying so here,
               at the moment the price is being built, is far cheaper than a
               cleaner arguing about it on the doorstep. */}
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            <strong>Heavily soiled carpets, pet urine or strong odours?</strong>{" "}
+          <div className="rounded-2xl border border-slate-200 border-l-4 border-l-amber-500 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+            <strong className="text-slate-900">
+              Heavily soiled carpets, pet urine or strong odours?
+            </strong>{" "}
             These take longer and need specialist treatment, so the price above
             may not hold. Please call us on{" "}
             <a
