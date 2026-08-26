@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -256,6 +256,19 @@ export const STATEMENTS: string[] = [
      sent_at    timestamptz,
      error      text
    )`,
+
+  // ---- Two-way texting ----------------------------------------------------
+  // Replies from cleaners land in the same table as everything the platform
+  // sends, so one query gives a conversation in order. 'out' matches every
+  // existing row, which is what the default backfills.
+  `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS direction text NOT NULL DEFAULT 'out'`,
+  // Inbound is matched to a cleaner by the number it came from.
+  `CREATE INDEX IF NOT EXISTS notifications_recipient
+     ON notifications (recipient, created_at DESC)`,
+  // Twilio retries on a non-2xx, so the message SID is the idempotency key.
+  `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS provider_id text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS notifications_provider_id
+     ON notifications (provider_id) WHERE provider_id IS NOT NULL`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off price change, 2026-08-25 (dining chair) ---------------------

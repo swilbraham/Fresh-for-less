@@ -36,6 +36,7 @@ import {
   createBooking,
   waiveCommission,
   setJobCommission,
+  textCleaner,
   getJob,
   notifyCleaner,
   setAvailability,
@@ -374,6 +375,23 @@ export async function setJobCommissionAction(data: FormData) {
   }
 
   redirect(`/admin/jobs/${ref}?commission=1`);
+}
+
+/** Send a free-text message to one cleaner from /admin/messages. */
+export async function textCleanerAction(data: FormData) {
+  await requireAdmin("/admin/messages");
+  const cleanerId = Number(field(data, "cleanerId", 12));
+  const body = field(data, "body", 600);
+  const back = `/admin/messages?cleaner=${cleanerId}`;
+
+  if (!body) redirect(`${back}&error=${encodeURIComponent("Write a message first.")}`);
+
+  const result = await textCleaner(cleanerId, body);
+  revalidatePath("/admin/messages");
+  if (!result.ok) {
+    redirect(`${back}&error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`);
+  }
+  redirect(`${back}&sent=1`);
 }
 
 export async function reassignJobAction(data: FormData) {

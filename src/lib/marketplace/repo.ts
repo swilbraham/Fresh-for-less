@@ -1398,6 +1398,106 @@ export async function setInvoiceStatus(
 
 // ----------------------------------------------------------- notifications --
 
+/**
+ * Send a free-text message to one cleaner and record it in the thread.
+ *
+ * Deliberately ignores the cleaner's notify_sms preference: that flag governs
+ * automated job broadcasts, not a direct reply from a human who is mid-
+ * conversation with them.
+ */
+export async function textCleaner(
+  cleanerId: number,
+  body: string
+): Promise<{ ok: boolean; reason?: string }> {
+  const cleaner = await getCleaner(cleanerId);
+  if (!cleaner) return { ok: false, reason: "That cleaner no longer exists." };
+
+  const mobile = toE164(cleaner.phone);
+  if (!mobile || !isMobile(cleaner.phone)) {
+    return {
+      ok: false,
+      reason: `${cleaner.name} has no mobile number on file, so they can't be texted.`,
+    };
+  }
+
+  await notify({
+    channel: "sms",
+    recipient: mobile,
+    subject: `Message to ${cleaner.name}`,
+    body,
+  });
+  return { ok: true };
+}
+
+/** Record a reply that arrived from a cleaner's handset. */
+export async function recordInboundSms(input: {
+  from: string;
+  body: string;
+  providerId: string;
+}): Promise<{ cleanerId: number | null; duplicate: boolean }> {
+  const from = toE164(input.from) ?? input.from;
+  const cleaner = await queryOne<{ id: number; name: string }>(
+    `SELECT id, name FROM cleaners
+      WHERE regexp_replace(phone, '[^0-9]', '', 'g') LIKE $1
+      ORDER BY id LIMIT 1`,
+    // Match on the last 9 digits: stored numbers vary between 07…, +447… and
+    // spaced formats, but the trailing digits are the same either way.
+    [`%${from.replace(/[^0-9]/g, "").slice(-9)}`]
+  );
+
+  const row = await queryOne<{ id: number }>(
+    `INSERT INTO notifications
+       (channel, direction, recipient, subject, body, provider_id)
+     VALUES ('sms', 'in', $1, $2, $3, $4)
+     ON CONFLICT (provider_id) WHERE provider_id IS NOT NULL DO NOTHING
+     RETURNING id`,
+    [from, cleaner ? `Reply from ${cleaner.name}` : "Reply from an unknown number",
+     input.body, input.providerId]
+  );
+
+  return { cleanerId: cleaner?.id ?? null, duplicate: row === null };
+}
+
+/** One cleaner's full message history, oldest first. */
+export async function getCleanerThread(cleanerId: number): Promise<
+  {
+    id: number;
+    direction: string;
+    body: string;
+    created_at: string;
+    sent_at: string | null;
+    error: string | null;
+  }[]
+> {
+  const cleaner = await getCleaner(cleanerId);
+  if (!cleaner) return [];
+  const digits = cleaner.phone.replace(/[^0-9]/g, "").slice(-9);
+  if (!digits) return [];
+  return query(
+    `SELECT id, direction, body, created_at, sent_at, error
+       FROM notifications
+      WHERE channel = 'sms'
+        AND regexp_replace(recipient, '[^0-9]', '', 'g') LIKE $1
+      ORDER BY created_at ASC
+      LIMIT 200`,
+    [`%${digits}`]
+  );
+}
+
+/** Replies waiting to be read, newest first — the admin inbox. */
+export async function listInboundSms(limit = 50): Promise<
+  { id: number; recipient: string; subject: string; body: string; created_at: string }[]
+> {
+  return query(
+    `SELECT id, recipient, subject, body, created_at
+       FROM notifications
+      WHERE direction = 'in'
+      ORDER BY created_at DESC
+      LIMIT $1`,
+    [limit]
+  );
+}
+
 /** Public base URL, used to build tappable links inside SMS. */
 export function siteUrl(): string {
   const explicit = process.env.MARKETPLACE_BASE_URL;
