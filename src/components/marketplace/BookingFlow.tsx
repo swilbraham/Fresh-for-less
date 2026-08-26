@@ -531,6 +531,23 @@ export default function BookingFlow({
             here.
           </p>
 
+          {/* The fixed price assumes a normally soiled carpet. Saying so here,
+              at the moment the price is being built, is far cheaper than a
+              cleaner arguing about it on the doorstep. */}
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <strong>Heavily soiled carpets, pet urine or strong odours?</strong>{" "}
+            These take longer and need specialist treatment, so the price above
+            may not hold. Please call us on{" "}
+            <a
+              href="tel:03300434811"
+              className="font-semibold underline decoration-amber-400 underline-offset-2"
+            >
+              0330 043 4811
+            </a>{" "}
+            before booking and we&apos;ll quote it properly &mdash; it saves a
+            wasted visit for you and your cleaner.
+          </div>
+
           <div className="flex gap-3">
             <button
               type="button"
