@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import type { Metadata } from "next";
 import BookingFlow from "@/components/marketplace/BookingFlow";
 import BookingLanding from "@/components/marketplace/BookingLanding";
+import { gbp } from "@/lib/marketplace/money";
 import {
   getBundles,
   getPriceItems,
@@ -79,6 +80,12 @@ export default async function BookPage() {
           }
         />
       </div>
+
+      <p className="mx-auto max-w-3xl px-4 pb-12 pt-8 text-center text-xs text-slate-500">
+        A minimum charge of {gbp(settings.minimum_charge_pence)} applies to every
+        job. Your fixed price is shown in full before you book, with nothing to
+        pay upfront &mdash; you pay your cleaner on the day.
+      </p>
 
     </main>
       <Footer />

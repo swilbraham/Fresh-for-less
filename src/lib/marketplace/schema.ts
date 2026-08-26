@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -289,14 +289,19 @@ export const STATEMENTS: string[] = [
    )`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off settings change, 2026-08-21 (commission) -------------------
-  // Commission to 20%, set before the first outside cleaner joins: a rate is
-  // easy to establish and painful to raise, and someone who never knew 17.5%
-  // won't feel it. Jobs already booked keep the rate they were quoted at, so
-  // nothing is rewritten. The price-list statements this replaces have already
-  // run and live on in the seeded defaults — replaying them on a later bump
-  // would quietly undo admin edits. Ongoing changes belong in /admin/prices.
-  `UPDATE settings SET commission_pct = 20.00 WHERE id = 1`,
+  // ---- One-off price change, 2026-08-25 (upholstery +£15) ------------------
+  // Every upholstery item up by £15. Written as absolute figures rather than
+  // `+ 1500` so replaying the statement can never double-charge; the live list
+  // was verified as matching the seeded defaults before these were written, so
+  // no admin edit is being overwritten. The commission statement this replaces
+  // has already run, and 20% is the column default, so dropping it changes
+  // nothing. Ongoing changes belong in /admin/prices.
+  `UPDATE price_items SET unit_price_pence = 7500  WHERE code = 'sofa2'`,
+  `UPDATE price_items SET unit_price_pence = 10500 WHERE code = 'sofa3'`,
+  `UPDATE price_items SET unit_price_pence = 16500 WHERE code = 'sofa_corner'`,
+  `UPDATE price_items SET unit_price_pence = 21000 WHERE code = 'sofa_corner_large'`,
+  `UPDATE price_items SET unit_price_pence = 4500  WHERE code = 'armchair'`,
+  `UPDATE price_items SET unit_price_pence = 2700  WHERE code = 'dining_chair'`,
 
 ];
 
@@ -311,12 +316,12 @@ export const SEED: [string, unknown[]][] = [
     ["hall", "Hallway", "Entrance hall or corridor", "carpet", 1500, 3, 40],
     ["rug", "Rug (small)", "Up to 2m x 3m", "carpet", 3000, 8, 50],
     ["rug_large", "Rug (large)", "Over 2m x 3m", "carpet", 5500, 6, 55],
-    ["sofa2", "2-seater sofa", "Fabric upholstery clean", "upholstery", 6000, 4, 60],
-    ["sofa3", "3-seater sofa", "Fabric upholstery clean", "upholstery", 9000, 4, 70],
-    ["sofa_corner", "Corner sofa (5 seats)", "L-shaped or corner suite", "upholstery", 15000, 2, 72],
-    ["sofa_corner_large", "Corner sofa (6-7 seats)", "Larger L-shaped or corner suite", "upholstery", 19500, 2, 74],
-    ["armchair", "Armchair", "Single fabric chair", "upholstery", 3000, 8, 80],
-    ["dining_chair", "Dining chair", "Fabric seat pad or fully upholstered", "upholstery", 1200, 12, 85],
+    ["sofa2", "2-seater sofa", "Fabric upholstery clean", "upholstery", 7500, 4, 60],
+    ["sofa3", "3-seater sofa", "Fabric upholstery clean", "upholstery", 10500, 4, 70],
+    ["sofa_corner", "Corner sofa (5 seats)", "L-shaped or corner suite", "upholstery", 16500, 2, 72],
+    ["sofa_corner_large", "Corner sofa (6-7 seats)", "Larger L-shaped or corner suite", "upholstery", 21000, 2, 74],
+    ["armchair", "Armchair", "Single fabric chair", "upholstery", 4500, 8, 80],
+    ["dining_chair", "Dining chair", "Fabric seat pad or fully upholstered", "upholstery", 2700, 12, 85],
     ["stain", "Heavy stain treatment", "Per affected area", "extra", 1500, 10, 100],
     ["pet", "Pet odour treatment", "Per room treated", "extra", 2000, 10, 110],
   ] as const).map(
