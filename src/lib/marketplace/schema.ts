@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -289,19 +289,13 @@ export const STATEMENTS: string[] = [
    )`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off price change, 2026-08-25 (upholstery +£15) ------------------
-  // Every upholstery item up by £15. Written as absolute figures rather than
-  // `+ 1500` so replaying the statement can never double-charge; the live list
-  // was verified as matching the seeded defaults before these were written, so
-  // no admin edit is being overwritten. The commission statement this replaces
-  // has already run, and 20% is the column default, so dropping it changes
-  // nothing. Ongoing changes belong in /admin/prices.
-  `UPDATE price_items SET unit_price_pence = 7500  WHERE code = 'sofa2'`,
-  `UPDATE price_items SET unit_price_pence = 10500 WHERE code = 'sofa3'`,
-  `UPDATE price_items SET unit_price_pence = 16500 WHERE code = 'sofa_corner'`,
-  `UPDATE price_items SET unit_price_pence = 21000 WHERE code = 'sofa_corner_large'`,
-  `UPDATE price_items SET unit_price_pence = 4500  WHERE code = 'armchair'`,
-  `UPDATE price_items SET unit_price_pence = 2700  WHERE code = 'dining_chair'`,
+  // ---- One-off price change, 2026-08-25 (dining chair) ---------------------
+  // The blanket +£15 took the dining chair from £12 to £27 — the same cash as
+  // a corner sofa, but a 125% rise on the cheapest item, and enough to lose a
+  // six-chair job. Settled at £20. The five other upholstery statements this
+  // replaces have already run and live on in the seeded defaults; replaying
+  // them on a later bump would undo admin edits.
+  `UPDATE price_items SET unit_price_pence = 2000 WHERE code = 'dining_chair'`,
 
 ];
 
@@ -321,7 +315,7 @@ export const SEED: [string, unknown[]][] = [
     ["sofa_corner", "Corner sofa (5 seats)", "L-shaped or corner suite", "upholstery", 16500, 2, 72],
     ["sofa_corner_large", "Corner sofa (6-7 seats)", "Larger L-shaped or corner suite", "upholstery", 21000, 2, 74],
     ["armchair", "Armchair", "Single fabric chair", "upholstery", 4500, 8, 80],
-    ["dining_chair", "Dining chair", "Fabric seat pad or fully upholstered", "upholstery", 2700, 12, 85],
+    ["dining_chair", "Dining chair", "Fabric seat pad or fully upholstered", "upholstery", 2000, 12, 85],
     ["stain", "Heavy stain treatment", "Per affected area", "extra", 1500, 10, 100],
     ["pet", "Pet odour treatment", "Per room treated", "extra", 2000, 10, 110],
   ] as const).map(
