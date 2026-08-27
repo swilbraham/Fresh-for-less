@@ -681,6 +681,7 @@ export async function createPhoneBookingAction(data: FormData) {
       slotDate,
       slotWindow: field(data, "slotWindow", 2) === "pm" ? "pm" : "am",
       notes: field(data, "notes", 600),
+    parking: field(data, "parking", 200),
       protection: data.get("protection") === "on",
     });
   } catch (error) {

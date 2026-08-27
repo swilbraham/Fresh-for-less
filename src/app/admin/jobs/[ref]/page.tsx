@@ -175,6 +175,12 @@ export default async function AdminJobPage({
               <Row label="Cleaner keeps" value={gbp(keeps)} />
             </dl>
 
+            {job.parking && (
+              <div className="mt-4 rounded-xl bg-sky-50 p-3 text-sm text-sky-900">
+                <span className="font-semibold">Parking:</span> {job.parking}
+              </div>
+            )}
+
             {job.notes && (
               <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
                 <span className="font-semibold">Customer notes:</span> {job.notes}

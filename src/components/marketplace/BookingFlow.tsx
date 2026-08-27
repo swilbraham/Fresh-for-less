@@ -66,6 +66,7 @@ export default function BookingFlow({
     addressLine: "",
     town: "",
     notes: "",
+    parking: "",
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -721,7 +722,26 @@ export default function BookingFlow({
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-semibold text-slate-700">
-                  Anything your cleaner should know?
+                  Where can your cleaner park?
+                </label>
+                <input
+                  value={details.parking}
+                  onChange={(e) =>
+                    setDetails({ ...details, parking: e.target.value })
+                  }
+                  maxLength={200}
+                  placeholder="Driveway, on the street, permit needed…"
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Your cleaner arrives in a van and runs a hose from it, so it
+                  needs to be within about 30 metres of your door.
+                </p>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-semibold text-slate-700">
+                  Anything else your cleaner should know?
                 </label>
                 <textarea
                   value={details.notes}
@@ -729,7 +749,7 @@ export default function BookingFlow({
                     setDetails({ ...details, notes: e.target.value })
                   }
                   rows={3}
-                  placeholder="Parking, pets, stubborn stains, access instructions…"
+                  placeholder="Pets, stubborn stains, access instructions…"
                   className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
                 />
               </div>

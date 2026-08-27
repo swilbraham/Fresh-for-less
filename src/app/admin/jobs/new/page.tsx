@@ -101,6 +101,12 @@ export default async function NewJobPage({
               <Field label="Address" name="addressLine" className="sm:col-span-2" />
               <Field label="Town" name="town" />
               <Field label="Postcode" name="postcode" required />
+              <Field
+                label="Where can they park?"
+                name="parking"
+                className="sm:col-span-2"
+                placeholder="Driveway, on the street, permit needed…"
+              />
               <div className="sm:col-span-2">
                 <label htmlFor="notes" className="block text-sm font-semibold text-slate-700">
                   Notes for the cleaner
@@ -109,7 +115,7 @@ export default async function NewJobPage({
                   id="notes"
                   name="notes"
                   rows={2}
-                  placeholder="Parking, pets, access, anything they mentioned"
+                  placeholder="Pets, access, anything else they mentioned"
                   className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5"
                 />
               </div>

@@ -29,6 +29,7 @@ export async function POST(request: Request) {
   const slotDate = text(payload.slotDate, 10);
   const slotWindow = text(payload.slotWindow, 2) === "pm" ? "pm" : "am";
   const notes = text(payload.notes, 600);
+  const parking = text(payload.parking, 200);
 
   const problems: string[] = [];
   if (customerName.length < 2) problems.push("your name");
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
       slotDate,
       slotWindow,
       notes,
+      parking,
       protection: payload.protection === true,
     });
 

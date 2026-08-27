@@ -102,6 +102,7 @@ export type Job = {
   slot_window: SlotWindow;
   items: QuoteLine[];
   notes: string;
+  parking: string;
   subtotal_pence: number;
   total_pence: number;
   commission_pct: string | number;

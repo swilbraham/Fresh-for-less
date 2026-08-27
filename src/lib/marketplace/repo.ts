@@ -25,7 +25,7 @@ const JOB_COLUMNS = `
   j.id, j.ref, j.customer_name, j.customer_email, j.customer_phone,
   j.address_line, j.town, j.postcode, j.outward,
   to_char(j.slot_date, 'YYYY-MM-DD')            AS slot_date,
-  j.slot_window, j.items, j.notes,
+  j.slot_window, j.items, j.notes, j.parking,
   j.subtotal_pence, j.total_pence, j.commission_pct, j.commission_pence,
   j.commission_on_net,
   j.status, j.cleaner_id,
@@ -496,6 +496,7 @@ export type BookingInput = {
   slotDate: string;
   slotWindow: SlotWindow;
   notes: string;
+  parking: string;
   protection?: boolean;
 };
 
@@ -535,9 +536,9 @@ export async function createBooking(
       job = await queryOne<Job>(
         `INSERT INTO jobs
            (ref, customer_name, customer_email, customer_phone, address_line, town,
-            postcode, outward, slot_date, slot_window, items, notes,
+            postcode, outward, slot_date, slot_window, items, notes, parking,
             subtotal_pence, total_pence, commission_pct, commission_pence, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18)
          RETURNING id, ref`,
         [
           makeRef("FFL"),
@@ -552,6 +553,7 @@ export async function createBooking(
           input.slotWindow,
           JSON.stringify(quote.lines),
           input.notes,
+          input.parking,
           quote.subtotal_pence,
           quote.total_pence,
           quote.commission_pct,
@@ -932,6 +934,7 @@ export async function assignJob(
       `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
       `Address: ${job.address_line}${job.town ? `, ${job.town}` : ""}, ${job.postcode}\n` +
       `Customer: ${job.customer_name}, ${job.customer_phone}\n` +
+      `${job.parking ? `Parking: ${job.parking}\n` : ""}` +
       `Collect: ${gbpShort(assigned.total_pence)} — you keep ` +
       `${gbpShort(assigned.total_pence - assigned.commission_pence)}\n\n` +
       `${assigned.commission_pence === 0
