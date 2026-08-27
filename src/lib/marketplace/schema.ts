@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 22;
+export const SCHEMA_VERSION = 23;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -271,12 +271,14 @@ export const STATEMENTS: string[] = [
      ON notifications (provider_id) WHERE provider_id IS NOT NULL`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off settings change, 2026-08-25 (notice period) -----------------
-  // Three days' minimum notice online. Same-day and next-day work still gets
-  // booked, but by phone, where the diary can actually be checked — an online
-  // booking nobody can reach a cleaner for becomes a broken promise. The
-  // dining-chair statement this replaces has already run.
-  `UPDATE settings SET min_notice_days = 3 WHERE id = 1`,
+  // ---- One-off price change, 2026-08-26 (footstool) ------------------------
+  // Priced between an armchair (£45) and a dining chair (£20). ON CONFLICT so
+  // it can't collide with the same code added from /admin/prices, and so a
+  // replay leaves an admin-edited price alone. The notice-period statement
+  // this replaces has already run.
+  `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
+     VALUES ('footstool', 'Footstool', 'Pouffe or ottoman', 'upholstery', 2500, 6, 82)
+     ON CONFLICT (code) DO NOTHING`,
 
 ];
 
@@ -296,6 +298,7 @@ export const SEED: [string, unknown[]][] = [
     ["sofa_corner", "Corner sofa (5 seats)", "L-shaped or corner suite", "upholstery", 16500, 2, 72],
     ["sofa_corner_large", "Corner sofa (6-7 seats)", "Larger L-shaped or corner suite", "upholstery", 21000, 2, 74],
     ["armchair", "Armchair", "Single fabric chair", "upholstery", 4500, 8, 80],
+    ["footstool", "Footstool", "Pouffe or ottoman", "upholstery", 2500, 6, 82],
     ["dining_chair", "Dining chair", "Fabric seat pad or fully upholstered", "upholstery", 2000, 12, 85],
     ["stain", "Heavy stain treatment", "Per affected area", "extra", 1500, 10, 100],
     ["pet", "Pet odour treatment", "Per room treated", "extra", 2000, 10, 110],
