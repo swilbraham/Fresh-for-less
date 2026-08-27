@@ -112,13 +112,13 @@ export default async function CoveragePage({
         <form action={saveCoverageAction} className="space-y-6">
           <Card
             title="Postcode areas you cover"
-            description="Just the first part of the postcode — separate them with spaces or commas. Jobs outside these areas will never reach you."
+            description="Separate them with commas, spaces or new lines. Full postcodes are fine — we only keep the first part. Jobs outside these areas will never reach you."
           >
             <textarea
               name="coverage"
               rows={4}
-              defaultValue={areas.join(" ")}
-              placeholder="CH41 CH42 CH43 L1 L2"
+              defaultValue={areas.join(", ")}
+              placeholder="CH41, CH42, CH43, L1, L2"
               className="mt-4 w-full rounded-xl border border-slate-300 px-4 py-3 uppercase placeholder:normal-case tracking-wide outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
             />
             <p className="mt-2 text-xs text-slate-500">

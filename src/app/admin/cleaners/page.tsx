@@ -400,11 +400,15 @@ export default async function AdminCleanersPage({
                     >
                       Postcode areas covered
                     </label>
+                    <p className="-mt-2 text-xs text-slate-500">
+                      Commas, spaces or new lines. Full postcodes are fine —
+                      only the first part is kept.
+                    </p>
                     <textarea
                       id={`coverage-${cleaner.id}`}
                       name="coverage"
                       rows={2}
-                      defaultValue={areas.join(" ")}
+                      defaultValue={areas.join(", ")}
                       className="w-full rounded-xl border border-slate-300 px-4 py-2.5 uppercase tracking-wide"
                     />
                     <AvailabilityGrid

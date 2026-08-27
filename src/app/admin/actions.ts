@@ -25,7 +25,10 @@ import {
 } from "@/lib/marketplace/repo";
 import { penceFromInput, gbpShort } from "@/lib/marketplace/money";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
-import { parseOutwardList } from "@/lib/marketplace/postcode";
+import {
+  invalidCoverageMessage,
+  parseOutwardList,
+} from "@/lib/marketplace/postcode";
 import { makeResetToken } from "@/lib/marketplace/auth";
 import {
   activateProvisionalJobs,
@@ -577,7 +580,7 @@ export async function updateCleanerCoverageAction(data: FormData) {
   if (invalid.length) {
     fail(
       "/admin/cleaners",
-      `These don't look like UK postcode areas: ${invalid.slice(0, 5).join(", ")}`
+      invalidCoverageMessage(invalid)
     );
   }
 

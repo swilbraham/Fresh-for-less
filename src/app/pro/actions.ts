@@ -29,7 +29,10 @@ import {
   getCleanerPasswordHash,
   notify,
 } from "@/lib/marketplace/repo";
-import { parseOutwardList } from "@/lib/marketplace/postcode";
+import {
+  invalidCoverageMessage,
+  parseOutwardList,
+} from "@/lib/marketplace/postcode";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -115,7 +118,7 @@ export async function registerAction(data: FormData) {
   if (invalid.length) {
     fail(
       "/pro/register",
-      `These don't look like UK postcode areas: ${invalid.slice(0, 5).join(", ")}`
+      invalidCoverageMessage(invalid)
     );
   }
 
@@ -187,7 +190,7 @@ export async function saveCoverageAction(data: FormData) {
   if (invalid.length) {
     fail(
       "/pro/coverage",
-      `These don't look like UK postcode areas: ${invalid.slice(0, 5).join(", ")}`
+      invalidCoverageMessage(invalid)
     );
   }
 

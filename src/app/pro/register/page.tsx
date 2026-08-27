@@ -101,13 +101,13 @@ export default async function RegisterPage({
 
           <Card
             title="Where you work"
-            description="List the postcode areas you cover — just the first part, separated by spaces or commas."
+            description="List the postcode areas you cover, separated by commas, spaces or new lines. Full postcodes are fine — we only keep the first part."
           >
             <textarea
               name="coverage"
               rows={3}
               required
-              placeholder="CH41 CH42 CH43 L1 L2 L3"
+              placeholder="CH41, CH42, CH43, L1, L2, L3"
               className="mt-4 w-full rounded-xl border border-slate-300 px-4 py-3 uppercase placeholder:normal-case tracking-wide outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
             />
             <p className="mt-2 text-xs text-slate-500">
