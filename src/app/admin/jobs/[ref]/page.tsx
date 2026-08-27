@@ -17,6 +17,7 @@ import {
   cancelJobAction,
   waiveCommissionAction,
   setJobCommissionAction,
+  rescheduleJobAction,
   reassignJobAction,
   rebroadcastJobAction,
 } from "../../actions";
@@ -39,12 +40,17 @@ export default async function AdminJobPage({
   searchParams,
 }: {
   params: Promise<{ ref: string }>;
-  searchParams: Promise<{ error?: string; waived?: string; commission?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    waived?: string;
+    commission?: string;
+    moved?: string;
+  }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
 
   const { ref } = await params;
-  const { error, waived, commission } = await searchParams;
+  const { error, waived, commission, moved } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
@@ -105,6 +111,16 @@ export default async function AdminJobPage({
         </div>
 
         {error && <Alert>{error}</Alert>}
+        {moved && (
+          <Alert tone={moved === "unfilled" ? "error" : "success"}>
+            {moved === "kept" && "Moved. The cleaner was free, so the job is still theirs and they've been texted."}
+            {moved.startsWith("offered") &&
+              `Moved. The cleaner wasn't free, so it's gone back out to ${moved.replace("offered", "")} cleaner(s).`}
+            {moved === "unfilled" &&
+              "Moved, but nobody covers that slot — it's unfilled and needs assigning."}
+            {" The customer has been texted the new date."}
+          </Alert>
+        )}
         {commission && (
           <Alert tone="info">
             Commission updated. {job.cleaner_id ? "The cleaner has been texted the new figure." : ""}
@@ -239,6 +255,46 @@ export default async function AdminJobPage({
                       Cancel booking
                     </button>
                   </form>
+                </div>
+              )}
+
+              {open && (
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <form
+                    action={rescheduleJobAction}
+                    className="flex flex-wrap items-center gap-2 text-xs"
+                  >
+                    <input type="hidden" name="id" value={job.id} />
+                    <input type="hidden" name="ref" value={job.ref} />
+                    <label htmlFor="slotDate" className="text-slate-600">
+                      Move to
+                    </label>
+                    <input
+                      id="slotDate"
+                      name="slotDate"
+                      type="date"
+                      defaultValue={job.slot_date}
+                      className="rounded-lg border border-slate-300 px-2 py-1"
+                    />
+                    <select
+                      name="slotWindow"
+                      defaultValue={job.slot_window}
+                      className="rounded-lg border border-slate-300 px-2 py-1"
+                    >
+                      <option value="am">Morning 8am–12pm</option>
+                      <option value="pm">Afternoon 12pm–5pm</option>
+                    </select>
+                    <button
+                      type="submit"
+                      className="font-semibold text-primary-600 underline"
+                    >
+                      Move job
+                    </button>
+                  </form>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Keeps the cleaner if they&apos;re free that slot, otherwise
+                    re-offers it. Either way the customer gets a text.
+                  </p>
                 </div>
               )}
 

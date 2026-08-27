@@ -36,6 +36,8 @@ import {
   createBooking,
   waiveCommission,
   setJobCommission,
+  rescheduleJob,
+  notifyCustomer,
   textCleaner,
   textCustomer,
   getJob,
@@ -410,6 +412,64 @@ export async function textCustomerAction(data: FormData) {
     redirect(`${back}&error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`);
   }
   redirect(`${back}&sent=1`);
+}
+
+/**
+ * Move a job to a different date or half-day from admin.
+ *
+ * rescheduleJob handles the cleaner side — keeping them if they're free,
+ * releasing and re-broadcasting if not. It doesn't tell the customer, because
+ * it was written for customer-initiated moves where they already know. When
+ * the move comes from this end, they have to be told.
+ */
+export async function rescheduleJobAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const jobId = Number(field(data, "id", 12));
+  const slotDate = field(data, "slotDate", 10);
+  const slotWindow = field(data, "slotWindow", 2) === "pm" ? "pm" : "am";
+  const back = `/admin/jobs/${ref}`;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(slotDate)) {
+    redirect(`${back}?error=${encodeURIComponent("Pick a date first.")}`);
+  }
+
+  const result = await rescheduleJob(jobId, slotDate, slotWindow);
+  revalidatePath(back);
+  revalidatePath("/admin/jobs");
+  if (!result.ok) {
+    redirect(`${back}?error=${encodeURIComponent(result.reason ?? "Couldn't move that job.")}`);
+  }
+
+  const moved = await getJob(jobId);
+  if (moved) {
+    const when = `${moved.slot_date}, ${slotWindow === "am" ? "morning 8am-12pm" : "afternoon 12pm-5pm"}`;
+    await notifyCustomer(moved, {
+      jobId,
+      subject: `Your booking has moved — ${moved.ref}`,
+      body:
+        `Hello ${moved.customer_name.split(" ")[0]},\n\n` +
+        `We've moved your carpet cleaning appointment ${moved.ref}.\n\n` +
+        `New date: ${when}\n\n` +
+        (result.keptCleaner
+          ? `Your cleaner is confirmed for the new time.\n\n`
+          : `We're confirming a cleaner for the new time and will be in touch shortly.\n\n`) +
+        `If that doesn't suit, call us on 0330 043 4811.`,
+      smsBody:
+        `Fresh For Less: your booking ${moved.ref} has moved to ${when}. ` +
+        (result.keptCleaner
+          ? `Your cleaner is confirmed.`
+          : `We're confirming a cleaner and will be in touch.`) +
+        ` Not suitable? Call 0330 043 4811.`,
+    });
+  }
+
+  const outcome = result.keptCleaner
+    ? "kept"
+    : result.offered > 0
+      ? `offered${result.offered}`
+      : "unfilled";
+  redirect(`${back}?moved=${outcome}`);
 }
 
 export async function reassignJobAction(data: FormData) {
