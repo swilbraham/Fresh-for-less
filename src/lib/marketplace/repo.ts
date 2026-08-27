@@ -53,7 +53,11 @@ const JOB_COLUMNS = `
 const OFFER_COLUMNS = `
   j.id, j.ref, j.outward, j.town,
   to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date,
-  j.slot_window, j.items, j.notes,
+  -- Parking is shown before accepting: a cleaner who can't get the van near
+  -- the door should decline rather than accept and drop it later. It can name
+  -- the house, so this is a deliberate trade of a little address detail for
+  -- far fewer late drops.
+  j.slot_window, j.items, j.notes, j.parking,
   j.total_pence, j.commission_pct, j.commission_pence, j.status
 `;
 
@@ -1089,6 +1093,7 @@ export type JobOffer = Pick<
   | "slot_window"
   | "items"
   | "notes"
+  | "parking"
   | "total_pence"
   | "commission_pct"
   | "commission_pence"

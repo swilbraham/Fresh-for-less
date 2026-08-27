@@ -190,6 +190,12 @@ export default async function DashboardPage({
                     ))}
                   </ul>
 
+                  {job.parking && (
+                    <p className="mt-3 rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900">
+                      <span className="font-semibold">Parking:</span>{" "}
+                      {job.parking}
+                    </p>
+                  )}
                   {job.notes && (
                     <p className="mt-3 text-sm text-slate-600">
                       <span className="font-semibold">Customer notes:</span>{" "}
