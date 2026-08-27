@@ -6,6 +6,7 @@ import {
   getJobDrops,
   getJobMessages,
   getJobInvoiceRef,
+  netOfVatPence,
   getJobOffers,
   listCleaners,
 } from "@/lib/marketplace/repo";
@@ -163,7 +164,11 @@ export default async function AdminJobPage({
                 label={
                   job.commission_pence === 0
                     ? "Commission — waived"
-                    : `Commission (${Number(job.commission_pct)}%)`
+                    : job.commission_on_net
+                      ? `Commission (${Number(job.commission_pct)}% of ${gbp(
+                          netOfVatPence(job.total_pence)
+                        )} ex VAT)`
+                      : `Commission (${Number(job.commission_pct)}%)`
                 }
                 value={gbp(job.commission_pence)}
               />

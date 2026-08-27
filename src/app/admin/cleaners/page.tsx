@@ -346,6 +346,30 @@ export default async function AdminCleanersPage({
                         defaultValue={cleaner.insurance_expiry ?? ""}
                       />
                       <Field
+                        label="VAT number"
+                        name="vatNumber"
+                        defaultValue={cleaner.vat_number}
+                        placeholder="GB123456789"
+                      />
+                      <label className="flex items-start gap-2 text-sm sm:col-span-2">
+                        <input
+                          type="checkbox"
+                          name="vatRegistered"
+                          defaultChecked={cleaner.vat_registered}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 accent-accent-600"
+                        />
+                        <span>
+                          <span className="font-semibold text-slate-900">
+                            VAT registered
+                          </span>
+                          <span className="block text-xs text-slate-500">
+                            Commission is charged on what they keep after VAT,
+                            not the customer&apos;s price. Verify their number
+                            before ticking this — it lowers what they pay you.
+                          </span>
+                        </span>
+                      </label>
+                      <Field
                         label="Years of experience"
                         name="yearsExperience"
                         type="number"

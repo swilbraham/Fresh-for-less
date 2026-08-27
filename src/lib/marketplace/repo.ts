@@ -27,6 +27,7 @@ const JOB_COLUMNS = `
   to_char(j.slot_date, 'YYYY-MM-DD')            AS slot_date,
   j.slot_window, j.items, j.notes,
   j.subtotal_pence, j.total_pence, j.commission_pct, j.commission_pence,
+  j.commission_on_net,
   j.status, j.cleaner_id,
   j.cancelled_by, j.late_cancellation, j.rescheduled_count,
   to_char(j.created_at,   'YYYY-MM-DD HH24:MI') AS created_at,
@@ -61,6 +62,7 @@ const CLEANER_COLUMNS = `
   c.insurance_provider,
   to_char(c.insurance_expiry, 'YYYY-MM-DD') AS insurance_expiry,
   c.years_experience, c.equipment, c.dbs_checked, c.admin_notes,
+  c.vat_registered, c.vat_number,
   c.notify_sms, c.notify_email,
   to_char(c.created_at,  'YYYY-MM-DD HH24:MI') AS created_at,
   to_char(c.reviewed_at, 'YYYY-MM-DD HH24:MI') AS reviewed_at
@@ -703,6 +705,8 @@ export async function acceptJob(
     [jobId, cleanerId]
   );
 
+  await applyCommissionBasis(jobId, cleanerId);
+
   if (won.length === 0) {
     // The update lost the race — but not necessarily to someone else. A double
     // click, or a retry after the dashboard refreshed, lands here too, so work
@@ -768,6 +772,51 @@ async function confirmCleanerToCustomer(
  * the cleaner may have paid it, so zeroing the job behind it would leave the
  * books disagreeing with themselves.
  */
+/** UK standard rate. A constant, not a setting — a wrong VAT rate is worse
+ *  than an inconvenient one, and it has moved once in twenty years. */
+export const VAT_RATE_PCT = 20;
+
+/** The part of a VAT-inclusive price the cleaner actually keeps. */
+export function netOfVatPence(grossPence: number): number {
+  return Math.round(grossPence / (1 + VAT_RATE_PCT / 100));
+}
+
+/**
+ * Re-base a job's commission once its cleaner is known.
+ *
+ * A VAT-registered cleaner hands 1/6 of the customer's payment straight to
+ * HMRC, so charging commission on the gross taxes money they never keep. The
+ * rate is unchanged — it's the base that moves — so commission_pct stays
+ * honest and commission_on_net records which basis was used.
+ *
+ * Never touches a job whose commission was set by hand, and never one already
+ * invoiced.
+ */
+export async function applyCommissionBasis(
+  jobId: number,
+  cleanerId: number
+): Promise<void> {
+  const [job, cleaner] = await Promise.all([getJob(jobId), getCleaner(cleanerId)]);
+  if (!job || !cleaner) return;
+  if (job.commission_pence === 0) return; // waived — leave it alone
+
+  const invoiced = await queryOne<{ id: number }>(
+    `SELECT invoice_id AS id FROM commission_invoice_lines WHERE job_id = $1`,
+    [jobId]
+  );
+  if (invoiced) return;
+
+  const base = cleaner.vat_registered
+    ? netOfVatPence(job.total_pence)
+    : job.total_pence;
+  const pence = Math.round((base * Number(job.commission_pct)) / 100);
+
+  await query(
+    `UPDATE jobs SET commission_pence = $2, commission_on_net = $3 WHERE id = $1`,
+    [jobId, pence, cleaner.vat_registered]
+  );
+}
+
 /**
  * Override the commission rate on a single job.
  *
@@ -870,6 +919,7 @@ export async function assignJob(
     [jobId, cleanerId]
   );
 
+  await applyCommissionBasis(jobId, cleanerId);
   if (waive) await waiveCommission(jobId);
 
   const assigned = (await getJob(jobId))!;
@@ -2170,6 +2220,9 @@ export type CleanerProfileInput = {
   insuranceExpiry?: string | null;
   yearsExperience?: number;
   equipment?: string;
+  /** Admin-only: it changes what the cleaner pays, so it can't be self-declared. */
+  vatRegistered?: boolean;
+  vatNumber?: string;
 };
 
 /**
@@ -2195,7 +2248,9 @@ export async function updateCleanerProfile(
             insurance_provider = COALESCE($6, insurance_provider),
             insurance_expiry   = COALESCE($7::date, insurance_expiry),
             years_experience   = COALESCE($8, years_experience),
-            equipment          = COALESCE($9, equipment)
+            equipment          = COALESCE($9, equipment),
+            vat_registered     = COALESCE($10, vat_registered),
+            vat_number         = COALESCE($11, vat_number)
       WHERE id = $1`,
     [
       id,
@@ -2207,6 +2262,8 @@ export async function updateCleanerProfile(
       input.insuranceExpiry ?? null,
       input.yearsExperience ?? null,
       input.equipment ?? null,
+      input.vatRegistered ?? null,
+      input.vatNumber ?? null,
     ]
   );
   return { ok: true };

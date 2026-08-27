@@ -192,6 +192,13 @@ export default async function InvoicePage({
           <p className="mt-2 text-xs text-slate-500">
             No VAT is charged. {settings.payee_name || "Fresh For Less"} is not
             VAT registered.
+            {billed?.vat_registered && (
+              <>
+                {" "}
+                Because you are VAT registered, commission is calculated on the
+                job value net of VAT rather than the price the customer paid.
+              </>
+            )}
           </p>
 
           <section className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-5 print:bg-white">

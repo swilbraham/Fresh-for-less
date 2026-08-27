@@ -79,6 +79,8 @@ export type Cleaner = {
   years_experience: number;
   equipment: string;
   dbs_checked: boolean;
+  vat_registered: boolean;
+  vat_number: string;
   admin_notes: string;
   notify_sms: boolean;
   notify_email: boolean;
@@ -104,6 +106,7 @@ export type Job = {
   total_pence: number;
   commission_pct: string | number;
   commission_pence: number;
+  commission_on_net: boolean;
   status: JobStatus;
   cleaner_id: number | null;
   created_at: string;

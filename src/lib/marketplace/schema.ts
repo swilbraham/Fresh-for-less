@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -270,15 +270,18 @@ export const STATEMENTS: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS notifications_provider_id
      ON notifications (provider_id) WHERE provider_id IS NOT NULL`,
 
+  // ---- VAT status --------------------------------------------------------
+  // A VAT-registered cleaner hands 1/6 of the customer's payment to HMRC, so
+  // the same national price is worth ~17% less to them. Commission is charged
+  // on what they actually keep; the flag on the job records which basis was
+  // used, because commission_pct alone can't tell you afterwards.
+  `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS vat_registered boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS vat_number text NOT NULL DEFAULT ''`,
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS commission_on_net boolean NOT NULL DEFAULT false`,
+
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off price change, 2026-08-26 (footstool) ------------------------
-  // Priced between an armchair (£45) and a dining chair (£20). ON CONFLICT so
-  // it can't collide with the same code added from /admin/prices, and so a
-  // replay leaves an admin-edited price alone. The notice-period statement
-  // this replaces has already run.
-  `INSERT INTO price_items (code, label, hint, kind, unit_price_pence, max_qty, sort)
-     VALUES ('footstool', 'Footstool', 'Pouffe or ottoman', 'upholstery', 2500, 6, 82)
-     ON CONFLICT (code) DO NOTHING`,
+  // ---- One-off, 2026-08-26 -------------------------------------------------
+  // Nothing outstanding. The footstool insert this replaces has already run.
 
 ];
 
