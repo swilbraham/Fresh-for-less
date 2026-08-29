@@ -32,8 +32,8 @@ const EXPORTS: Record<string, { sql: string; filename: string }> = {
                  j.customer_name, j.customer_email, j.customer_phone,
                  j.address_line, j.town, j.postcode,
                  c.name AS cleaner, c.email AS cleaner_email,
-                 (j.total_pence / 100.0)      AS total_gbp,
-                 (j.commission_pence / 100.0) AS commission_gbp,
+                 round(j.total_pence / 100.0, 2)      AS total_gbp,
+                 round(j.commission_pence / 100.0, 2) AS commission_gbp,
                  j.commission_pct,
                  to_char(j.completed_at, 'YYYY-MM-DD HH24:MI') AS completed_at,
                  j.cancelled_by, j.late_cancellation, j.rescheduled_count,
@@ -55,12 +55,30 @@ const EXPORTS: Record<string, { sql: string; filename: string }> = {
                  (SELECT count(*) FROM job_drops d WHERE d.cleaner_id = c.id) AS jobs_dropped
             FROM cleaners c ORDER BY c.created_at DESC`,
   },
+  // Completed work month by month — the shape an accountant actually wants.
+  // Dated by when the job was finished, in London time, to match /admin/finances.
+  finance: {
+    filename: "finance-by-month",
+    sql: `SELECT to_char(date_trunc('month', j.completed_at AT TIME ZONE 'Europe/London'), 'YYYY-MM') AS month,
+                 count(*)                                    AS jobs_completed,
+                 round(COALESCE(sum(j.total_pence),0) / 100.0, 2)      AS customer_value_gbp,
+                 round(COALESCE(sum(j.commission_pence),0) / 100.0, 2) AS commission_gbp,
+                 round(COALESCE(sum(j.total_pence - j.commission_pence),0) / 100.0, 2)
+                                                             AS cleaners_kept_gbp,
+                 round(
+                   COALESCE(sum(j.commission_pence),0) * 100.0
+                   / NULLIF(sum(j.total_pence), 0), 2)       AS effective_rate_pct
+            FROM jobs j
+           WHERE j.status = 'completed' AND j.completed_at IS NOT NULL
+           GROUP BY 1
+           ORDER BY 1 DESC`,
+  },
   invoices: {
     filename: "commission-invoices",
     sql: `SELECT i.ref, c.name AS cleaner, c.email AS cleaner_email,
                  to_char(i.period_start, 'YYYY-MM-DD') AS period_start,
                  to_char(i.period_end,   'YYYY-MM-DD') AS period_end,
-                 (i.total_pence / 100.0) AS total_gbp,
+                 round(i.total_pence / 100.0, 2) AS total_gbp,
                  i.status,
                  to_char(i.issued_at, 'YYYY-MM-DD') AS issued_at,
                  to_char(i.paid_at,   'YYYY-MM-DD') AS paid_at,

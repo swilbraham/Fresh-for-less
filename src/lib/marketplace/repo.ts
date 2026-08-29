@@ -1948,6 +1948,220 @@ export async function getAdminStats(): Promise<AdminStats> {
   return row!;
 }
 
+// ----------------------------------------------------------- the books -----
+
+/**
+ * Every figure on /admin/finances, in one round trip.
+ *
+ * Two different questions get mixed up when people read these numbers, so the
+ * page keeps them apart deliberately:
+ *
+ *   What is sold      — accepted and offered work, not yet done. Money coming.
+ *   What is earned    — completed work. Commission exists from this moment.
+ *   Where that sits   — accrued, billed, or banked.
+ *
+ * The last three reconcile: a completed job's commission is either not yet on
+ * an invoice, on an unpaid one, or on a paid one. The page shows that adding
+ * up, because a total you can't check is a total you can't trust.
+ *
+ * Months are bucketed in London time, not UTC, or a job finished at 00:30 on
+ * the 1st lands in the previous month's books.
+ */
+export type FinanceSummary = {
+  accepted_jobs: number;
+  accepted_value_pence: number;
+  accepted_commission_pence: number;
+  offered_jobs: number;
+  offered_value_pence: number;
+  offered_commission_pence: number;
+  completed_jobs: number;
+  completed_value_pence: number;
+  completed_commission_pence: number;
+  accrued_pence: number;
+  invoiced_unpaid_pence: number;
+  paid_pence: number;
+  month_jobs: number;
+  month_value_pence: number;
+  month_commission_pence: number;
+  last_month_jobs: number;
+  last_month_value_pence: number;
+  last_month_commission_pence: number;
+  cancelled_jobs: number;
+  cancelled_value_pence: number;
+  overdue_jobs: number;
+  overdue_value_pence: number;
+  overdue_commission_pence: number;
+};
+
+export async function getFinanceSummary(): Promise<FinanceSummary> {
+  const row = await queryOne<FinanceSummary>(
+    `WITH done AS (
+       SELECT total_pence, commission_pence,
+              date_trunc('month', completed_at AT TIME ZONE 'Europe/London') AS month
+         FROM jobs
+        WHERE status = 'completed' AND completed_at IS NOT NULL
+     ),
+     this_month AS (
+       SELECT date_trunc('month', now() AT TIME ZONE 'Europe/London') AS start
+     )
+     SELECT
+       (SELECT count(*)::int                          FROM jobs WHERE status = 'accepted') AS accepted_jobs,
+       (SELECT COALESCE(sum(total_pence),0)::int      FROM jobs WHERE status = 'accepted') AS accepted_value_pence,
+       (SELECT COALESCE(sum(commission_pence),0)::int FROM jobs WHERE status = 'accepted') AS accepted_commission_pence,
+
+       (SELECT count(*)::int                          FROM jobs WHERE status = 'offered')  AS offered_jobs,
+       (SELECT COALESCE(sum(total_pence),0)::int      FROM jobs WHERE status = 'offered')  AS offered_value_pence,
+       (SELECT COALESCE(sum(commission_pence),0)::int FROM jobs WHERE status = 'offered')  AS offered_commission_pence,
+
+       (SELECT count(*)::int                          FROM jobs WHERE status = 'completed') AS completed_jobs,
+       (SELECT COALESCE(sum(total_pence),0)::int      FROM jobs WHERE status = 'completed') AS completed_value_pence,
+       (SELECT COALESCE(sum(commission_pence),0)::int FROM jobs WHERE status = 'completed') AS completed_commission_pence,
+
+       -- Earned but not yet billed: the weekly run hasn't picked these up.
+       (SELECT COALESCE(sum(j.commission_pence),0)::int
+          FROM jobs j
+         WHERE j.status = 'completed' AND j.commission_pence > 0
+           AND NOT EXISTS (
+             SELECT 1 FROM commission_invoice_lines l WHERE l.job_id = j.id
+           )) AS accrued_pence,
+       (SELECT COALESCE(sum(total_pence),0)::int FROM commission_invoices WHERE status = 'issued') AS invoiced_unpaid_pence,
+       (SELECT COALESCE(sum(total_pence),0)::int FROM commission_invoices WHERE status = 'paid')   AS paid_pence,
+
+       (SELECT count(*)::int                          FROM done, this_month WHERE month = start) AS month_jobs,
+       (SELECT COALESCE(sum(total_pence),0)::int      FROM done, this_month WHERE month = start) AS month_value_pence,
+       (SELECT COALESCE(sum(commission_pence),0)::int FROM done, this_month WHERE month = start) AS month_commission_pence,
+
+       (SELECT count(*)::int                          FROM done, this_month WHERE month = start - interval '1 month') AS last_month_jobs,
+       (SELECT COALESCE(sum(total_pence),0)::int      FROM done, this_month WHERE month = start - interval '1 month') AS last_month_value_pence,
+       (SELECT COALESCE(sum(commission_pence),0)::int FROM done, this_month WHERE month = start - interval '1 month') AS last_month_commission_pence,
+
+       (SELECT count(*)::int                     FROM jobs WHERE status = 'cancelled') AS cancelled_jobs,
+       (SELECT COALESCE(sum(total_pence),0)::int FROM jobs WHERE status = 'cancelled') AS cancelled_value_pence,
+
+       -- Accepted, the day has been and gone, still not marked complete. That
+       -- commission can't be invoiced until someone closes the job off.
+       (SELECT count(*)::int                          FROM jobs WHERE status = 'accepted' AND slot_date < current_date) AS overdue_jobs,
+       (SELECT COALESCE(sum(total_pence),0)::int      FROM jobs WHERE status = 'accepted' AND slot_date < current_date) AS overdue_value_pence,
+       (SELECT COALESCE(sum(commission_pence),0)::int FROM jobs WHERE status = 'accepted' AND slot_date < current_date) AS overdue_commission_pence`
+  );
+  return row!;
+}
+
+export type UpcomingWeek = {
+  week_start: string;
+  jobs: number;
+  unallocated: number;
+  value_pence: number;
+  commission_pence: number;
+};
+
+/**
+ * Booked work by the week it lands, so the pipeline has a shape rather than
+ * being one number. Grouped on slot_date, which is a plain date, so there is no
+ * timezone to get wrong here.
+ *
+ * Weeks already past still appear: an accepted job whose day has gone but which
+ * nobody marked complete is exactly the thing worth chasing.
+ */
+export async function listUpcomingWeeks(limit = 12): Promise<UpcomingWeek[]> {
+  return query<UpcomingWeek>(
+    `SELECT to_char(date_trunc('week', slot_date), 'YYYY-MM-DD')       AS week_start,
+            count(*)::int                                             AS jobs,
+            count(*) FILTER (WHERE status = 'offered')::int           AS unallocated,
+            COALESCE(sum(total_pence),0)::int                         AS value_pence,
+            COALESCE(sum(commission_pence),0)::int                    AS commission_pence
+       FROM jobs
+      WHERE status IN ('offered','accepted')
+      GROUP BY 1
+      ORDER BY 1
+      LIMIT $1`,
+    [limit]
+  );
+}
+
+export type FinanceMonth = {
+  month: string;
+  jobs: number;
+  value_pence: number;
+  commission_pence: number;
+};
+
+/** Completed work month by month, newest first. Dated by when it was finished. */
+export async function listMonthlyFinance(limit = 18): Promise<FinanceMonth[]> {
+  return query<FinanceMonth>(
+    `SELECT to_char(date_trunc('month', completed_at AT TIME ZONE 'Europe/London'), 'YYYY-MM') AS month,
+            count(*)::int                          AS jobs,
+            COALESCE(sum(total_pence),0)::int      AS value_pence,
+            COALESCE(sum(commission_pence),0)::int AS commission_pence
+       FROM jobs
+      WHERE status = 'completed' AND completed_at IS NOT NULL
+      GROUP BY 1
+      ORDER BY 1 DESC
+      LIMIT $1`,
+    [limit]
+  );
+}
+
+export type CleanerFinance = {
+  id: number;
+  name: string;
+  business_name: string;
+  vat_registered: boolean;
+  jobs: number;
+  value_pence: number;
+  commission_pence: number;
+  accrued_pence: number;
+  unpaid_pence: number;
+  paid_pence: number;
+  upcoming_jobs: number;
+  upcoming_value_pence: number;
+  upcoming_commission_pence: number;
+};
+
+/**
+ * One row per cleaner covering both halves of the relationship: the work they
+ * have already done and what they still owe on it, and the work they have taken
+ * that hasn't happened yet.
+ *
+ * Offered jobs are missing from this on purpose — they have been broadcast but
+ * nobody has accepted, so there is no cleaner to attribute them to. The page
+ * shows them as their own unallocated row so the totals still reconcile.
+ */
+export async function listCleanerFinance(): Promise<CleanerFinance[]> {
+  return query<CleanerFinance>(
+    `SELECT c.id, c.name, c.business_name, c.vat_registered,
+            count(j.id)::int                         AS jobs,
+            COALESCE(sum(j.total_pence),0)::int      AS value_pence,
+            COALESCE(sum(j.commission_pence),0)::int AS commission_pence,
+            COALESCE((SELECT count(*) FROM jobs u
+                       WHERE u.cleaner_id = c.id AND u.status = 'accepted'),0)::int
+                                                     AS upcoming_jobs,
+            COALESCE((SELECT sum(u.total_pence) FROM jobs u
+                       WHERE u.cleaner_id = c.id AND u.status = 'accepted'),0)::int
+                                                     AS upcoming_value_pence,
+            COALESCE((SELECT sum(u.commission_pence) FROM jobs u
+                       WHERE u.cleaner_id = c.id AND u.status = 'accepted'),0)::int
+                                                     AS upcoming_commission_pence,
+            COALESCE((SELECT sum(j2.commission_pence) FROM jobs j2
+                       WHERE j2.cleaner_id = c.id AND j2.status = 'completed'
+                         AND j2.commission_pence > 0
+                         AND NOT EXISTS (SELECT 1 FROM commission_invoice_lines l
+                                          WHERE l.job_id = j2.id)),0)::int AS accrued_pence,
+            COALESCE((SELECT sum(i.total_pence) FROM commission_invoices i
+                       WHERE i.cleaner_id = c.id AND i.status = 'issued'),0)::int AS unpaid_pence,
+            COALESCE((SELECT sum(i.total_pence) FROM commission_invoices i
+                       WHERE i.cleaner_id = c.id AND i.status = 'paid'),0)::int AS paid_pence
+       FROM cleaners c
+       LEFT JOIN jobs j ON j.cleaner_id = c.id AND j.status = 'completed'
+      GROUP BY c.id, c.name, c.business_name, c.vat_registered
+     HAVING count(j.id) > 0
+         OR EXISTS (SELECT 1 FROM commission_invoices i WHERE i.cleaner_id = c.id)
+         OR EXISTS (SELECT 1 FROM jobs u
+                     WHERE u.cleaner_id = c.id AND u.status = 'accepted')
+      ORDER BY commission_pence DESC, upcoming_commission_pence DESC, c.name`
+  );
+}
+
 // -------------------------------------------- customer self-service --------
 
 /** Is this cleaner free to take that half-day, ignoring one job if given? */

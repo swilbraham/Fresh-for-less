@@ -102,10 +102,15 @@ export default async function AdminPage({
             label="Jobs completed"
             value={String(stats.jobs_completed)}
           />
-          <Stat label="Customer spend" value={gbp(stats.gmv_pence)} />
+          <Stat
+            label="Customer spend"
+            value={gbp(stats.gmv_pence)}
+            href="/admin/finances"
+          />
           <Stat
             label={`Commission earned (${Number(settings.commission_pct)}%)`}
             value={gbp(stats.commission_pence)}
+            href="/admin/finances"
           />
           <Stat
             label="Invoiced, unpaid"
@@ -193,6 +198,7 @@ export default async function AdminPage({
         >
           <div className="mt-4 flex flex-wrap gap-3">
             {[
+              { type: "finance", label: "Finance by month" },
               { type: "jobs", label: "Jobs" },
               { type: "cleaners", label: "Cleaners" },
               { type: "invoices", label: "Commission invoices" },
