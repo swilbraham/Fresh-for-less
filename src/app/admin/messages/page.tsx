@@ -8,10 +8,15 @@ import {
   listCustomerThreads,
   listInboundSms,
 } from "@/lib/marketplace/repo";
-import { Card } from "@/components/marketplace/shell";
+import { AdminNav, Card } from "@/components/marketplace/shell";
 import { textCleanerAction, textCustomerAction } from "../actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata = {
+  title: "Messages",
+  robots: { index: false, follow: false },
+};
 
 function when(value: string) {
   return new Date(value).toLocaleString("en-GB", {
@@ -60,7 +65,10 @@ export default async function MessagesPage({
       : [];
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="min-h-screen bg-slate-50">
+      <AdminNav />
+
+      <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
       <p className="mt-1 text-sm text-slate-500">
         Text a cleaner directly. Their replies come back to the same thread and
@@ -310,6 +318,7 @@ export default async function MessagesPage({
               )}
             </ul>
           </Card>
+        </div>
         </div>
       </div>
     </main>
