@@ -439,6 +439,12 @@ export default async function AdminPricesPage({
                       <strong>{bundle.label}</strong> — {bundle.qty} ×{" "}
                       {item?.label ?? bundle.item_code} for{" "}
                       {gbpShort(bundle.price_pence)}
+                      <span className="block text-xs text-slate-500">
+                        code <code>{bundle.item_code}</code>, qty {bundle.qty}
+                        {bundle.applies_to
+                          ? ` · also counts: ${bundle.applies_to}`
+                          : " · counts this item only"}
+                      </span>
                     </span>
                     <form action={deleteBundleAction}>
                       <input type="hidden" name="id" value={bundle.id} />

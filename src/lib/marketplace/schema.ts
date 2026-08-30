@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -303,8 +303,12 @@ export const STATEMENTS: string[] = [
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 (offer covers staircases) ------------------------
-  `UPDATE price_bundles SET applies_to = 'stairs', label = 'Any 3 areas for £99'
-     WHERE item_code = 'room' AND qty = 3`,
+  // Matched on item_code alone. The first attempt also required qty = 3 and
+  // changed nothing in production, so the live row evidently isn't the (room,3)
+  // the seed creates — most likely edited through /admin/prices at some point.
+  `UPDATE price_bundles SET applies_to = 'stairs' WHERE item_code = 'room'`,
+  `UPDATE price_bundles SET label = 'Any 3 areas for £99'
+     WHERE item_code = 'room' AND label LIKE '%rooms for%'`,
 
 ];
 
