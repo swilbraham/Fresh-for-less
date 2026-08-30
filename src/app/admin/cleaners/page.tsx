@@ -16,7 +16,6 @@ import {
   updateCleanerCoverageAction,
 } from "../actions";
 import {
-  AdminNav,
   Alert,
   AvailabilityGrid,
   Card,
@@ -109,9 +108,7 @@ export default async function AdminCleanersPage({
   );
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <AdminNav />
-
+    <main>
       <div className="mx-auto max-w-5xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Cleaner updated.</Alert>}

@@ -10,7 +10,7 @@ import {
   removePriceItemAction,
   savePricesAction,
 } from "../actions";
-import { AdminNav, Alert, Card } from "@/components/marketplace/shell";
+import { Alert, Card } from "@/components/marketplace/shell";
 import ConfirmButton from "@/components/marketplace/ConfirmButton";
 
 export const dynamic = "force-dynamic";
@@ -42,9 +42,7 @@ export default async function AdminPricesPage({
   ]);
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <AdminNav />
-
+    <main>
       <div className="mx-auto max-w-5xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Prices updated. Live on /book now.</Alert>}

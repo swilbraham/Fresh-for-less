@@ -8,7 +8,7 @@ import {
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { adminLoginAction, adminLogoutAction } from "./actions";
-import { AdminNav, Alert, Card } from "@/components/marketplace/shell";
+import { Alert, Card } from "@/components/marketplace/shell";
 
 export const dynamic = "force-dynamic";
 
@@ -71,9 +71,7 @@ export default async function AdminPage({
   ]);
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <AdminNav />
-
+    <main>
       <div className="mx-auto max-w-6xl px-4 py-8">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat

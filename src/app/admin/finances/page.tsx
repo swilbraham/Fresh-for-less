@@ -9,7 +9,7 @@ import {
   listUpcomingWeeks,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
-import { AdminNav, Card } from "@/components/marketplace/shell";
+import { Card } from "@/components/marketplace/shell";
 
 export const dynamic = "force-dynamic";
 
@@ -82,9 +82,7 @@ export default async function AdminFinancesPage() {
     money.accepted_commission_pence + money.offered_commission_pence;
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <AdminNav />
-
+    <main>
       <div className="mx-auto max-w-6xl px-4 py-8">
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900">Finances</h1>

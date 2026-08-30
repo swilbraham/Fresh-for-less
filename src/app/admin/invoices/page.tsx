@@ -4,7 +4,7 @@ import { isAdmin } from "@/lib/marketplace/auth";
 import { listInvoices, listUninvoicedCommission } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { generateInvoicesAction, setInvoiceStatusAction } from "../actions";
-import { AdminNav, Alert, Card, StatusPill } from "@/components/marketplace/shell";
+import { Alert, Card, StatusPill } from "@/components/marketplace/shell";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +44,7 @@ export default async function AdminInvoicesPage({
     .reduce((sum, invoice) => sum + invoice.total_pence, 0);
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <AdminNav />
-
+    <main>
       <div className="mx-auto max-w-5xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Invoice updated.</Alert>}

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import { listCoverage, listUncoveredDemand } from "@/lib/marketplace/repo";
-import { AdminNav, Card } from "@/components/marketplace/shell";
+import { Card } from "@/components/marketplace/shell";
 import CopyButton from "@/components/marketplace/CopyButton";
 
 export const dynamic = "force-dynamic";
@@ -58,9 +58,7 @@ export default async function CoveragePage() {
   const gapDistricts = gaps.map((g) => g.outward).join("\n");
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <AdminNav />
-
+    <main>
       <div className="mx-auto max-w-5xl px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-900">Coverage</h1>
         <p className="mt-1 text-sm text-slate-500">

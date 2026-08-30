@@ -14,7 +14,7 @@ import {
   rebroadcastJobAction,
 } from "../actions";
 import Link from "next/link";
-import { AdminNav, Alert, Card, StatusPill } from "@/components/marketplace/shell";
+import { Alert, Card, StatusPill } from "@/components/marketplace/shell";
 
 export const dynamic = "force-dynamic";
 
@@ -103,9 +103,7 @@ export default async function AdminJobsPage({
   };
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <AdminNav />
-
+    <main>
       <div className="mx-auto max-w-6xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Job updated.</Alert>}
