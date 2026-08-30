@@ -124,7 +124,7 @@ export default async function NewJobPage({
 
           <Card
             title="Agreed price (optional)"
-            description="Leave blank to use the price above. Fill it in only if you agreed something different on the call — the difference is recorded as its own line so the breakdown still adds up."
+            description="Leave blank to use the price above. Fill it in if you agreed something different on the call and this becomes the price — it is what the customer is confirmed at and what cleaners are offered. Commission is worked out on it. The list price is kept on the job for your reference only."
           >
             <Field label="Price agreed (£)" name="agreedPrice" className="mt-4 max-w-[200px]" />
           </Card>

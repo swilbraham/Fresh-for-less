@@ -26,7 +26,8 @@ const JOB_COLUMNS = `
   j.address_line, j.town, j.postcode, j.outward,
   to_char(j.slot_date, 'YYYY-MM-DD')            AS slot_date,
   j.slot_window, j.items, j.notes, j.parking,
-  j.subtotal_pence, j.total_pence, j.commission_pct, j.commission_pence,
+  j.subtotal_pence, j.total_pence, j.list_total_pence,
+  j.commission_pct, j.commission_pence,
   j.commission_on_net,
   j.status, j.cleaner_id,
   j.cancelled_by, j.late_cancellation, j.rescheduled_count,
@@ -502,6 +503,12 @@ export type BookingInput = {
   notes: string;
   parking: string;
   protection?: boolean;
+  /**
+   * A price agreed on the phone, overriding the list price. Applied before the
+   * job is written, so the offer to cleaners and the customer's confirmation
+   * both quote the figure that was actually agreed.
+   */
+  agreedPence?: number | null;
 };
 
 export type BookingResult = {
@@ -527,6 +534,20 @@ export async function createBooking(
     throw new Error("Choose at least one item to clean.");
   }
 
+  // A price agreed on the phone replaces the list price outright, before
+  // anything is written or sent. Commission is recalculated on it, so the
+  // cleaner is billed on what they will actually collect. The list price is
+  // kept for the office; nobody else ever sees it.
+  const agreed =
+    input.agreedPence && input.agreedPence > 0 && input.agreedPence !== quote.total_pence
+      ? input.agreedPence
+      : null;
+  const totalPence = agreed ?? quote.total_pence;
+  const listPence = agreed ? quote.total_pence : 0;
+  const commissionPence = agreed
+    ? Math.round((agreed * Number(quote.commission_pct)) / 100)
+    : quote.commission_pence;
+
   // No cleaner covers this postcode yet. Take the booking anyway — a job with
   // a date, an address and a price is far better than a name on a list, both
   // for the customer and as something to recruit against — but hold it as
@@ -541,8 +562,9 @@ export async function createBooking(
         `INSERT INTO jobs
            (ref, customer_name, customer_email, customer_phone, address_line, town,
             postcode, outward, slot_date, slot_window, items, notes, parking,
-            subtotal_pence, total_pence, commission_pct, commission_pence, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18)
+            subtotal_pence, total_pence, list_total_pence,
+            commission_pct, commission_pence, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19)
          RETURNING id, ref`,
         [
           makeRef("FFL"),
@@ -559,9 +581,10 @@ export async function createBooking(
           input.notes,
           input.parking,
           quote.subtotal_pence,
-          quote.total_pence,
+          totalPence,
+          listPence,
           quote.commission_pct,
-          quote.commission_pence,
+          commissionPence,
           initialStatus,
         ]
       );
@@ -2830,45 +2853,6 @@ export async function getJobMessages(jobId: number): Promise<JobMessage[]> {
   );
 }
 
-
-/**
- * Adjust a job to a price agreed on the phone.
- *
- * Recorded as an extra line rather than by quietly rewriting the total, so the
- * itemisation still adds up to what the customer was told — the cleaner sees
- * the same breakdown the customer agreed to.
- */
-export async function adjustJobPrice(
-  jobId: number,
-  agreedPence: number
-): Promise<void> {
-  const job = await getJob(jobId);
-  if (!job) return;
-
-  const difference = agreedPence - job.total_pence;
-  if (difference === 0) return;
-
-  const items = [
-    ...job.items,
-    {
-      code: "adjustment",
-      label: difference > 0 ? "Agreed extra" : "Agreed discount",
-      qty: 1,
-      amount_pence: difference,
-      note: "Agreed over the phone",
-    },
-  ];
-  const commission = Math.round(
-    (agreedPence * Number(job.commission_pct)) / 100
-  );
-
-  await query(
-    `UPDATE jobs
-        SET items = $2::jsonb, total_pence = $3, commission_pence = $4
-      WHERE id = $1`,
-    [jobId, JSON.stringify(items), agreedPence, commission]
-  );
-}
 
 // ---------------------------------------------------------- coverage map --
 

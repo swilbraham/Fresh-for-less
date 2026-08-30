@@ -32,7 +32,6 @@ import {
 import { makeResetToken } from "@/lib/marketplace/auth";
 import {
   activateProvisionalJobs,
-  adjustJobPrice,
   assignJob,
   getCleanerPasswordHash,
   releaseJob,
@@ -671,6 +670,15 @@ export async function createPhoneBookingAction(data: FormData) {
   }
   if (Object.keys(basket).length === 0) fail2("Add at least one item.");
 
+  // Read before the booking is made: the agreed price has to be in place
+  // before anyone is told a figure, not patched on afterwards.
+  const agreedRaw = field(data, "agreedPrice", 12);
+  const agreed = agreedRaw ? penceFromInput(agreedRaw) : null;
+  if (agreedRaw && agreed === null) {
+    fail2("That agreed price doesn't look right — enter it like 99 or 99.50.");
+  }
+  if (agreed !== null && agreed <= 0) fail2("The agreed price must be above zero.");
+
   let result;
   try {
     result = await createBooking({
@@ -686,14 +694,10 @@ export async function createPhoneBookingAction(data: FormData) {
       notes: field(data, "notes", 600),
     parking: field(data, "parking", 200),
       protection: data.get("protection") === "on",
+      agreedPence: agreed,
     });
   } catch (error) {
     fail2(String((error as Error)?.message ?? "Couldn't create that booking."));
-  }
-
-  const agreed = penceFromInput(field(data, "agreedPrice", 12));
-  if (agreed !== null && agreed > 0) {
-    await adjustJobPrice(result!.job.id, agreed);
   }
 
   revalidatePath("/admin/jobs");

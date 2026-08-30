@@ -159,7 +159,17 @@ export default async function AdminJobPage({
             </ul>
 
             <dl className="mt-4 space-y-1 border-t border-slate-200 pt-3 text-sm">
-              <Row label="Customer pays" value={gbp(job.total_pence)} strong />
+              {job.list_total_pence > 0 && (
+                <Row
+                  label="List price"
+                  value={<span className="line-through">{gbp(job.list_total_pence)}</span>}
+                />
+              )}
+              <Row
+                label={job.list_total_pence > 0 ? "Agreed price" : "Customer pays"}
+                value={gbp(job.total_pence)}
+                strong
+              />
               <Row
                 label={
                   job.commission_pence === 0
@@ -477,7 +487,7 @@ function Row({
   strong,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   strong?: boolean;
 }) {
   return (

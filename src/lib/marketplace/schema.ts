@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 25;
+export const SCHEMA_VERSION = 26;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -278,6 +278,15 @@ export const STATEMENTS: string[] = [
   `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS vat_registered boolean NOT NULL DEFAULT false`,
   `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS vat_number text NOT NULL DEFAULT ''`,
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS commission_on_net boolean NOT NULL DEFAULT false`,
+
+  // ---- Price agreed on the phone ------------------------------------------
+  // A price haggled on a call is the price, for everyone. It used to be stored
+  // as an "Agreed discount" line bolted onto the list price, which meant the
+  // customer's confirmation and the cleaner's offer both quoted a figure
+  // nobody had agreed to. The job now carries the agreed price outright and
+  // remembers what the list price would have been, for the office only.
+  // 0 means no override — this was booked at list price.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS list_total_pence int NOT NULL DEFAULT 0`,
 
   // ---- Parking ------------------------------------------------------------
   // Asked separately from general notes: a van that can't park is a job that

@@ -79,6 +79,12 @@ export default async function ManageBookingPage({
   const itemsTotal = job.items.reduce((sum, line) => sum + line.amount_pence, 0);
   const minimumTopUp = Math.max(0, job.total_pence - itemsTotal);
 
+  // A price agreed on the phone covers the whole job, so the per-item prices no
+  // longer add up to it. Show what is being cleaned and the one price that was
+  // agreed, rather than a breakdown that invites the customer to do arithmetic
+  // that will not work.
+  const pricedByAgreement = job.list_total_pence > 0;
+
   const slots = isOver
     ? []
     : (
@@ -162,21 +168,29 @@ export default async function ManageBookingPage({
                 <span>
                   {line.qty} × {line.label}
                 </span>
-                <span className="font-semibold tabular-nums">
-                  {gbp(line.amount_pence)}
-                </span>
+                {!pricedByAgreement && (
+                  <span className="font-semibold tabular-nums">
+                    {gbp(line.amount_pence)}
+                  </span>
+                )}
               </li>
             ))}
-            {minimumTopUp > 0 && (
+            {!pricedByAgreement && minimumTopUp > 0 && (
               <li className="flex justify-between text-slate-500">
                 <span>Minimum charge applied</span>
                 <span className="tabular-nums">+{gbp(minimumTopUp)}</span>
               </li>
             )}
             <li className="flex justify-between border-t border-slate-100 pt-1 font-bold text-slate-900">
-              <span>Total</span>
+              <span>{pricedByAgreement ? "Agreed price" : "Total"}</span>
               <span className="tabular-nums">{gbp(job.total_pence)}</span>
             </li>
+            {pricedByAgreement && (
+              <li className="pt-1 text-xs text-slate-500">
+                The price we agreed on the phone, covering everything listed
+                above. Nothing is added on the day.
+              </li>
+            )}
           </ul>
         </Card>
 

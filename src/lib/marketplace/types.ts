@@ -105,6 +105,8 @@ export type Job = {
   parking: string;
   subtotal_pence: number;
   total_pence: number;
+  /** List price before a price agreed on the phone replaced it; 0 if none. */
+  list_total_pence: number;
   commission_pct: string | number;
   commission_pence: number;
   commission_on_net: boolean;
