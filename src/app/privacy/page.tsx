@@ -83,6 +83,15 @@ export default function PrivacyPage() {
                 to your home. Cleaners may only use it for your job.
               </p>
               <p className="mt-2">
+                <strong>On this website.</strong> We show recent booking
+                activity on our public pages — a first name and a town, for
+                example &ldquo;Jane from Birkenhead booked a clean, 3 hours
+                ago&rdquo;. We never show a surname, address, postcode, price or
+                any other detail, and nothing shown identifies a particular job.
+                Only bookings from the last two days appear. If you would rather
+                yours was not shown, email us and we will exclude it.
+              </p>
+              <p className="mt-2">
                 We also use service providers who process data on our behalf:
                 Vercel (website hosting), Neon (database), Twilio (text
                 messages) and Resend (email). We do not sell your information or
