@@ -6,6 +6,8 @@ import {
   getJobDrops,
   getJobMessages,
   getJobInvoiceRef,
+  getCleaner,
+  getCustomerThread,
   netOfVatPence,
   getJobOffers,
   listCleaners,
@@ -18,6 +20,8 @@ import {
   cancelJobAction,
   waiveCommissionAction,
   setJobCommissionAction,
+  textCleanerAction,
+  textCustomerAction,
   setJobPriceAction,
   rescheduleJobAction,
   reassignJobAction,
@@ -48,12 +52,13 @@ export default async function AdminJobPage({
     repriced?: string;
     commission?: string;
     moved?: string;
+    sent?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
 
   const { ref } = await params;
-  const { error, waived, commission, moved, repriced } = await searchParams;
+  const { error, waived, commission, moved, repriced, sent } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
@@ -65,6 +70,13 @@ export default async function AdminJobPage({
     getJobMessages(job.id),
     getJobInvoiceRef(job.id),
   ]);
+
+  // Who to offer a message box for, and what's already been said on this job.
+  const assignedCleaner = job.cleaner_id
+    ? cleaners.find((c) => c.id === job.cleaner_id) ??
+      (await getCleaner(job.cleaner_id))
+    : null;
+  const customerThread = (await getCustomerThread(job.id)).slice(-4);
 
   // Commission stays adjustable after the job is done — that's when a goodwill
   // discount usually gets agreed — but not once it's been billed.
@@ -112,6 +124,9 @@ export default async function AdminJobPage({
         </div>
 
         {error && <Alert>{error}</Alert>}
+        {sent && (
+          <Alert tone="success">Message sent.</Alert>
+        )}
         {moved && (
           <Alert tone={moved === "unfilled" ? "error" : "success"}>
             {moved === "kept" && "Moved. The cleaner was free, so the job is still theirs and they've been texted."}
@@ -411,6 +426,97 @@ export default async function AdminJobPage({
             </Card>
           </div>
         </div>
+
+        <Card title="Send a message" className="mt-6">
+          <div className="mt-2 grid gap-6 lg:grid-cols-2">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                {job.customer_name}
+                <span className="ml-2 font-normal text-slate-500">customer</span>
+              </p>
+              {customerThread.length > 0 && (
+                <ul className="mt-2 space-y-1.5">
+                  {customerThread.map((m) => (
+                    <li
+                      key={m.id}
+                      className={`rounded-lg px-3 py-1.5 text-xs ${
+                        m.direction === "in"
+                          ? "bg-slate-100 text-slate-700"
+                          : "bg-primary-50 text-primary-900"
+                      }`}
+                    >
+                      <span className="font-semibold">
+                        {m.direction === "in" ? "They said" : "You sent"}:
+                      </span>{" "}
+                      {m.body.slice(0, 140)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form action={textCustomerAction} className="mt-3 space-y-2">
+                <input type="hidden" name="jobId" value={job.id} />
+                <input type="hidden" name="ref" value={job.ref} />
+                <textarea
+                  name="body"
+                  required
+                  rows={2}
+                  maxLength={600}
+                  placeholder={`Text ${job.customer_name.split(" ")[0]} about ${job.ref}…`}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                />
+                <button
+                  type="submit"
+                  className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Text customer
+                </button>
+              </form>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                {assignedCleaner ? assignedCleaner.name : "No cleaner yet"}
+                {assignedCleaner && (
+                  <span className="ml-2 font-normal text-slate-500">cleaner</span>
+                )}
+              </p>
+              {assignedCleaner ? (
+                <form action={textCleanerAction} className="mt-3 space-y-2">
+                  <input type="hidden" name="cleanerId" value={assignedCleaner.id} />
+                  <input type="hidden" name="ref" value={job.ref} />
+                  <textarea
+                    name="body"
+                    required
+                    rows={2}
+                    maxLength={600}
+                    placeholder={`Text ${assignedCleaner.name.split(" ")[0]} about ${job.ref}…`}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Text cleaner
+                  </button>
+                </form>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">
+                  Nobody has taken this job yet, so there&apos;s no one to
+                  message. Use Re-broadcast or assign someone first.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs text-slate-500">
+            Both go out as texts from your Fresh For Less number, and replies
+            come back to{" "}
+            <Link href="/admin/messages" className="font-semibold text-primary-600 underline">
+              Messages
+            </Link>
+            .
+          </p>
+        </Card>
 
         <Card title={`Offered to ${offers.length} cleaner${offers.length === 1 ? "" : "s"}`} className="mt-6">
           {offers.length === 0 ? (

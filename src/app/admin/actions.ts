@@ -421,16 +421,24 @@ export async function textCleanerAction(data: FormData) {
   await requireAdmin("/admin/messages");
   const cleanerId = Number(field(data, "cleanerId", 12));
   const body = field(data, "body", 600);
-  const back = `/admin/messages?cleaner=${cleanerId}`;
+  // Sent from a job page as well as the message list — go back where we came
+  // from. Path-only, so a crafted value can't redirect off-site.
+  // Sent from a job page as well as the message list — go back where we came
+  // from. Path-only and pattern-checked, so a crafted ref can't redirect off-site.
+  const ref = field(data, "ref", 20);
+  const fromJob = /^[A-Z0-9-]+$/.test(ref);
+  const base = fromJob ? `/admin/jobs/${ref}` : `/admin/messages?cleaner=${cleanerId}`;
+  const to = (param: string) => `${base}${fromJob ? "?" : "&"}${param}`;
 
-  if (!body) redirect(`${back}&error=${encodeURIComponent("Write a message first.")}`);
+  if (!body) redirect(to(`error=${encodeURIComponent("Write a message first.")}`));
 
   const result = await textCleaner(cleanerId, body);
   revalidatePath("/admin/messages");
+  if (fromJob) revalidatePath(`/admin/jobs/${ref}`);
   if (!result.ok) {
-    redirect(`${back}&error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`);
+    redirect(to(`error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`));
   }
-  redirect(`${back}&sent=1`);
+  redirect(to("sent=1"));
 }
 
 /** Text the customer on a job from /admin/messages. */
@@ -438,16 +446,20 @@ export async function textCustomerAction(data: FormData) {
   await requireAdmin("/admin/messages");
   const jobId = Number(field(data, "jobId", 12));
   const body = field(data, "body", 600);
-  const back = `/admin/messages?job=${jobId}`;
+  const ref = field(data, "ref", 20);
+  const fromJob = /^[A-Z0-9-]+$/.test(ref);
+  const base = fromJob ? `/admin/jobs/${ref}` : `/admin/messages?job=${jobId}`;
+  const to = (param: string) => `${base}${fromJob ? "?" : "&"}${param}`;
 
-  if (!body) redirect(`${back}&error=${encodeURIComponent("Write a message first.")}`);
+  if (!body) redirect(to(`error=${encodeURIComponent("Write a message first.")}`));
 
   const result = await textCustomer(jobId, body);
   revalidatePath("/admin/messages");
+  if (fromJob) revalidatePath(`/admin/jobs/${ref}`);
   if (!result.ok) {
-    redirect(`${back}&error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`);
+    redirect(to(`error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`));
   }
-  redirect(`${back}&sent=1`);
+  redirect(to("sent=1"));
 }
 
 /**
