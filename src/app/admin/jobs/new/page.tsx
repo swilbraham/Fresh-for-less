@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import { getBundles, getPriceItems, getSettings } from "@/lib/marketplace/repo";
-import { AdminNav, Alert, Card, Field } from "@/components/marketplace/shell";
+import { Alert, Card, Field } from "@/components/marketplace/shell";
 import PhoneBookingForm from "@/components/marketplace/PhoneBookingForm";
 import { createPhoneBookingAction } from "../../actions";
 
@@ -34,9 +34,7 @@ export default async function NewJobPage({
   const earliest = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <AdminNav />
-
+    <main>
       <div className="mx-auto max-w-3xl px-4 py-8">
         <Link href="/admin/jobs" className="text-sm font-semibold text-slate-600 hover:text-primary-600">
           ← All jobs

@@ -12,12 +12,13 @@ import {
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { toE164 } from "@/lib/marketplace/phone";
-import { AdminNav, Alert, Card, StatusPill } from "@/components/marketplace/shell";
+import { Alert, Card, StatusPill } from "@/components/marketplace/shell";
 import {
   assignJobAction,
   cancelJobAction,
   waiveCommissionAction,
   setJobCommissionAction,
+  setJobPriceAction,
   rescheduleJobAction,
   reassignJobAction,
   rebroadcastJobAction,
@@ -44,6 +45,7 @@ export default async function AdminJobPage({
   searchParams: Promise<{
     error?: string;
     waived?: string;
+    repriced?: string;
     commission?: string;
     moved?: string;
   }>;
@@ -51,7 +53,7 @@ export default async function AdminJobPage({
   if (!(await isAdmin())) redirect("/admin");
 
   const { ref } = await params;
-  const { error, waived, commission, moved } = await searchParams;
+  const { error, waived, commission, moved, repriced } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
@@ -90,9 +92,7 @@ export default async function AdminJobPage({
   const open = !["completed", "cancelled"].includes(job.status);
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <AdminNav />
-
+    <main>
       <div className="mx-auto max-w-4xl px-4 py-8">
         <Link
           href="/admin/jobs"
@@ -125,6 +125,20 @@ export default async function AdminJobPage({
         {commission && (
           <Alert tone="info">
             Commission updated. {job.cleaner_id ? "The cleaner has been texted the new figure." : ""}
+          </Alert>
+        )}
+        {repriced === "1" && (
+          <Alert tone="success">
+            Price updated. The customer has been told, and so has every cleaner
+            who was quoted the old figure.
+          </Alert>
+        )}
+        {repriced === "unreachable" && (
+          <Alert tone="info">
+            <strong>Price updated — but ring the customer.</strong> Every cleaner
+            who was quoted the old figure has been told. {job.customer_name} has
+            no mobile or email on file, so nothing could be sent to them
+            {job.customer_phone ? ` — call ${job.customer_phone}` : ""}.
           </Alert>
         )}
         {waived && (
@@ -315,6 +329,40 @@ export default async function AdminJobPage({
                   <p className="mt-2 text-xs text-slate-500">
                     Keeps the cleaner if they&apos;re free that slot, otherwise
                     re-offers it. Either way the customer gets a text.
+                  </p>
+                </div>
+              )}
+
+              {commissionEditable && (
+                <div className="mt-4 border-t border-slate-100 pt-4 text-xs">
+                  <form
+                    action={setJobPriceAction}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <input type="hidden" name="id" value={job.id} />
+                    <input type="hidden" name="ref" value={job.ref} />
+                    <label htmlFor="agreedPrice" className="text-slate-600">
+                      Change the price to
+                    </label>
+                    <span className="text-slate-500">£</span>
+                    <input
+                      id="agreedPrice"
+                      name="agreedPrice"
+                      inputMode="decimal"
+                      placeholder={(job.total_pence / 100).toFixed(2)}
+                      className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-right tabular-nums"
+                    />
+                    <button
+                      type="submit"
+                      className="font-semibold text-primary-600 underline"
+                    >
+                      Save price
+                    </button>
+                  </form>
+                  <p className="mt-2 text-xs text-slate-500">
+                    This becomes the price. The customer is told, and so is the
+                    cleaner holding it — or everyone still deciding on it.
+                    Commission is reworked on the new figure.
                   </p>
                 </div>
               )}

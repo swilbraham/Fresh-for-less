@@ -37,6 +37,7 @@ import {
   releaseJob,
   createBooking,
   waiveCommission,
+  setAgreedPrice,
   setJobCommission,
   rescheduleJob,
   notifyCustomer,
@@ -327,6 +328,39 @@ export async function waiveCommissionAction(data: FormData) {
     redirect(`/admin/jobs/${ref}?error=${encodeURIComponent(result.reason ?? "Couldn't change that.")}`);
   }
   redirect(`/admin/jobs/${ref}?waived=1`);
+}
+
+/**
+ * Change the price on a job that has already been booked.
+ *
+ * setAgreedPrice does the telling — the customer always, plus whichever
+ * cleaners were quoted the old figure. See it for who gets what.
+ */
+export async function setJobPriceAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const jobId = Number(field(data, "id", 12));
+  const raw = field(data, "agreedPrice", 12);
+  const pence = penceFromInput(raw);
+
+  if (!raw || pence === null) {
+    redirect(
+      `/admin/jobs/${ref}?error=${encodeURIComponent(
+        "Enter the new price like 99 or 99.50."
+      )}`
+    );
+  }
+
+  const result = await setAgreedPrice(jobId, pence);
+  revalidatePath(`/admin/jobs/${ref}`);
+  if (!result.ok) {
+    redirect(
+      `/admin/jobs/${ref}?error=${encodeURIComponent(
+        result.reason ?? "Couldn't change that."
+      )}`
+    );
+  }
+  redirect(`/admin/jobs/${ref}?repriced=${result.customerTold ? "1" : "unreachable"}`);
 }
 
 /**

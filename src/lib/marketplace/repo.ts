@@ -2854,6 +2854,134 @@ export async function getJobMessages(jobId: number): Promise<JobMessage[]> {
 }
 
 
+/**
+ * Change a job's price after it has been booked.
+ *
+ * Sets the price outright rather than bolting an adjustment line onto the
+ * itemisation, the same way a price agreed on the original call does.
+ *
+ * Everyone who was told the old price gets told the new one, because a price
+ * changing silently underneath someone is the actual harm here:
+ *
+ *   - The customer, always. It is their money.
+ *   - The cleaner who accepted it, because their take just moved and they may
+ *     want to hand the job back rather than work it at the new figure.
+ *   - Everyone still holding an unanswered offer, because the figure they are
+ *     deciding on is now wrong.
+ *
+ * Refuses once the job is on a commission invoice: the money has been billed
+ * by then, and moving the price would leave the invoice disagreeing with the
+ * job. Waived commission stays waived.
+ */
+export async function setAgreedPrice(
+  jobId: number,
+  agreedPence: number
+): Promise<{ ok: boolean; reason?: string; customerTold?: boolean }> {
+  const job = await getJob(jobId);
+  if (!job) return { ok: false, reason: "That job no longer exists." };
+  if (agreedPence <= 0) return { ok: false, reason: "Enter a price above zero." };
+  if (job.status === "cancelled") {
+    return { ok: false, reason: "That booking was cancelled." };
+  }
+  if (agreedPence === job.total_pence) return { ok: true };
+
+  const invoiced = await queryOne<{ invoice_id: number }>(
+    `SELECT invoice_id FROM commission_invoice_lines WHERE job_id = $1`,
+    [jobId]
+  );
+  if (invoiced) {
+    return {
+      ok: false,
+      reason:
+        "That job is already on a commission invoice, so its price can't be changed.",
+    };
+  }
+
+  // Keep the first list price recorded. Re-pricing twice shouldn't make the
+  // second agreed price look like the original list price.
+  const listPence =
+    job.list_total_pence > 0 ? job.list_total_pence : job.total_pence;
+  const base = job.commission_on_net ? netOfVatPence(agreedPence) : agreedPence;
+  const commission =
+    job.commission_pence === 0
+      ? 0
+      : Math.round((base * Number(job.commission_pct)) / 100);
+
+  await query(
+    `UPDATE jobs
+        SET total_pence = $2, list_total_pence = $3, commission_pence = $4
+      WHERE id = $1`,
+    [jobId, agreedPence, listPence, commission]
+  );
+
+  const updated = (await getJob(jobId))!;
+  const was = gbpShort(job.total_pence);
+  const now = gbpShort(updated.total_pence);
+
+  const customerTold =
+    isMobile(updated.customer_phone) || updated.customer_email.trim() !== "";
+
+  await notifyCustomer(updated, {
+    subject: `Your price has changed — ${updated.ref}`,
+    body:
+      `${updated.customer_name}, the price for your clean on ${updated.slot_date} ` +
+      `has been updated from ${was} to ${now}, as agreed.\n\n` +
+      `Reference: ${updated.ref}\n` +
+      `New price: ${now}, payable to your cleaner on the day.\n\n` +
+      `Everything else about your booking is unchanged. If this isn't what you ` +
+      `expected, reply or call us before the day.\n\n` +
+      `${bookingUrl(updated.ref, siteUrl())}`,
+    smsBody:
+      `${updated.ref}: price updated from ${was} to ${now} for ${updated.slot_date}. ` +
+      `Questions? Just reply.`,
+    jobId,
+  });
+
+  const keeps = gbpShort(updated.total_pence - updated.commission_pence);
+
+  if (updated.cleaner_id) {
+    const cleaner = await getCleaner(updated.cleaner_id);
+    if (cleaner) {
+      await notifyCleaner(cleaner, {
+        subject: `Price changed on ${updated.ref} — now ${now}`,
+        body:
+          `${cleaner.name}, the price on ${updated.ref} (${updated.outward}, ` +
+          `${updated.slot_date}) has changed from ${was} to ${now}.\n\n` +
+          `Job value: ${now}\n` +
+          `Commission: ${gbpShort(updated.commission_pence)} — you keep ${keeps}\n\n` +
+          `If that doesn't work for you, tell us before the day rather than on it.`,
+        smsBody:
+          `${updated.ref} price changed: ${was} to ${now}. You keep ${keeps}. ` +
+          `Not happy? Tell us before the day.`,
+        jobId,
+      });
+    }
+  } else if (updated.status === "offered") {
+    // Nobody has taken it, but the offers already sent quoted the old figure.
+    const offers = await getJobOffers(jobId);
+    for (const offer of offers) {
+      if (offer.response) continue; // they already declined — leave them alone
+      const cleaner = await getCleaner(offer.cleaner_id);
+      if (!cleaner) continue;
+      await notifyCleaner(cleaner, {
+        subject: `Price updated on the ${updated.outward} job — now ${now}`,
+        body:
+          `${cleaner.name}, the ${updated.outward} job on ${updated.slot_date} ` +
+          `you were offered is now ${now}, not ${was}.\n\n` +
+          `Job value: ${now}\n` +
+          `Commission: ${gbpShort(updated.commission_pence)} — you keep ${keeps}\n\n` +
+          `Still first to accept: ${siteUrl()}/pro/dashboard`,
+        smsBody:
+          `${updated.outward} ${updated.slot_date} now ${now} (was ${was}), ` +
+          `you keep ${keeps}. First to accept: ${siteUrl()}/pro/dashboard`,
+        jobId,
+      });
+    }
+  }
+
+  return { ok: true, customerTold };
+}
+
 // ------------------------------------------------------------ social proof --
 
 export type RecentBooking = {
