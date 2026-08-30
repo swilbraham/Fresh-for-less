@@ -8,6 +8,7 @@ import {
   getJobInvoiceRef,
   getCleaner,
   getCustomerThread,
+  getCleanerThread,
   netOfVatPence,
   getJobOffers,
   listCleaners,
@@ -77,6 +78,12 @@ export default async function AdminJobPage({
       (await getCleaner(job.cleaner_id))
     : null;
   const customerThread = (await getCustomerThread(job.id)).slice(-4);
+  // The cleaner's own thread rather than this job's messages: their replies
+  // arrive as plain texts with no job attached, so filtering by job would
+  // show what we sent and hide what they said back.
+  const cleanerThread = assignedCleaner
+    ? (await getCleanerThread(assignedCleaner.id)).slice(-4)
+    : [];
 
   // Commission stays adjustable after the job is done — that's when a goodwill
   // discount usually gets agreed — but not once it's been billed.
@@ -453,6 +460,16 @@ export default async function AdminJobPage({
                   ))}
                 </ul>
               )}
+              {customerThread.length > 0 && (
+                <p className="mt-2 text-xs">
+                  <Link
+                    href={`/admin/messages?job=${job.id}`}
+                    className="font-semibold text-primary-600 underline"
+                  >
+                    Full conversation
+                  </Link>
+                </p>
+              )}
               <form action={textCustomerAction} className="mt-3 space-y-2">
                 <input type="hidden" name="jobId" value={job.id} />
                 <input type="hidden" name="ref" value={job.ref} />
@@ -480,6 +497,35 @@ export default async function AdminJobPage({
                   <span className="ml-2 font-normal text-slate-500">cleaner</span>
                 )}
               </p>
+              {assignedCleaner && cleanerThread.length > 0 && (
+                <>
+                  <ul className="mt-2 space-y-1.5">
+                    {cleanerThread.map((m) => (
+                      <li
+                        key={m.id}
+                        className={`rounded-lg px-3 py-1.5 text-xs ${
+                          m.direction === "in"
+                            ? "bg-slate-100 text-slate-700"
+                            : "bg-primary-50 text-primary-900"
+                        }`}
+                      >
+                        <span className="font-semibold">
+                          {m.direction === "in" ? "They said" : "You sent"}:
+                        </span>{" "}
+                        {m.body.slice(0, 140)}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs">
+                    <Link
+                      href={`/admin/messages?cleaner=${assignedCleaner.id}`}
+                      className="font-semibold text-primary-600 underline"
+                    >
+                      Full conversation
+                    </Link>
+                  </p>
+                </>
+              )}
               {assignedCleaner ? (
                 <form action={textCleanerAction} className="mt-3 space-y-2">
                   <input type="hidden" name="cleanerId" value={assignedCleaner.id} />
