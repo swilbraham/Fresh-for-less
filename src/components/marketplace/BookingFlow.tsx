@@ -33,6 +33,7 @@ export default function BookingFlow({
   protectionPct,
   protectionEnabled,
   landing,
+  hero,
 }: {
   items: PriceItem[];
   bundles: PriceBundle[];
@@ -43,6 +44,12 @@ export default function BookingFlow({
   protectionEnabled: boolean;
   /** Marketing content, shown only before the customer starts the quote. */
   landing?: ReactNode;
+  /**
+   * The full-height hero. Shown only on the first step: once someone has given
+   * a postcode they've read it and acted on it, and leaving it in place makes
+   * them scroll a screen and a half past their own decision on every step.
+   */
+  hero?: ReactNode;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("postcode");
@@ -117,12 +124,40 @@ export default function BookingFlow({
       bundles
         .filter((bundle) => bundle.active !== false)
         .map((bundle) => {
-          const item = items.find((i) => i.code === bundle.item_code);
-          const have = Math.floor(Number(basket[bundle.item_code] ?? 0));
+          // An offer can span several items, so count them all — otherwise
+          // someone with 2 rooms and a staircase is told to add a third room
+          // when the offer has already applied.
+          const codes = [
+            bundle.item_code,
+            ...(bundle.applies_to ?? "")
+              .split(",")
+              .map((c) => c.trim())
+              .filter(Boolean),
+          ].filter((c, i, all) => all.indexOf(c) === i);
+
+          const have = codes.reduce(
+            (sum, code) => sum + Math.floor(Number(basket[code] ?? 0)),
+            0
+          );
+
+          // "3 rooms" reads better than "3 areas" when only one item counts.
+          const unit =
+            codes.length > 1
+              ? "area"
+              : (
+                  items.find((i) => i.code === bundle.item_code)?.label ??
+                  bundle.item_code
+                ).toLowerCase();
+
           return {
             id: bundle.id,
             label: bundle.label,
-            unit: (item?.label ?? bundle.item_code).toLowerCase(),
+            unit,
+            counts: codes
+              .map((code) => items.find((i) => i.code === code)?.label ?? code)
+              .join(" or ")
+              .toLowerCase(),
+            multi: codes.length > 1,
             needed: Math.max(0, bundle.qty - have),
             applied: have >= bundle.qty,
             qty: bundle.qty,
@@ -232,7 +267,28 @@ export default function BookingFlow({
   const stepIndex = steps.findIndex((s) => s.key === step);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-40">
+    <div className="w-full pb-40">
+      {step === "postcode" ? (
+        hero
+      ) : (
+        <div className="mb-8 border-b border-slate-200 bg-white">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+            <p className="min-w-0 text-sm text-slate-600">
+              Cleaning at{" "}
+              <strong className="text-slate-900">{postcode.toUpperCase()}</strong>
+            </p>
+            <button
+              type="button"
+              onClick={() => setStep("postcode")}
+              className="shrink-0 text-sm font-semibold text-primary-600 underline"
+            >
+              Change
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="mx-auto w-full max-w-3xl px-4">
       {/* Progress */}
       <ol
         className={`mb-8 flex-wrap gap-x-2 gap-y-1 text-sm ${
@@ -418,8 +474,9 @@ export default function BookingFlow({
                       </>
                     ) : offer.needed === offer.qty ? (
                       <>
-                        <strong>{offer.label}</strong> — add {offer.qty}{" "}
-                        {offer.unit}s and it applies automatically.
+                        <strong>{offer.label}</strong> — add any {offer.qty}{" "}
+                        {offer.multi ? `(${offer.counts})` : `${offer.unit}s`}{" "}
+                        and it applies automatically.
                       </>
                     ) : (
                       <>
@@ -827,6 +884,7 @@ export default function BookingFlow({
       )}
 
       {step === "postcode" && landing}
+      </div>
 
       {/* Sticky running price */}
       {step !== "postcode" && quote.total_pence > 0 && (
