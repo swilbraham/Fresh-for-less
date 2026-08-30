@@ -294,9 +294,17 @@ export const STATEMENTS: string[] = [
   // placeholder, which most people skip past.
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS parking text NOT NULL DEFAULT ''`,
 
+  // ---- Bundles can span more than one item ---------------------------------
+  // "3 rooms for £99" only ever counted rooms, so a staircase — the same £45 of
+  // work — never triggered it. That made 2 rooms + stairs (£135) dearer than
+  // 3 rooms (£99), and 2 rooms + stairs + landing (£150) dearer than 3 rooms +
+  // stairs (£144): more carpet for less money. A staircase now counts.
+  `ALTER TABLE price_bundles ADD COLUMN IF NOT EXISTS applies_to text NOT NULL DEFAULT ''`,
+
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off, 2026-08-26 -------------------------------------------------
-  // Nothing outstanding. The footstool insert this replaces has already run.
+  // ---- One-off, 2026-08-26 (offer covers staircases) ------------------------
+  `UPDATE price_bundles SET applies_to = 'stairs', label = 'Any 3 areas for £99'
+     WHERE item_code = 'room' AND qty = 3`,
 
 ];
 
@@ -330,13 +338,13 @@ export const SEED: [string, unknown[]][] = [
   ),
 
   ...([
-    ["room", 3, 9900, "3 rooms for £99"],
+    ["room", 3, 9900, "Any 3 areas for £99", "stairs"],
   ] as const).map(
-    ([itemCode, qty, price, label]) =>
+    ([itemCode, qty, price, label, appliesTo]) =>
       [
-        `INSERT INTO price_bundles (item_code, qty, price_pence, label)
-         VALUES ($1,$2,$3,$4) ON CONFLICT (item_code, qty) DO NOTHING`,
-        [itemCode, qty, price, label],
+        `INSERT INTO price_bundles (item_code, qty, price_pence, label, applies_to)
+         VALUES ($1,$2,$3,$4,$5) ON CONFLICT (item_code, qty) DO NOTHING`,
+        [itemCode, qty, price, label, appliesTo],
       ] as [string, unknown[]]
   ),
 ];

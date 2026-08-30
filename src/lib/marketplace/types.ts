@@ -43,6 +43,7 @@ export type PriceBundle = {
   qty: number;
   price_pence: number;
   label: string;
+  applies_to: string;
   active: boolean;
 };
 
