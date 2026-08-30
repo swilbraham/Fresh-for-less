@@ -589,6 +589,7 @@ export async function updateCleanerAction(data: FormData) {
     email,
     phone,
     vatRegistered: data.get("vatRegistered") === "on",
+    commissionExempt: data.get("commissionExempt") === "on",
     vatNumber: field(data, "vatNumber", 20),
     insuranceProvider: field(data, "insuranceProvider", 120),
     insuranceExpiry: /^\d{4}-\d{2}-\d{2}$/.test(expiry) ? expiry : null,

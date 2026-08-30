@@ -67,7 +67,7 @@ const CLEANER_COLUMNS = `
   c.insurance_provider,
   to_char(c.insurance_expiry, 'YYYY-MM-DD') AS insurance_expiry,
   c.years_experience, c.equipment, c.dbs_checked, c.admin_notes,
-  c.vat_registered, c.vat_number,
+  c.vat_registered, c.vat_number, c.commission_exempt,
   c.notify_sms, c.notify_email,
   to_char(c.created_at,  'YYYY-MM-DD HH24:MI') AS created_at,
   to_char(c.reviewed_at, 'YYYY-MM-DD HH24:MI') AS reviewed_at
@@ -680,7 +680,15 @@ export async function broadcastJob(
       [jobId, cleaner.id]
     );
     const items = job.items.map((line) => `${line.qty}x ${line.label}`).join(", ");
-    const youKeep = gbpShort(job.total_pence - job.commission_pence);
+    // Worked out per cleaner: an exempt cleaner pays nothing on this job, so
+    // quoting them the standard commission would be quoting a bill that will
+    // never arrive.
+    const commissionPence = cleaner.commission_exempt ? 0 : job.commission_pence;
+    const youKeep = gbpShort(job.total_pence - commissionPence);
+    const commissionLine = cleaner.commission_exempt
+      ? `No commission on this one — you keep the full ${gbpShort(job.total_pence)}.\n`
+      : `Commission: ${gbpShort(commissionPence)} — you keep ${youKeep}\n` +
+        `${COMMISSION_TERMS_SHORT}\n`;
 
     await notifyCleaner(cleaner, {
       subject: `New job available — ${job.postcode} on ${job.slot_date} (${gbpShort(job.total_pence)})`,
@@ -689,8 +697,8 @@ export async function broadcastJob(
         `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
         `Job: ${items}\n` +
         `Job value: ${gbpShort(job.total_pence)}\n` +
-        `Commission: ${gbpShort(job.commission_pence)} — you keep ${youKeep}\n` +
-        `${COMMISSION_TERMS_SHORT}\n\n` +
+        commissionLine +
+        `\n` +
         `First to accept gets it — open your dashboard at ${siteUrl()}/pro/dashboard.`,
       // Kept short and front-loaded: it has to be readable in a lock-screen preview.
       smsBody:
@@ -834,6 +842,19 @@ export async function applyCommissionBasis(
     [jobId]
   );
   if (invoiced) return;
+
+  // An exempt cleaner is charged nothing on anything they take. Zeroed here
+  // rather than filtered out at invoicing time, so every downstream figure —
+  // the offer they were sent, what they keep, the finance page — already
+  // agrees, instead of each one having to remember the exception.
+  if (cleaner.commission_exempt) {
+    await query(
+      `UPDATE jobs SET commission_pence = 0, commission_on_net = false
+        WHERE id = $1`,
+      [jobId]
+    );
+    return;
+  }
 
   const base = cleaner.vat_registered
     ? netOfVatPence(job.total_pence)
@@ -2468,6 +2489,8 @@ export type CleanerProfileInput = {
   /** Admin-only: it changes what the cleaner pays, so it can't be self-declared. */
   vatRegistered?: boolean;
   vatNumber?: string;
+  /** Admin-only: zero commission on everything this cleaner takes. */
+  commissionExempt?: boolean;
 };
 
 /**
@@ -2495,7 +2518,8 @@ export async function updateCleanerProfile(
             years_experience   = COALESCE($8, years_experience),
             equipment          = COALESCE($9, equipment),
             vat_registered     = COALESCE($10, vat_registered),
-            vat_number         = COALESCE($11, vat_number)
+            vat_number         = COALESCE($11, vat_number),
+            commission_exempt  = COALESCE($12, commission_exempt)
       WHERE id = $1`,
     [
       id,
@@ -2509,6 +2533,7 @@ export async function updateCleanerProfile(
       input.equipment ?? null,
       input.vatRegistered ?? null,
       input.vatNumber ?? null,
+      input.commissionExempt ?? null,
     ]
   );
   return { ok: true };

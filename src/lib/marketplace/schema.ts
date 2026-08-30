@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -278,6 +278,13 @@ export const STATEMENTS: string[] = [
   `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS vat_registered boolean NOT NULL DEFAULT false`,
   `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS vat_number text NOT NULL DEFAULT ''`,
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS commission_on_net boolean NOT NULL DEFAULT false`,
+
+  // ---- Cleaners who aren't charged commission ------------------------------
+  // The operator works jobs through the same marketplace as everyone else, and
+  // invoicing yourself commission is a round trip that inflates turnover and
+  // then cancels itself out. Set on the cleaner rather than per job, because it
+  // is a fact about the account, not a one-off decision.
+  `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS commission_exempt boolean NOT NULL DEFAULT false`,
 
   // ---- Price agreed on the phone ------------------------------------------
   // A price haggled on a call is the price, for everyone. It used to be stored

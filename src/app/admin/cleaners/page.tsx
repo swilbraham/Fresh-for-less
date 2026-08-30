@@ -366,6 +366,25 @@ export default async function AdminCleanersPage({
                           </span>
                         </span>
                       </label>
+                      <label className="flex items-start gap-2 text-sm sm:col-span-2">
+                        <input
+                          type="checkbox"
+                          name="commissionExempt"
+                          defaultChecked={cleaner.commission_exempt}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 accent-accent-600"
+                        />
+                        <span>
+                          <span className="font-semibold text-slate-900">
+                            No commission on their jobs
+                          </span>
+                          <span className="block text-xs text-slate-500">
+                            For your own account. Anything they take is charged
+                            at zero, they are told so on the offer, and none of
+                            it reaches a commission invoice. Existing jobs of
+                            theirs keep whatever commission they already have.
+                          </span>
+                        </span>
+                      </label>
                       <Field
                         label="Years of experience"
                         name="yearsExperience"
