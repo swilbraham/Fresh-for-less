@@ -81,8 +81,6 @@ export type Cleaner = {
   dbs_checked: boolean;
   vat_registered: boolean;
   vat_number: string;
-  /** This cleaner is never charged commission — see applyCommissionBasis. */
-  commission_exempt: boolean;
   admin_notes: string;
   notify_sms: boolean;
   notify_email: boolean;

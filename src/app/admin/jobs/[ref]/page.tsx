@@ -66,13 +66,6 @@ export default async function AdminJobPage({
     getJobInvoiceRef(job.id),
   ]);
 
-  // Zero commission means one of two different things, and the office should be
-  // able to tell them apart: waived on this job, or a cleaner who is never
-  // charged at all.
-  const assigned = job.cleaner_id
-    ? cleaners.find((c) => c.id === job.cleaner_id) ?? null
-    : null;
-
   // Commission stays adjustable after the job is done — that's when a goodwill
   // discount usually gets agreed — but not once it's been billed.
   const commissionEditable = job.status !== "cancelled" && !invoiceRef;
@@ -194,9 +187,7 @@ export default async function AdminJobPage({
               <Row
                 label={
                   job.commission_pence === 0
-                    ? assigned?.commission_exempt
-                      ? "Commission — none charged to this cleaner"
-                      : "Commission — waived"
+                    ? "Commission — waived"
                     : job.commission_on_net
                       ? `Commission (${Number(job.commission_pct)}% of ${gbp(
                           netOfVatPence(job.total_pence)
