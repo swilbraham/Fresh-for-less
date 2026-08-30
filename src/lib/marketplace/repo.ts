@@ -2854,6 +2854,69 @@ export async function getJobMessages(jobId: number): Promise<JobMessage[]> {
 }
 
 
+// ------------------------------------------------------------ social proof --
+
+export type RecentBooking = {
+  name: string;
+  place: string;
+  age_seconds: number;
+};
+
+/**
+ * Recent real bookings, for the "someone just booked" notice on the site.
+ *
+ * Only ever built from bookings that actually happened. Inventing these is a
+ * misleading commercial practice under the Consumer Protection from Unfair
+ * Trading Regulations, and it is the sort of thing customers notice — the same
+ * three names cycling forever reads as fake because it is.
+ *
+ * Deliberately narrow: a first name and a town. No surname, no address, no
+ * postcode, no price, and nothing that ties a person to a job reference. Titles
+ * are stripped so a "Mrs Smith" doesn't surface as "Mrs".
+ *
+ * Cancelled bookings are excluded, and the caller sets a short window — an old
+ * booking dressed up as recent activity is the same lie told slowly.
+ */
+export async function listRecentBookings(
+  withinDays = 2,
+  limit = 10
+): Promise<RecentBooking[]> {
+  const rows = await query<{
+    customer_name: string;
+    place: string;
+    age_seconds: number;
+  }>(
+    `SELECT customer_name,
+            COALESCE(NULLIF(town, ''), outward)              AS place,
+            EXTRACT(EPOCH FROM (now() - created_at))::int    AS age_seconds
+       FROM jobs
+      WHERE status <> 'cancelled'
+        AND created_at > now() - ($1 || ' days')::interval
+      ORDER BY created_at DESC
+      LIMIT $2`,
+    [String(withinDays), limit]
+  );
+
+  const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "prof", "sir"]);
+
+  return rows
+    .map((row) => {
+      const parts = String(row.customer_name ?? "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      // Skip a leading title so "Mrs Jane Smith" shows as Jane, not Mrs.
+      const first =
+        parts.find((p) => !TITLES.has(p.toLowerCase().replace(/\./g, ""))) ?? "";
+      return {
+        name: first.charAt(0).toUpperCase() + first.slice(1).toLowerCase(),
+        place: String(row.place ?? "").trim(),
+        age_seconds: Math.max(0, Number(row.age_seconds) || 0),
+      };
+    })
+    .filter((row) => row.name.length > 1 && row.place.length > 0);
+}
+
 // ---------------------------------------------------------- coverage map --
 
 export type CoverageArea = {

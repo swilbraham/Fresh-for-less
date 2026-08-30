@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { GOOGLE_ADS_ID } from "@/lib/analytics";
+import { RecentBookings } from "@/components/marketplace/RecentBookings";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -164,6 +165,7 @@ gtag('config', '${GOOGLE_ADS_ID}');`}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         {children}
+        <RecentBookings />
       </body>
     </html>
   );
