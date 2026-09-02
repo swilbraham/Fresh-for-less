@@ -15,7 +15,7 @@ import {
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { toE164 } from "@/lib/marketplace/phone";
-import { Alert, Card, StatusPill } from "@/components/marketplace/shell";
+import { Alert, Card, Field, StatusPill } from "@/components/marketplace/shell";
 import {
   assignJobAction,
   cancelJobAction,
@@ -25,6 +25,7 @@ import {
   textCustomerAction,
   setJobPriceAction,
   rescheduleJobAction,
+  updateJobDetailsAction,
   reassignJobAction,
   rebroadcastJobAction,
 } from "../../actions";
@@ -54,12 +55,13 @@ export default async function AdminJobPage({
     commission?: string;
     moved?: string;
     sent?: string;
+    details?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
 
   const { ref } = await params;
-  const { error, waived, commission, moved, repriced, sent } = await searchParams;
+  const { error, waived, commission, moved, repriced, sent, details } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
@@ -131,6 +133,15 @@ export default async function AdminJobPage({
         </div>
 
         {error && <Alert>{error}</Alert>}
+        {details && (
+          <Alert tone={details === "moved-uncovered" ? "error" : "success"}>
+            {details === "moved-uncovered"
+              ? "Details saved — but the new postcode is outside the assigned cleaner's areas. Reassign or re-broadcast this job."
+              : details === "moved"
+                ? "Details saved. The postcode moved to a new area, so allocation now matches the new one."
+                : "Details saved."}
+          </Alert>
+        )}
         {sent && (
           <Alert tone="success">Message sent.</Alert>
         )}
@@ -433,6 +444,56 @@ export default async function AdminJobPage({
             </Card>
           </div>
         </div>
+
+        <Card title="Customer details" className="mt-6">
+          <p className="-mt-1 text-sm text-slate-500">
+            Corrections after booking. Changing the postcode moves which area
+            the job is allocated against, and an address change texts the
+            assigned cleaner.
+          </p>
+          <form
+            action={updateJobDetailsAction}
+            className="mt-4 grid gap-3 sm:grid-cols-2"
+          >
+            <input type="hidden" name="id" value={job.id} />
+            <input type="hidden" name="ref" value={job.ref} />
+            <Field label="Name" name="customerName" required defaultValue={job.customer_name} />
+            <Field label="Mobile" name="customerPhone" type="tel" defaultValue={job.customer_phone} />
+            <Field label="Email" name="customerEmail" type="email" defaultValue={job.customer_email} />
+            <Field label="Address" name="addressLine" defaultValue={job.address_line} />
+            <Field label="Town" name="town" defaultValue={job.town} />
+            <Field label="Postcode" name="postcode" required defaultValue={job.postcode} />
+            <Field
+              label="Where can they park?"
+              name="parking"
+              className="sm:col-span-2"
+              defaultValue={job.parking}
+            />
+            <div className="sm:col-span-2">
+              <label
+                htmlFor="notes"
+                className="block text-sm font-semibold text-slate-700"
+              >
+                Notes for the cleaner
+              </label>
+              <textarea
+                id="notes"
+                name="notes"
+                rows={2}
+                defaultValue={job.notes}
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <button
+                type="submit"
+                className="rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white"
+              >
+                Save details
+              </button>
+            </div>
+          </form>
+        </Card>
 
         <Card title="Send a message" className="mt-6">
           <div className="mt-2 grid gap-6 lg:grid-cols-2">

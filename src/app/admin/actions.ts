@@ -39,6 +39,7 @@ import {
   waiveCommission,
   setAgreedPrice,
   setJobCommission,
+  updateJobCustomer,
   rescheduleJob,
   notifyCustomer,
   textCleaner,
@@ -518,6 +519,72 @@ export async function rescheduleJobAction(data: FormData) {
       ? `offered${result.offered}`
       : "unfilled";
   redirect(`${back}?moved=${outcome}`);
+}
+
+/**
+ * Correct a customer's details after booking.
+ *
+ * If the address moved and a cleaner already holds the job, they're texted the
+ * new one — they may already have it written down, and turning up at the old
+ * address is the worst version of this going wrong.
+ */
+export async function updateJobDetailsAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const jobId = Number(field(data, "id", 12));
+  const back = `/admin/jobs/${ref}`;
+
+  const before = await getJob(jobId);
+
+  const result = await updateJobCustomer(jobId, {
+    customerName: field(data, "customerName", 80),
+    customerPhone: field(data, "customerPhone", 30),
+    customerEmail: field(data, "customerEmail", 120),
+    addressLine: field(data, "addressLine", 200),
+    town: field(data, "town", 80),
+    postcode: field(data, "postcode", 12),
+    parking: field(data, "parking", 200),
+    notes: field(data, "notes", 600),
+  });
+
+  revalidatePath(back);
+  revalidatePath("/admin/jobs");
+  if (!result.ok) {
+    redirect(`${back}?error=${encodeURIComponent(result.reason ?? "Couldn't save that.")}`);
+  }
+
+  const after = await getJob(jobId);
+  const addressChanged =
+    before && after &&
+    (before.address_line !== after.address_line ||
+      before.postcode !== after.postcode ||
+      before.town !== after.town ||
+      before.parking !== after.parking);
+
+  if (addressChanged && after?.cleaner_id) {
+    const cleaner = await getCleaner(after.cleaner_id);
+    if (cleaner) {
+      await notifyCleaner(cleaner, {
+        jobId,
+        subject: `Address updated — ${after.ref}`,
+        body:
+          `${cleaner.name}, the details for ${after.ref} have changed.\n\n` +
+          `Address: ${after.address_line}${after.town ? `, ${after.town}` : ""}, ${after.postcode}\n` +
+          `${after.parking ? `Parking: ${after.parking}\n` : ""}` +
+          `\nPlease use these rather than anything noted earlier.`,
+        smsBody:
+          `Fresh For Less: address updated for ${after.ref} — ` +
+          `${after.address_line}, ${after.postcode}. Please use this one.`,
+      });
+    }
+  }
+
+  const flag = result.outwardChanged
+    ? result.cleanerStillCovers === false
+      ? "moved-uncovered"
+      : "moved"
+    : "1";
+  redirect(`${back}?details=${flag}`);
 }
 
 export async function reassignJobAction(data: FormData) {

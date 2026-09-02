@@ -899,6 +899,77 @@ export async function setJobCommission(
   };
 }
 
+export type JobCustomerInput = {
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  addressLine: string;
+  town: string;
+  postcode: string;
+  parking: string;
+  notes: string;
+};
+
+/**
+ * Correct the customer's details on a booking that's already been taken.
+ *
+ * Postcode changes recompute the outward code, because that's what allocation
+ * matches on — a job silently keeping its old area would sit in the wrong
+ * cleaner's list. The caller is told whether the assigned cleaner still covers
+ * the new area rather than the job being reassigned automatically: moving house
+ * mid-booking is rare enough to want a human decision.
+ */
+export async function updateJobCustomer(
+  jobId: number,
+  input: JobCustomerInput
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  outwardChanged?: boolean;
+  cleanerStillCovers?: boolean;
+}> {
+  const job = await getJob(jobId);
+  if (!job) return { ok: false, reason: "That job no longer exists." };
+  if (job.status === "cancelled") {
+    return { ok: false, reason: "That booking is cancelled." };
+  }
+  if (input.customerName.trim().length < 2) {
+    return { ok: false, reason: "The customer needs a name." };
+  }
+
+  const postcode = normalisePostcode(input.postcode);
+  if (!postcode) return { ok: false, reason: "That postcode doesn't look right." };
+  const outward = outwardOf(postcode)!;
+  const outwardChanged = outward !== job.outward;
+
+  await query(
+    `UPDATE jobs
+        SET customer_name = $2, customer_phone = $3, customer_email = $4,
+            address_line = $5, town = $6, postcode = $7, outward = $8,
+            parking = $9, notes = $10
+      WHERE id = $1`,
+    [
+      jobId,
+      input.customerName.trim(),
+      input.customerPhone.trim(),
+      input.customerEmail.trim(),
+      input.addressLine.trim(),
+      input.town.trim(),
+      postcode,
+      outward,
+      input.parking.trim(),
+      input.notes.trim(),
+    ]
+  );
+
+  let cleanerStillCovers: boolean | undefined;
+  if (outwardChanged && job.cleaner_id) {
+    const areas = await getCleanerAreas(job.cleaner_id);
+    cleanerStillCovers = areas.includes(outward);
+  }
+  return { ok: true, outwardChanged, cleanerStillCovers };
+}
+
 /** The invoice a job has landed on, if any — commission is fixed from then on. */
 export async function getJobInvoiceRef(jobId: number): Promise<string | null> {
   const row = await queryOne<{ ref: string }>(
