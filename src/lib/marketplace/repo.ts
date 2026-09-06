@@ -504,6 +504,12 @@ export type BookingInput = {
   parking: string;
   protection?: boolean;
   /**
+   * Skip the broadcast — the job is going straight to this cleaner. Used when
+   * it was agreed on the phone: offering it to everyone covering the postcode
+   * texts cleaners about work that is already spoken for.
+   */
+  skipBroadcast?: boolean;
+  /**
    * A price agreed on the phone, overriding the list price. Applied before the
    * job is written, so the offer to cleaners and the customer's confirmation
    * both quote the figure that was actually agreed.
@@ -597,9 +603,10 @@ export async function createBooking(
   }
   if (!job) throw new Error("Could not create the booking. Please try again.");
 
-  const offered = covered
-    ? await broadcastJob(job.id, outward, input.slotDate, input.slotWindow)
-    : 0;
+  const offered =
+    covered && !input.skipBroadcast
+      ? await broadcastJob(job.id, outward, input.slotDate, input.slotWindow)
+      : 0;
   const saved = (await getJob(job.id))!;
 
   if (!covered) {
@@ -624,7 +631,9 @@ export async function createBooking(
     smsBody: covered
       ? `NEW BOOKING ${saved.ref}: ${saved.postcode}, ${saved.slot_date} ` +
         `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
-        `Offered to ${offered} cleaner${offered === 1 ? "" : "s"}.`
+        `${input.skipBroadcast
+          ? "Going straight to the cleaner you picked."
+          : `Offered to ${offered} cleaner${offered === 1 ? "" : "s"}.`}`
       : `NEW REQUEST ${saved.ref}: ${saved.postcode}, ${saved.slot_date} ` +
         `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
         `NO COVER — promised confirmation within 24h.`,
@@ -643,8 +652,10 @@ export async function createBooking(
       `Address: ${saved.address_line}, ${saved.postcode}\n` +
       `Fixed price: ${gbpShort(saved.total_pence)}, payable to your cleaner on the day.\n\n` +
       (covered
-        ? `We're matching you with a vetted cleaner now and will confirm their ` +
-          `details as soon as the job is claimed.\n\n`
+        ? input.skipBroadcast
+          ? `We'll confirm your cleaner's details in a moment.\n\n`
+          : `We're matching you with a vetted cleaner now and will confirm their ` +
+            `details as soon as the job is claimed.\n\n`
         : `We don't have a cleaner in ${outward} yet, so this is a request ` +
           `rather than a confirmed booking. We'll confirm within 24 hours, or ` +
           `call you to sort something out. You owe nothing either way.\n\n`) +

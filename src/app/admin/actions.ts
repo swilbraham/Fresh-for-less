@@ -869,6 +869,9 @@ export async function createPhoneBookingAction(data: FormData) {
   try {
     result = await createBooking({
       basket,
+      // Picked a cleaner on the call? Don't text everyone covering the
+      // postcode about a job that's already theirs.
+      skipBroadcast: Number(field(data, "cleanerId", 12)) > 0,
       customerName,
       customerEmail: field(data, "customerEmail", 120),
       customerPhone,
@@ -902,7 +905,8 @@ export async function createPhoneBookingAction(data: FormData) {
   if (assignment && !assignment.ok) {
     redirect(
       `/admin/jobs/${result!.job.ref}?error=${encodeURIComponent(
-        `Booking created, but it couldn't be assigned: ${assignment.reason ?? "unknown reason"}`
+        `Booking created, but it couldn't be assigned: ${assignment.reason ?? "unknown reason"}. ` +
+        `Nobody has been offered it — use Re-broadcast below, or assign someone else.`
       )}`
     );
   }
