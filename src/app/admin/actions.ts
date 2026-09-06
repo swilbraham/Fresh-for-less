@@ -805,7 +805,7 @@ export async function createPhoneBookingAction(data: FormData) {
       slotDate,
       slotWindow: field(data, "slotWindow", 2) === "pm" ? "pm" : "am",
       notes: field(data, "notes", 600),
-    parking: field(data, "parking", 200),
+      parking: field(data, "parking", 200),
       protection: data.get("protection") === "on",
       agreedPence: agreed,
     });
@@ -813,6 +813,25 @@ export async function createPhoneBookingAction(data: FormData) {
     fail2(String((error as Error)?.message ?? "Couldn't create that booking."));
   }
 
+  // Booked over the phone with a cleaner already agreed — put it straight in
+  // their diary instead of broadcasting it and hoping they win the race.
+  const cleanerId = Number(field(data, "cleanerId", 12));
+  let assignment: { ok: boolean; reason?: string } | null = null;
+  if (cleanerId) {
+    assignment = await assignJob(
+      result!.job.id,
+      cleanerId,
+      data.get("waiveCommission") === "on"
+    );
+  }
+
   revalidatePath("/admin/jobs");
-  redirect(`/admin/jobs/${result!.job.ref}`);
+  if (assignment && !assignment.ok) {
+    redirect(
+      `/admin/jobs/${result!.job.ref}?error=${encodeURIComponent(
+        `Booking created, but it couldn't be assigned: ${assignment.reason ?? "unknown reason"}`
+      )}`
+    );
+  }
+  redirect(`/admin/jobs/${result!.job.ref}${assignment ? "?assigned=1" : ""}`);
 }

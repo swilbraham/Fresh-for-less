@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
-import { getBundles, getPriceItems, getSettings } from "@/lib/marketplace/repo";
+import {
+  getBundles,
+  getPriceItems,
+  getSettings,
+  listCleaners,
+} from "@/lib/marketplace/repo";
 import { Alert, Card, Field } from "@/components/marketplace/shell";
 import PhoneBookingForm from "@/components/marketplace/PhoneBookingForm";
 import { createPhoneBookingAction } from "../../actions";
@@ -21,10 +26,11 @@ export default async function NewJobPage({
   if (!(await isAdmin())) redirect("/admin");
   const { error } = await searchParams;
 
-  const [items, bundles, settings] = await Promise.all([
+  const [items, bundles, settings, cleaners] = await Promise.all([
     getPriceItems(true),
     getBundles(true),
     getSettings(),
+    listCleaners("approved"),
   ]);
 
   // Phone bookings deliberately ignore min_notice_days. That rule exists to
@@ -80,9 +86,46 @@ export default async function NewJobPage({
             </div>
             <p className="mt-2 text-xs text-slate-500">
               Availability isn&apos;t checked here — you can book a slot the
-              online form wouldn&apos;t offer, and assign it yourself if nobody
-              takes it.
+              online form wouldn&apos;t offer.
             </p>
+
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <label
+                htmlFor="cleanerId"
+                className="block text-sm font-semibold text-slate-700"
+              >
+                Give it to a cleaner
+              </label>
+              <select
+                id="cleanerId"
+                name="cleanerId"
+                defaultValue=""
+                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5"
+              >
+                <option value="">
+                  Offer it to everyone covering that postcode
+                </option>
+                {cleaners.map((cleaner) => (
+                  <option key={cleaner.id} value={cleaner.id}>
+                    {cleaner.name}
+                    {cleaner.business_name ? ` — ${cleaner.business_name}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-slate-500">
+                Pick someone if you&apos;ve already agreed it on the phone — it
+                goes straight into their diary instead of being offered to
+                everyone. Their coverage and availability aren&apos;t checked.
+              </p>
+              <label className="mt-3 flex items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  name="waiveCommission"
+                  className="h-4 w-4 rounded border-slate-300 accent-accent-600"
+                />
+                No commission on this job — don&apos;t invoice it
+              </label>
+            </div>
           </Card>
 
           <Card title="Customer">
