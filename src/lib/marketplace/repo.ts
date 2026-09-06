@@ -1117,6 +1117,11 @@ export async function cancelJob(
   );
   if (!job || cancelled.length === 0) return;
 
+  // Belt and braces: cancelling is refused on completed jobs and only those
+  // reach an invoice, so this should never fire. If the status rules ever
+  // loosen, it stops a cleaner being billed for work that didn't happen.
+  await dropJobFromInvoices(jobId);
+
   const when = `${job.slot_date} (${job.slot_window.toUpperCase()})`;
 
   await notifyCustomer(job, {
@@ -1538,7 +1543,7 @@ export async function listInvoices(cleanerId?: number): Promise<InvoiceRow[]> {
 
 export async function setInvoiceStatus(
   id: number,
-  status: "issued" | "paid"
+  status: "issued" | "paid" | "void"
 ): Promise<void> {
   await query(
     `UPDATE commission_invoices
@@ -1546,6 +1551,89 @@ export async function setInvoiceStatus(
       WHERE id = $1`,
     [id, status]
   );
+}
+
+/** Keep an invoice's total equal to the lines it actually has. */
+async function recalcInvoice(invoiceId: number): Promise<number> {
+  const row = await queryOne<{ total: number; lines: number }>(
+    `SELECT COALESCE(sum(amount_pence), 0)::int AS total, count(*)::int AS lines
+       FROM commission_invoice_lines WHERE invoice_id = $1`,
+    [invoiceId]
+  );
+  const total = row?.total ?? 0;
+  await query(
+    `UPDATE commission_invoices
+        SET total_pence = $2,
+            status = CASE WHEN $3 = 0 THEN 'void' ELSE status END
+      WHERE id = $1`,
+    [invoiceId, total, row?.lines ?? 0]
+  );
+  return total;
+}
+
+/**
+ * Take one job off an invoice and re-total it.
+ *
+ * Used when a job shouldn't have been billed — most often a cancellation that
+ * arrived after the Monday run. Removing the line frees the job to be invoiced
+ * again later if it turns out it was done after all, because the unique index
+ * that prevents double-billing is on the line, not the job.
+ *
+ * An invoice with nothing left on it becomes void rather than a £0 bill.
+ */
+export async function removeInvoiceLine(
+  invoiceId: number,
+  jobRef: string
+): Promise<{ ok: boolean; reason?: string; total?: number; voided?: boolean }> {
+  const invoice = await queryOne<{ status: string }>(
+    `SELECT status FROM commission_invoices WHERE id = $1`,
+    [invoiceId]
+  );
+  if (!invoice) return { ok: false, reason: "That invoice no longer exists." };
+  if (invoice.status === "paid") {
+    return {
+      ok: false,
+      reason: "That invoice is marked paid — mark it unpaid first if it needs changing.",
+    };
+  }
+
+  const removed = await query<{ job_id: number }>(
+    `DELETE FROM commission_invoice_lines l
+      USING jobs j
+      WHERE l.invoice_id = $1 AND l.job_id = j.id AND j.ref = $2
+      RETURNING l.job_id`,
+    [invoiceId, jobRef.toUpperCase()]
+  );
+  if (removed.length === 0) {
+    return { ok: false, reason: "That job isn't on this invoice." };
+  }
+
+  const total = await recalcInvoice(invoiceId);
+  return { ok: true, total, voided: total === 0 };
+}
+
+/**
+ * Drop a job from any unpaid invoice it sits on.
+ *
+ * Cancellations normally arrive before the Monday run and never reach an
+ * invoice at all. When one arrives after, the cleaner would otherwise be
+ * billed commission on work that never happened.
+ */
+export async function dropJobFromInvoices(
+  jobId: number
+): Promise<{ removed: boolean; invoiceRef?: string }> {
+  const line = await queryOne<{ invoice_id: number; ref: string; status: string }>(
+    `SELECT l.invoice_id, i.ref, i.status
+       FROM commission_invoice_lines l
+       JOIN commission_invoices i ON i.id = l.invoice_id
+      WHERE l.job_id = $1`,
+    [jobId]
+  );
+  if (!line || line.status === "paid") return { removed: false };
+
+  await query(`DELETE FROM commission_invoice_lines WHERE job_id = $1`, [jobId]);
+  await recalcInvoice(line.invoice_id);
+  return { removed: true, invoiceRef: line.ref };
 }
 
 // ----------------------------------------------------------- notifications --

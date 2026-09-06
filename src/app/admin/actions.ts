@@ -17,6 +17,10 @@ import {
   rebroadcastJob,
   setCleanerStatus,
   setInvoiceStatus,
+  removeInvoiceLine,
+  getInvoice,
+  notifyInvoiceRaised,
+  getSettings,
   updateSettings,
   upsertBundle,
   upsertPriceItem,
@@ -585,6 +589,75 @@ export async function updateJobDetailsAction(data: FormData) {
       : "moved"
     : "1";
   redirect(`${back}?details=${flag}`);
+}
+
+/** Cancel an invoice outright — raised in error, or superseded. */
+export async function voidInvoiceAction(data: FormData) {
+  await requireAdmin("/admin/invoices");
+  const ref = field(data, "ref", 20);
+  await setInvoiceStatus(Number(field(data, "id", 12)), "void");
+  revalidatePath(`/pro/invoices/${ref}`);
+  revalidatePath("/admin/invoices");
+  redirect(`/pro/invoices/${ref}?amended=voided`);
+}
+
+/** Take a job off an invoice — a job that shouldn't have been billed. */
+export async function removeInvoiceLineAction(data: FormData) {
+  await requireAdmin("/admin/invoices");
+  const ref = field(data, "ref", 20);
+  const jobRef = field(data, "jobRef", 20);
+  const back = `/pro/invoices/${ref}`;
+
+  const result = await removeInvoiceLine(Number(field(data, "id", 12)), jobRef);
+  revalidatePath(back);
+  revalidatePath("/admin/invoices");
+  if (!result.ok) {
+    redirect(`${back}?error=${encodeURIComponent(result.reason ?? "Couldn't change that invoice.")}`);
+  }
+  redirect(`${back}?amended=${result.voided ? "voided" : "1"}`);
+}
+
+/**
+ * Send the invoice to the cleaner again, with whatever it says now.
+ *
+ * Used after amending one: the cleaner has a figure in their inbox that is no
+ * longer what they owe, and silently changing it their end isn't possible.
+ */
+export async function reissueInvoiceAction(data: FormData) {
+  await requireAdmin("/admin/invoices");
+  const ref = field(data, "ref", 20);
+  const back = `/pro/invoices/${ref}`;
+
+  const found = await getInvoice(ref.toUpperCase());
+  if (!found) {
+    redirect(`${back}?error=${encodeURIComponent("That invoice no longer exists.")}`);
+  }
+  if (found!.invoice.status === "void") {
+    redirect(`${back}?error=${encodeURIComponent("That invoice is void — nothing to reissue.")}`);
+  }
+
+  const settings = await getSettings();
+  const due = new Date(`${found!.invoice.issued_at}T12:00:00`);
+  due.setDate(due.getDate() + settings.payment_terms_days);
+
+  await notifyInvoiceRaised(
+    {
+      id: found!.invoice.id,
+      ref: found!.invoice.ref,
+      cleanerId: found!.invoice.cleaner_id,
+      totalPence: found!.invoice.total_pence,
+      jobs: found!.lines.length,
+    },
+    due.toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
+  );
+
+  revalidatePath(back);
+  redirect(`${back}?reissued=1`);
 }
 
 export async function reassignJobAction(data: FormData) {

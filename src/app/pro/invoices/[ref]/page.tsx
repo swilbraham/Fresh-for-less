@@ -3,6 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { currentCleaner, isAdmin } from "@/lib/marketplace/auth";
 import { getCleaner, getInvoice, getSettings } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
+import {
+  removeInvoiceLineAction,
+  reissueInvoiceAction,
+  voidInvoiceAction,
+} from "@/app/admin/actions";
 import { COMPANY_DISCLOSURE } from "@/lib/company";
 
 export const dynamic = "force-dynamic";
@@ -33,8 +38,10 @@ function dueDate(issued: string, days: number): string {
 
 export default async function InvoicePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ ref: string }>;
+  searchParams: Promise<{ error?: string; amended?: string; reissued?: string }>;
 }) {
   const { ref } = await params;
 
@@ -57,9 +64,60 @@ export default async function InvoicePage({
   const due = dueDate(invoice.issued_at, settings.payment_terms_days);
   const hasBankDetails = Boolean(settings.payee_account && settings.payee_sort_code);
 
+  const { error, amended, reissued } = await searchParams;
+
   return (
     <main className="min-h-screen bg-slate-100 py-8 print:bg-white print:py-0">
       <div className="mx-auto max-w-3xl px-4 print:max-w-none print:px-0">
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 print:hidden">
+            {error}
+          </div>
+        )}
+        {amended && (
+          <div className="mb-4 rounded-xl border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-900 print:hidden">
+            {amended === "voided"
+              ? "Job removed — nothing left on this invoice, so it's now void."
+              : "Job removed and the invoice re-totalled. Reissue it so the cleaner has the new figure."}
+          </div>
+        )}
+        {reissued && (
+          <div className="mb-4 rounded-xl border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-900 print:hidden">
+            Reissued — the cleaner has been texted the current total.
+          </div>
+        )}
+
+        {admin && (
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm print:hidden">
+            <span className="font-semibold text-slate-700">Office</span>
+            <form action={reissueInvoiceAction}>
+              <input type="hidden" name="ref" value={invoice.ref} />
+              <button
+                type="submit"
+                className="font-semibold text-primary-600 underline"
+              >
+                Reissue to cleaner
+              </button>
+            </form>
+            {invoice.status !== "void" && (
+              <form action={voidInvoiceAction}>
+                <input type="hidden" name="id" value={invoice.id} />
+                <input type="hidden" name="ref" value={invoice.ref} />
+                <button
+                  type="submit"
+                  className="font-semibold text-red-600 underline"
+                >
+                  Void this invoice
+                </button>
+              </form>
+            )}
+            <span className="text-xs text-slate-500">
+              Remove a job with the link beside its line. Mark it unpaid first
+              if it&apos;s already settled.
+            </span>
+          </div>
+        )}
+
         <div className="mb-4 flex justify-between print:hidden">
           <Link
             href="/pro/invoices"
@@ -170,6 +228,19 @@ export default async function InvoicePage({
                   </td>
                   <td className="py-2 text-right tabular-nums text-slate-500">
                     {Number(line.commission_pct)}%
+                    {admin && invoice.status !== "paid" && (
+                      <form action={removeInvoiceLineAction} className="print:hidden">
+                        <input type="hidden" name="id" value={invoice.id} />
+                        <input type="hidden" name="ref" value={invoice.ref} />
+                        <input type="hidden" name="jobRef" value={line.ref} />
+                        <button
+                          type="submit"
+                          className="text-xs font-semibold text-red-600 underline"
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    )}
                   </td>
                   <td className="py-2 text-right font-semibold tabular-nums">
                     {gbp(line.amount_pence)}
