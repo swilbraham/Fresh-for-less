@@ -307,40 +307,12 @@ export const STATEMENTS: string[] = [
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS unfilled_alerted_at timestamptz`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off, 2026-08-26 (coverage trim) ---------------------------------
-  // 337 districts were claimed — Glasgow, Essex, Lincolnshire, Surrey — with
-  // nobody to service them. A confirmed booking in an area no one covers is
-  // worse than no booking: the customer is promised a cleaner who doesn't
-  // exist. Trimmed to the 128 genuinely reachable ones: Wirral, Chester and
-  // Deeside, all Merseyside, the Warrington corridor, Manchester, Bolton/Bury.
-  //
-  // The first attempt matched on the business name containing 'wirral' and
-  // changed nothing, so that record isn't named what I assumed. Matching on
-  // the over-claim itself is both more reliable and a better description of
-  // the problem: no single operator services 150+ postcode districts.
-  //
-  // Prune only, no insert — it can remove an area nobody can reach but can
-  // never grant one that wasn't claimed. Runs once; admin edits afterwards are
-  // authoritative, and trimming by hand first drops the count below the
-  // threshold so this leaves the manual edit alone.
-  `DELETE FROM cleaner_areas a
-    WHERE (SELECT count(*) FROM cleaner_areas x WHERE x.cleaner_id = a.cleaner_id) > 150
-      AND NOT (a.outward = ANY(ARRAY[
-    'BL0', 'BL2', 'BL3', 'BL4', 'BL8', 'BL9', 'CH1', 'CH2', 'CH3', 'CH4',
-    'CH5', 'CH6', 'CH7', 'CH8', 'CH41', 'CH42', 'CH43', 'CH44', 'CH45',
-    'CH46', 'CH47', 'CH48', 'CH49', 'CH60', 'CH61', 'CH62', 'CH63',
-    'CH64', 'CH65', 'CH66', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7',
-    'L8', 'L9', 'L10', 'L11', 'L12', 'L13', 'L14', 'L15', 'L16', 'L17',
-    'L18', 'L19', 'L20', 'L21', 'L22', 'L23', 'L24', 'L25', 'L26', 'L27',
-    'L28', 'L29', 'L30', 'L31', 'L32', 'L33', 'L34', 'L35', 'L36', 'L37',
-    'L38', 'L39', 'L40', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8',
-    'M9', 'M11', 'M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19',
-    'M20', 'M21', 'M22', 'M23', 'M24', 'M25', 'M26', 'M27', 'M28', 'M29',
-    'M30', 'M31', 'M32', 'M33', 'M34', 'M35', 'M38', 'M40', 'M41', 'M43',
-    'M44', 'M45', 'M46', 'M50', 'WA1', 'WA2', 'WA3', 'WA4', 'WA5', 'WA6',
-    'WA7', 'WA8', 'WA9', 'WA10', 'WA11', 'WA12', 'WA13', 'WA14', 'WA15',
-    'WA16'
-      ]))`,
+  // ---- One-off, 2026-08-26 ------------------------------------------------
+  // Nothing outstanding. Two attempts at trimming coverage from here matched
+  // no rows: the wide claim isn't one record with hundreds of areas, so it
+  // can't be found by name or by count. Coverage is edited per cleaner in
+  // /admin/cleaners, and /admin/coverage now shows the per-cleaner counts
+  // needed to see who claims what.
 
 ];
 

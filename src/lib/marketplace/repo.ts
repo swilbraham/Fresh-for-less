@@ -3276,6 +3276,31 @@ export type CoverageArea = {
  * a district with cover but no jobs is wasted reach, and one with jobs but no
  * cover is lost work.
  */
+export type CleanerCoverage = {
+  id: number;
+  name: string;
+  business_name: string;
+  status: string;
+  areas: number;
+  sample: string;
+};
+
+/** Who claims how much. Coverage problems are per cleaner, so look per cleaner. */
+export async function listCoverageByCleaner(): Promise<CleanerCoverage[]> {
+  return query<CleanerCoverage>(
+    `SELECT c.id, c.name, c.business_name, c.status,
+            count(a.outward)::int AS areas,
+            COALESCE(
+              string_agg(a.outward, ' ' ORDER BY a.outward),
+              ''
+            ) AS sample
+       FROM cleaners c
+       LEFT JOIN cleaner_areas a ON a.cleaner_id = c.id
+      GROUP BY c.id, c.name, c.business_name, c.status
+      ORDER BY count(a.outward) DESC, c.name`
+  );
+}
+
 export async function listCoverage(): Promise<CoverageArea[]> {
   return query<CoverageArea>(
     `SELECT a.outward,

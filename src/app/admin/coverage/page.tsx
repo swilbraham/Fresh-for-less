@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
-import { listCoverage, listUncoveredDemand } from "@/lib/marketplace/repo";
+import {
+  listCoverage,
+  listCoverageByCleaner,
+  listUncoveredDemand,
+} from "@/lib/marketplace/repo";
 import { Card } from "@/components/marketplace/shell";
 import CopyButton from "@/components/marketplace/CopyButton";
 
@@ -36,9 +40,10 @@ const AREA_NAMES: Record<string, string> = {
 export default async function CoveragePage() {
   if (!(await isAdmin())) redirect("/admin");
 
-  const [covered, gaps] = await Promise.all([
+  const [covered, gaps, byCleaner] = await Promise.all([
     listCoverage(),
     listUncoveredDemand(),
+    listCoverageByCleaner(),
   ]);
 
   const groups = new Map<string, typeof covered>();
@@ -64,6 +69,47 @@ export default async function CoveragePage() {
         <p className="mt-1 text-sm text-slate-500">
           Every postcode a cleaner claims, and what it has actually produced.
         </p>
+
+        {/* Coverage problems are per cleaner, so show it per cleaner. */}
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">Who claims what</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Edit any of these in{" "}
+            <Link href="/admin/cleaners" className="font-semibold text-primary-600 underline">
+              Cleaners
+            </Link>
+            . A patch much over 100 districts is worth a second look — it means
+            confirmed bookings in places nobody can reach.
+          </p>
+          <ul className="mt-4 divide-y divide-slate-100 text-sm">
+            {byCleaner.map((c) => (
+              <li key={c.id} className="py-2.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-semibold text-slate-900">
+                    {c.business_name || c.name}
+                    <span className="ml-2 text-xs font-normal text-slate-400">
+                      {c.status}
+                    </span>
+                  </span>
+                  <span
+                    className={`shrink-0 tabular-nums font-semibold ${
+                      c.areas > 100 ? "text-amber-700" : "text-slate-600"
+                    }`}
+                  >
+                    {c.areas} district{c.areas === 1 ? "" : "s"}
+                  </span>
+                </div>
+                {c.sample && (
+                  <p className="mt-1 break-words font-mono text-xs text-slate-500">
+                    {c.sample.length > 220
+                      ? `${c.sample.slice(0, 220)}…`
+                      : c.sample}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <div className="my-6 grid gap-4 sm:grid-cols-4">
           {[
