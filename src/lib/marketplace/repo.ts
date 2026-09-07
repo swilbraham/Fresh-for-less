@@ -673,6 +673,51 @@ export async function createBooking(
   return { job: saved, quote, offered };
 }
 
+/** How much warning the office gets that a job still has nobody on it. */
+export const UNFILLED_ALERT_DAYS = 3;
+
+export type UnfilledJob = {
+  id: number;
+  ref: string;
+  status: string;
+  postcode: string;
+  outward: string;
+  slot_date: string;
+  slot_window: string;
+  total_pence: number;
+  customer_name: string;
+  customer_phone: string;
+  offers: number;
+};
+
+/**
+ * Jobs landing within the warning window that still have no cleaner.
+ *
+ * Claims them as it reads them: the stamp goes on in the same statement that
+ * selects them, so a cron retry or a second run the same day can't warn twice.
+ */
+export async function claimUnfilledJobsForAlert(
+  daysAhead = UNFILLED_ALERT_DAYS
+): Promise<UnfilledJob[]> {
+  return query<UnfilledJob>(
+    `UPDATE jobs j
+        SET unfilled_alerted_at = now()
+      WHERE j.id IN (
+        SELECT id FROM jobs
+         WHERE cleaner_id IS NULL
+           AND status IN ('offered', 'unfilled', 'provisional')
+           AND unfilled_alerted_at IS NULL
+           AND slot_date <= CURRENT_DATE + $1::int
+           AND slot_date >= CURRENT_DATE
+      )
+      RETURNING j.id, j.ref, j.status, j.postcode, j.outward,
+                to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date,
+                j.slot_window, j.total_pence, j.customer_name, j.customer_phone,
+                (SELECT count(*)::int FROM job_offers o WHERE o.job_id = j.id) AS offers`,
+    [daysAhead]
+  );
+}
+
 /** Offer the job to every matching cleaner at once — first to accept wins. */
 export async function broadcastJob(
   jobId: number,

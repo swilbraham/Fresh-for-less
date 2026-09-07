@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 27;
+export const SCHEMA_VERSION = 28;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -300,6 +300,11 @@ export const STATEMENTS: string[] = [
   // 3 rooms (£99), and 2 rooms + stairs + landing (£150) dearer than 3 rooms +
   // stairs (£144): more carpet for less money. A staircase now counts.
   `ALTER TABLE price_bundles ADD COLUMN IF NOT EXISTS applies_to text NOT NULL DEFAULT ''`,
+
+  // ---- Unfilled-job alert --------------------------------------------------
+  // Stamped when the office is warned a job is close with no cleaner, so a
+  // cron retry — or a second run in the same day — can't text twice.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS unfilled_alerted_at timestamptz`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 (offer covers staircases) ------------------------
