@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 28;
+export const SCHEMA_VERSION = 29;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -307,13 +307,62 @@ export const STATEMENTS: string[] = [
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS unfilled_alerted_at timestamptz`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off, 2026-08-26 (offer covers staircases) ------------------------
-  // Matched on item_code alone. The first attempt also required qty = 3 and
-  // changed nothing in production, so the live row evidently isn't the (room,3)
-  // the seed creates — most likely edited through /admin/prices at some point.
-  `UPDATE price_bundles SET applies_to = 'stairs' WHERE item_code = 'room'`,
-  `UPDATE price_bundles SET label = 'Any 3 areas for £99'
-     WHERE item_code = 'room' AND label LIKE '%rooms for%'`,
+  // ---- One-off, 2026-08-26 (coverage trim) ---------------------------------
+  // Wirral Carpet Cleaning claimed 337 districts — Glasgow, Essex, Lincolnshire,
+  // Surrey — with nobody to service them. Confirmed bookings in areas no one
+  // covers are worse than no bookings: the customer is promised a cleaner who
+  // does not exist. Trimmed to the 128 that are genuinely reachable: Wirral,
+  // Chester and Deeside, all Merseyside, the Warrington corridor, Manchester,
+  // and Bolton/Bury.
+  //
+  // Scoped two ways so it cannot damage anything else. Only the Wirral record
+  // is touched, and only while it still holds the over-wide list — trim it by
+  // hand before this runs and it leaves the manual edit alone. Insert first,
+  // prune second, so a failure halfway cannot strip coverage. Admin edits after
+  // this are authoritative: the version gate means it runs once and never again.
+  `INSERT INTO cleaner_areas (cleaner_id, outward)
+   SELECT c.id, unnest(ARRAY[
+    'BL0', 'BL2', 'BL3', 'BL4', 'BL8', 'BL9', 'CH1', 'CH2', 'CH3', 'CH4',
+    'CH5', 'CH6', 'CH7', 'CH8', 'CH41', 'CH42', 'CH43', 'CH44', 'CH45',
+    'CH46', 'CH47', 'CH48', 'CH49', 'CH60', 'CH61', 'CH62', 'CH63',
+    'CH64', 'CH65', 'CH66', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7',
+    'L8', 'L9', 'L10', 'L11', 'L12', 'L13', 'L14', 'L15', 'L16', 'L17',
+    'L18', 'L19', 'L20', 'L21', 'L22', 'L23', 'L24', 'L25', 'L26', 'L27',
+    'L28', 'L29', 'L30', 'L31', 'L32', 'L33', 'L34', 'L35', 'L36', 'L37',
+    'L38', 'L39', 'L40', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8',
+    'M9', 'M11', 'M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19',
+    'M20', 'M21', 'M22', 'M23', 'M24', 'M25', 'M26', 'M27', 'M28', 'M29',
+    'M30', 'M31', 'M32', 'M33', 'M34', 'M35', 'M38', 'M40', 'M41', 'M43',
+    'M44', 'M45', 'M46', 'M50', 'WA1', 'WA2', 'WA3', 'WA4', 'WA5', 'WA6',
+    'WA7', 'WA8', 'WA9', 'WA10', 'WA11', 'WA12', 'WA13', 'WA14', 'WA15',
+    'WA16'
+   ])
+     FROM cleaners c
+    WHERE (c.business_name ILIKE '%wirral%' OR c.name ILIKE '%wirral%')
+      AND (SELECT count(*) FROM cleaner_areas a WHERE a.cleaner_id = c.id) > 200
+   ON CONFLICT DO NOTHING`,
+
+  `DELETE FROM cleaner_areas a
+    USING cleaners c
+    WHERE a.cleaner_id = c.id
+      AND (c.business_name ILIKE '%wirral%' OR c.name ILIKE '%wirral%')
+      AND (SELECT count(*) FROM cleaner_areas x WHERE x.cleaner_id = c.id) > 200
+      AND NOT (a.outward = ANY(ARRAY[
+    'BL0', 'BL2', 'BL3', 'BL4', 'BL8', 'BL9', 'CH1', 'CH2', 'CH3', 'CH4',
+    'CH5', 'CH6', 'CH7', 'CH8', 'CH41', 'CH42', 'CH43', 'CH44', 'CH45',
+    'CH46', 'CH47', 'CH48', 'CH49', 'CH60', 'CH61', 'CH62', 'CH63',
+    'CH64', 'CH65', 'CH66', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7',
+    'L8', 'L9', 'L10', 'L11', 'L12', 'L13', 'L14', 'L15', 'L16', 'L17',
+    'L18', 'L19', 'L20', 'L21', 'L22', 'L23', 'L24', 'L25', 'L26', 'L27',
+    'L28', 'L29', 'L30', 'L31', 'L32', 'L33', 'L34', 'L35', 'L36', 'L37',
+    'L38', 'L39', 'L40', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8',
+    'M9', 'M11', 'M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19',
+    'M20', 'M21', 'M22', 'M23', 'M24', 'M25', 'M26', 'M27', 'M28', 'M29',
+    'M30', 'M31', 'M32', 'M33', 'M34', 'M35', 'M38', 'M40', 'M41', 'M43',
+    'M44', 'M45', 'M46', 'M50', 'WA1', 'WA2', 'WA3', 'WA4', 'WA5', 'WA6',
+    'WA7', 'WA8', 'WA9', 'WA10', 'WA11', 'WA12', 'WA13', 'WA14', 'WA15',
+    'WA16'
+      ]))`,
 
 ];
 
