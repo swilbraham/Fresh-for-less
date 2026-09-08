@@ -718,6 +718,93 @@ export async function claimUnfilledJobsForAlert(
   );
 }
 
+export type Lead = {
+  id: number;
+  ref: string;
+  name: string;
+  phone: string;
+  postcode: string;
+  outward: string;
+  rooms: string;
+  status: string;
+  source: string;
+  referrer: string;
+  landing_path: string;
+  notes: string;
+  job_id: number | null;
+  created_at: string;
+  contacted_at: string | null;
+};
+
+/** Capture an enquiry from an offer page and tell the office straight away. */
+export async function createLead(input: {
+  name: string;
+  phone: string;
+  postcode: string;
+  rooms: string;
+  source: string;
+  referrer: string;
+  landingPath: string;
+}): Promise<Lead> {
+  const postcode = normalisePostcode(input.postcode) ?? input.postcode.toUpperCase();
+  const outward = outwardOf(postcode) ?? "";
+
+  const lead = (await queryOne<Lead>(
+    `INSERT INTO leads (ref, name, phone, postcode, outward, rooms, source, referrer, landing_path)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     RETURNING *`,
+    [
+      makeRef("LEAD"),
+      input.name,
+      input.phone,
+      postcode,
+      outward,
+      input.rooms,
+      input.source,
+      input.referrer,
+      input.landingPath,
+    ]
+  ))!;
+
+  const covered = outward ? await hasCoverage(outward) : false;
+  await notifyAdmin({
+    subject: `New enquiry ${lead.ref} — ${postcode}`,
+    smsBody:
+      `NEW ENQUIRY ${lead.ref}: ${input.name}, ${input.phone}\n` +
+      `${postcode}${input.rooms ? ` · ${input.rooms}` : ""}` +
+      `${outward ? (covered ? " · covered" : " · NO COVER") : ""}\n` +
+      `${input.source ? `via ${input.source}\n` : ""}` +
+      `${siteUrl()}/admin/leads`,
+  });
+
+  return lead;
+}
+
+export async function listLeads(status?: string): Promise<Lead[]> {
+  return query<Lead>(
+    `SELECT * FROM leads
+      ${status ? "WHERE status = $1" : ""}
+      ORDER BY created_at DESC LIMIT 200`,
+    status ? [status] : []
+  );
+}
+
+export async function setLeadStatus(
+  id: number,
+  status: "new" | "contacted" | "booked" | "dead",
+  notes?: string
+): Promise<void> {
+  await query(
+    `UPDATE leads
+        SET status = $2,
+            notes = COALESCE($3, notes),
+            contacted_at = CASE WHEN $2 = 'new' THEN NULL
+                                ELSE COALESCE(contacted_at, now()) END
+      WHERE id = $1`,
+    [id, status, notes ?? null]
+  );
+}
+
 /** Offer the job to every matching cleaner at once — first to accept wins. */
 export async function broadcastJob(
   jobId: number,

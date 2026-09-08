@@ -172,6 +172,7 @@ export function AdminNav() {
     { href: "/admin/cleaners", label: "Cleaners" },
     { href: "/admin/coverage", label: "Coverage" },
     { href: "/admin/jobs", label: "Jobs" },
+    { href: "/admin/leads", label: "Enquiries" },
     { href: "/admin/messages", label: "Messages" },
     { href: "/admin/invoices", label: "Commission invoices" },
     { href: "/admin/finances", label: "Finances" },

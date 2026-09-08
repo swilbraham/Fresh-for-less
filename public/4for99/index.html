@@ -844,14 +844,8 @@ fbq('track', 'ViewContent', {
     }
   })();
 
-  // ========== GOOGLE SHEETS LOGGING ==========
   // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BELOW (between the quotes)
-  const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzvjrNLW293wswSlbOyhwFR660wlhkn8C517ktao4JeFcqVUdfrTmuTSPm6MiM5kdud/exec';
 
-  function logToGoogleSheet(data) {
-    if (GOOGLE_SHEET_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-      return Promise.reject(new Error('Sheet URL not configured'));
-    }
     const payload = {
       first: data.get('first'),
       last: data.get('last') || '',
@@ -886,18 +880,28 @@ fbq('track', 'ViewContent', {
     submitBtn.textContent = 'Sending...';
     submitBtn.disabled = true;
 
-    // Backup: log to Google Sheet (fire-and-forget — never blocks success).
-    logToGoogleSheet(data).catch(err => console.log('Sheet log failed:', err));
 
     // Primary path: send email via Web3Forms. The booking is confirmed iff
     // Web3Forms reports success.
-    fetch('https://api.web3forms.com/submit', {
-      method: 'POST',
-      body: data
-    })
+    // Where the enquiry came from — nothing else records it, and with ads
+    // paused it is the only way to tell organic from anything else.
+    const q = new URLSearchParams(location.search);
+    const source = q.get('utm_source') || (q.get('gclid') ? 'google-ads'
+      : q.get('fbclid') ? 'meta' : document.referrer ? 'referral' : 'direct');
+    data.append('source', source);
+    data.append('referrer', document.referrer || '');
+    data.append('landing_path', location.pathname);
+
+    // Email backup — fire and forget, never blocks the confirmation.
+    fetch('https://api.web3forms.com/submit', { method: 'POST', body: data })
+      .catch(err => console.log('Email backup failed:', err));
+
+    // Primary path: our own site. The lead is stored, the office is texted,
+    // and it appears in /admin/leads.
+    fetch('/api/leads', { method: 'POST', body: data })
       .then(response => response.json())
       .then(result => {
-        if (!result.success) throw new Error(result.message || 'Submission failed');
+        if (!result.ok) throw new Error(result.error || 'Submission failed');
         if (typeof fbq === 'function') {
           fbq('track', 'Lead', {
             content_name: '4 for 99 Carpet Clean',
@@ -909,7 +913,7 @@ fbq('track', 'ViewContent', {
         document.getElementById('form-success').style.display = 'block';
       })
       .catch(error => {
-        console.log('Web3Forms failed:', error);
+        console.log('Lead submission failed:', error);
         submitBtn.textContent = origText;
         submitBtn.disabled = false;
         alert('Something went wrong. Please call us on 0330 043 4811 to book.');

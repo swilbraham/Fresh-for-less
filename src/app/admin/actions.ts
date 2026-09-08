@@ -17,6 +17,7 @@ import {
   rebroadcastJob,
   setCleanerStatus,
   setInvoiceStatus,
+  setLeadStatus,
   removeInvoiceLine,
   getInvoice,
   notifyInvoiceRaised,
@@ -658,6 +659,21 @@ export async function reissueInvoiceAction(data: FormData) {
 
   revalidatePath(back);
   redirect(`${back}?reissued=1`);
+}
+
+/** Move an enquiry along: rung, booked, or not proceeding. */
+export async function setLeadStatusAction(data: FormData) {
+  await requireAdmin("/admin/leads");
+  const id = Number(field(data, "id", 12));
+  const raw = field(data, "status", 12);
+  const status = ["new", "contacted", "booked", "dead"].includes(raw)
+    ? (raw as "new" | "contacted" | "booked" | "dead")
+    : "contacted";
+  const back = field(data, "back", 12);
+
+  await setLeadStatus(id, status);
+  revalidatePath("/admin/leads");
+  redirect(`/admin/leads?status=${encodeURIComponent(back)}&saved=1`);
 }
 
 export async function reassignJobAction(data: FormData) {

@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 30;
+export const SCHEMA_VERSION = 31;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -305,6 +305,34 @@ export const STATEMENTS: string[] = [
   // Stamped when the office is warned a job is close with no cleaner, so a
   // cron retry — or a second run in the same day — can't text twice.
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS unfilled_alerted_at timestamptz`,
+
+  // ---- Leads --------------------------------------------------------------
+  // The /4for99 offer page collects a name, phone, postcode and room count —
+  // not enough for a booking, which needs a date and an address. They were
+  // going to a third-party form and a Google Sheet on an account that couldn't
+  // be found, which is a poor place for the main source of work to live.
+  //
+  // Source is captured because nothing else records it: with ads paused these
+  // are organic, but the next time that question comes up it should be
+  // answerable from the row rather than by inference.
+  `CREATE TABLE IF NOT EXISTS leads (
+     id           serial PRIMARY KEY,
+     ref          text NOT NULL UNIQUE,
+     name         text NOT NULL,
+     phone        text NOT NULL,
+     postcode     text NOT NULL DEFAULT '',
+     outward      text NOT NULL DEFAULT '',
+     rooms        text NOT NULL DEFAULT '',
+     status       text NOT NULL DEFAULT 'new',
+     source       text NOT NULL DEFAULT '',
+     referrer     text NOT NULL DEFAULT '',
+     landing_path text NOT NULL DEFAULT '',
+     notes        text NOT NULL DEFAULT '',
+     job_id       int REFERENCES jobs(id) ON DELETE SET NULL,
+     created_at   timestamptz NOT NULL DEFAULT now(),
+     contacted_at timestamptz
+   )`,
+  `CREATE INDEX IF NOT EXISTS leads_status ON leads (status, created_at DESC)`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------
