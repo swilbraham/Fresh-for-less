@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import {
   claimJobsForReminder,
+  claimJobsForWeekReminder,
+  sendWeekReminder,
   claimUnfilledJobsForAlert,
   sendBookingReminder,
   notifyAdmin,
@@ -37,13 +39,18 @@ export async function GET(request: Request) {
     }
   }
 
-  // Tomorrow's confirmed customers, so nobody is surprised by a van.
+  // Tomorrow's confirmed customers, so nobody is surprised by a van, plus a
+  // week-ahead nudge on anything booked far enough out to have been forgotten.
   let reminded = 0;
+  let weekAhead = 0;
   try {
-    const due = await claimJobsForReminder();
-    for (const job of due) {
+    for (const job of await claimJobsForReminder()) {
       await sendBookingReminder(job);
       reminded += 1;
+    }
+    for (const job of await claimJobsForWeekReminder()) {
+      await sendWeekReminder(job);
+      weekAhead += 1;
     }
   } catch (error) {
     // A reminder failing must not cost the office its unfilled warning.
@@ -52,7 +59,7 @@ export async function GET(request: Request) {
 
   const jobs = await claimUnfilledJobsForAlert();
   if (jobs.length === 0) {
-    return NextResponse.json({ ok: true, reminded, jobs: 0 });
+    return NextResponse.json({ ok: true, reminded, weekAhead, jobs: 0 });
   }
 
   const line = (j: (typeof jobs)[number]) =>
@@ -80,6 +87,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     reminded,
+    weekAhead,
     jobs: jobs.length,
     refs: jobs.map((j) => j.ref),
   });

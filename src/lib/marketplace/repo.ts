@@ -646,7 +646,7 @@ export async function createBooking(
       ? `Booking received — ${saved.ref}`
       : `Booking requested — ${saved.ref}`,
     body:
-      `Thanks ${saved.customer_name}, your carpet clean is booked.\n\n` +
+      `Thanks ${saved.customer_name}, we've reserved this slot for you.\n\n` +
       `Reference: ${saved.ref}\n` +
       `Date: ${saved.slot_date} (${saved.slot_window === "am" ? "Morning 8am-12pm" : "Afternoon 12pm-5pm"})\n` +
       `Address: ${saved.address_line}, ${saved.postcode}\n` +
@@ -701,6 +701,61 @@ export async function claimJobsForReminder(
   );
 }
 
+/**
+ * Confirmed jobs a week away that were booked well in advance.
+ *
+ * A booking made a month out has a long silence in the middle, and that's where
+ * plans change without anyone telling us. The 10-day condition means someone
+ * who booked nine days ahead doesn't get a text about a job they arranged last
+ * week — they get the day-before one and nothing else.
+ */
+export async function claimJobsForWeekReminder(
+  daysAhead = 7,
+  bookedAtLeastDaysBefore = 10
+): Promise<ReminderJob[]> {
+  return query<ReminderJob>(
+    `UPDATE jobs j
+        SET reminded_week_at = now()
+      WHERE j.id IN (
+        SELECT id FROM jobs
+         WHERE status = 'accepted'
+           AND cleaner_id IS NOT NULL
+           AND reminded_week_at IS NULL
+           AND slot_date = CURRENT_DATE + $1::int
+           AND created_at::date <= slot_date - $2::int
+      )
+      RETURNING ${JOB_COLUMNS.replace(/\n\s+/g, " ").trim()},
+                (SELECT c.name FROM cleaners c WHERE c.id = j.cleaner_id) AS cleaner_name`,
+    [daysAhead, bookedAtLeastDaysBefore]
+  );
+}
+
+/** The week-ahead nudge: still coming, still yours, easy to move if not. */
+export async function sendWeekReminder(job: ReminderJob): Promise<void> {
+  const when =
+    job.slot_window === "am" ? "morning, 8am-12pm" : "afternoon, 12pm-5pm";
+  const link = bookingUrl(job.ref, siteUrl());
+  const who = job.cleaner_name ? firstName(job.cleaner_name) : null;
+
+  await notifyCustomer(job, {
+    jobId: job.id,
+    subject: `A week to go — your carpet clean on ${job.slot_date}`,
+    body:
+      `Hello ${firstName(job.customer_name)}, just so it's not a surprise: ` +
+      `your carpet clean is a week today.\n\n` +
+      `When: ${job.slot_date}, ${when}\n` +
+      `Where: ${job.address_line}, ${job.postcode}\n` +
+      `${who ? `Cleaner: ${who}, who is keeping that slot free for you\n` : ""}` +
+      `To pay on the day: ${gbpShort(job.total_pence)}\n\n` +
+      `If that date no longer works, moving it now costs nothing and frees ` +
+      `the slot for someone else:\n${link}`,
+    smsBody:
+      `Fresh For Less: your carpet clean is a week today (${job.slot_date}), ` +
+      `${when}${who ? `, with ${who}` : ""}. ` +
+      `If that no longer works, move it free: ${link}`,
+  });
+}
+
 /** Remind one customer their clean is tomorrow, with a way out if it isn't. */
 export async function sendBookingReminder(job: ReminderJob): Promise<void> {
   const when =
@@ -721,9 +776,10 @@ export async function sendBookingReminder(job: ReminderJob): Promise<void> {
       `there's somewhere to park.\n\n` +
       `Need to change or cancel? Use this link:\n${link}`,
     smsBody:
-      `Fresh For Less: your carpet clean is tomorrow (${job.slot_date}), ` +
-      `${when}. ${gbpShort(job.total_pence)} payable on the day. ` +
-      `Change or cancel: ${link}`,
+      `Fresh For Less: ${job.cleaner_name ? `${firstName(job.cleaner_name)} is ` : ""}` +
+      `coming tomorrow (${job.slot_date}), ${when}. ` +
+      `${gbpShort(job.total_pence)} on the day. ` +
+      `If tomorrow no longer works, tell us now: ${link}`,
   });
 }
 
@@ -970,16 +1026,19 @@ async function confirmCleanerToCustomer(
   await notifyCustomer(job, {
     subject: `Your carpet clean is confirmed — ${job.ref}`,
     body:
-      `Good news ${job.customer_name}, ${who} will be cleaning for you ` +
-      `on ${job.slot_date} (${job.slot_window.toUpperCase()}).\n\n` +
+      `Good news ${job.customer_name} — ${who} is holding ` +
+      `${job.slot_date} (${job.slot_window.toUpperCase()}) for you.\n\n` +
       `Your cleaner: ${who}\n` +
       `Their number: ${cleaner.phone}\n` +
       `Fixed price: ${gbpShort(job.total_pence)}, payable to them on the day.\n\n` +
-      `Need to change or cancel? ${bookingUrl(job.ref, siteUrl())}`,
+      `${who} is keeping that slot free and won't take other work in it, so if ` +
+      `anything changes please tell us as early as you can:\n` +
+      `${bookingUrl(job.ref, siteUrl())}`,
     smsBody:
-      `${job.ref} confirmed: ${who} (${cleaner.phone}) will clean on ` +
-      `${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
-      `${gbpShort(job.total_pence)} on the day. Changes: ${bookingUrl(job.ref, siteUrl())}`,
+      `${job.ref} confirmed: ${who} (${cleaner.phone}) is holding ` +
+      `${job.slot_date} ${job.slot_window.toUpperCase()} for you. ` +
+      `${gbpShort(job.total_pence)} on the day. Need to change it? ` +
+      `${bookingUrl(job.ref, siteUrl())}`,
     jobId: job.id,
   });
 }
