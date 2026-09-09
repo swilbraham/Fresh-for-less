@@ -673,6 +673,60 @@ export async function createBooking(
   return { job: saved, quote, offered };
 }
 
+export type ReminderJob = Job & { cleaner_name: string | null };
+
+/**
+ * Confirmed jobs happening tomorrow, claimed as they're read.
+ *
+ * Only jobs with a cleaner on them: an unfilled job tomorrow is the office's
+ * problem to sort, not something to reassure the customer about. The stamp
+ * goes on in the same statement, so a cron retry can't text twice.
+ */
+export async function claimJobsForReminder(
+  daysAhead = 1
+): Promise<ReminderJob[]> {
+  return query<ReminderJob>(
+    `UPDATE jobs j
+        SET reminded_at = now()
+      WHERE j.id IN (
+        SELECT id FROM jobs
+         WHERE status = 'accepted'
+           AND cleaner_id IS NOT NULL
+           AND reminded_at IS NULL
+           AND slot_date = CURRENT_DATE + $1::int
+      )
+      RETURNING ${JOB_COLUMNS.replace(/\n\s+/g, " ").trim()},
+                (SELECT c.name FROM cleaners c WHERE c.id = j.cleaner_id) AS cleaner_name`,
+    [daysAhead]
+  );
+}
+
+/** Remind one customer their clean is tomorrow, with a way out if it isn't. */
+export async function sendBookingReminder(job: ReminderJob): Promise<void> {
+  const when =
+    job.slot_window === "am" ? "morning, 8am-12pm" : "afternoon, 12pm-5pm";
+  const link = bookingUrl(job.ref, siteUrl());
+  const first = job.customer_name.split(" ")[0];
+
+  await notifyCustomer(job, {
+    jobId: job.id,
+    subject: `Your carpet clean is tomorrow — ${job.ref}`,
+    body:
+      `Hello ${first}, a reminder that your carpet clean is tomorrow.\n\n` +
+      `When: ${job.slot_date}, ${when}\n` +
+      `Where: ${job.address_line}, ${job.postcode}\n` +
+      `${job.cleaner_name ? `Cleaner: ${job.cleaner_name}\n` : ""}` +
+      `To pay on the day: ${gbpShort(job.total_pence)}\n\n` +
+      `Please make sure the rooms are clear of small furniture and that ` +
+      `there's somewhere to park.\n\n` +
+      `Need to change or cancel? Use this link:\n${link}`,
+    smsBody:
+      `Fresh For Less: your carpet clean is tomorrow (${job.slot_date}), ` +
+      `${when}. ${gbpShort(job.total_pence)} payable on the day. ` +
+      `Change or cancel: ${link}`,
+  });
+}
+
 /** How much warning the office gets that a job still has nobody on it. */
 export const UNFILLED_ALERT_DAYS = 3;
 

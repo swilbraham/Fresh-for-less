@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 31;
+export const SCHEMA_VERSION = 32;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -333,6 +333,10 @@ export const STATEMENTS: string[] = [
      contacted_at timestamptz
    )`,
   `CREATE INDEX IF NOT EXISTS leads_status ON leads (status, created_at DESC)`,
+
+  // ---- Day-before reminder -------------------------------------------------
+  // Stamped when the customer is reminded, so a cron retry can't text twice.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS reminded_at timestamptz`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------

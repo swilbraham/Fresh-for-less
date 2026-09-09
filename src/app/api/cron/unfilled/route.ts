@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import {
+  claimJobsForReminder,
   claimUnfilledJobsForAlert,
+  sendBookingReminder,
   notifyAdmin,
   siteUrl,
   UNFILLED_ALERT_DAYS,
@@ -11,7 +13,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Daily check for jobs coming up with nobody on them.
+ * The daily run: remind tomorrow's customers, then warn the office about jobs
+ * nobody has taken.
+ *
+ * Both live on one schedule because Vercel's free tier allows two cron jobs and
+ * the Monday invoice run takes the other. They're unrelated jobs sharing a
+ * timer, so a failure in one must not stop the other.
  *
  * A job nobody accepts doesn't announce itself — it just quietly arrives, and
  * the first anyone knows is the customer ringing on the day. Three days is
@@ -30,9 +37,22 @@ export async function GET(request: Request) {
     }
   }
 
+  // Tomorrow's confirmed customers, so nobody is surprised by a van.
+  let reminded = 0;
+  try {
+    const due = await claimJobsForReminder();
+    for (const job of due) {
+      await sendBookingReminder(job);
+      reminded += 1;
+    }
+  } catch (error) {
+    // A reminder failing must not cost the office its unfilled warning.
+    console.error("reminders failed", error);
+  }
+
   const jobs = await claimUnfilledJobsForAlert();
   if (jobs.length === 0) {
-    return NextResponse.json({ ok: true, jobs: 0 });
+    return NextResponse.json({ ok: true, reminded, jobs: 0 });
   }
 
   const line = (j: (typeof jobs)[number]) =>
@@ -57,5 +77,10 @@ export async function GET(request: Request) {
       `\n${siteUrl()}/admin/jobs?status=unfilled`,
   });
 
-  return NextResponse.json({ ok: true, jobs: jobs.length, refs: jobs.map((j) => j.ref) });
+  return NextResponse.json({
+    ok: true,
+    reminded,
+    jobs: jobs.length,
+    refs: jobs.map((j) => j.ref),
+  });
 }
