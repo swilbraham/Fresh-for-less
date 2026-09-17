@@ -844,27 +844,6 @@ fbq('track', 'ViewContent', {
     }
   })();
 
-  // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BELOW (between the quotes)
-
-    const payload = {
-      first: data.get('first'),
-      last: data.get('last') || '',
-      phone: data.get('phone'),
-      email: data.get('email') || '',
-      postcode: data.get('postcode'),
-      rooms: data.get('rooms'),
-      preferred_date: data.get('preferred_date') || '',
-      preferred_time: data.get('preferred_time') || '',
-      notes: data.get('notes') || ''
-    };
-    return fetch(GOOGLE_SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  }
-
   // ========== FORM SUBMISSION ==========
   function handleSubmit(e) {
     e.preventDefault();
