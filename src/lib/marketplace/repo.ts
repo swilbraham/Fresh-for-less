@@ -1980,6 +1980,21 @@ export async function textCleaner(
   return { ok: true };
 }
 
+/** Approved cleaners covering any of the given outward codes, for a broadcast. */
+export async function approvedCleanersCovering(
+  outwards: string[]
+): Promise<{ id: number; name: string }[]> {
+  if (outwards.length === 0) return [];
+  return query<{ id: number; name: string }>(
+    `SELECT DISTINCT c.id, c.name
+       FROM cleaners c
+       JOIN cleaner_areas a ON a.cleaner_id = c.id
+      WHERE c.status = 'approved' AND a.outward = ANY($1::text[])
+      ORDER BY c.name`,
+    [outwards]
+  );
+}
+
 /**
  * Text the customer on a job.
  *

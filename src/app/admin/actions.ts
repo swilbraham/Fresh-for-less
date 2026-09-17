@@ -9,6 +9,7 @@ import {
   startAdminSession,
 } from "@/lib/marketplace/auth";
 import {
+  approvedCleanersCovering,
   cancelJob,
   deleteJob,
   deleteBundle,
@@ -466,6 +467,48 @@ export async function textCleanerAction(data: FormData) {
     redirect(to(`error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`));
   }
   redirect(to("sent=1"));
+}
+
+/**
+ * Text every approved cleaner covering the given area(s) at once — "can
+ * anyone do 3 rooms in CH41 on Friday?" before booking a job in. Each text
+ * lands in that cleaner's normal thread, so replies come back as usual.
+ */
+export async function textAreaCleanersAction(data: FormData) {
+  await requireAdmin("/admin/messages");
+  const areasInput = field(data, "areas", 300);
+  const body = field(data, "body", 600);
+  const to = (param: string) => `/admin/messages?${param}`;
+
+  if (!body) redirect(to(`error=${encodeURIComponent("Write a message first.")}`));
+
+  const { codes, invalid } = parseOutwardList(areasInput);
+  if (invalid.length > 0)
+    redirect(to(`error=${encodeURIComponent(invalidCoverageMessage(invalid))}`));
+  if (codes.length === 0)
+    redirect(to(`error=${encodeURIComponent("Enter at least one area, like CH41.")}`));
+
+  const covering = await approvedCleanersCovering(codes);
+  if (covering.length === 0)
+    redirect(
+      to(`error=${encodeURIComponent(`No approved cleaner covers ${codes.join(", ")}.`)}`)
+    );
+
+  const unreachable: string[] = [];
+  let sent = 0;
+  for (const cleaner of covering) {
+    const result = await textCleaner(cleaner.id, body);
+    if (result.ok) sent += 1;
+    else unreachable.push(cleaner.name);
+  }
+
+  revalidatePath("/admin/messages");
+  const summary =
+    `Sent to ${sent} cleaner${sent === 1 ? "" : "s"} covering ${codes.join(", ")}` +
+    (unreachable.length > 0
+      ? ` — couldn't text ${unreachable.join(", ")} (no mobile on file)`
+      : "");
+  redirect(to(`broadcast=${encodeURIComponent(summary)}`));
 }
 
 /** Text the customer on a job from /admin/messages. */

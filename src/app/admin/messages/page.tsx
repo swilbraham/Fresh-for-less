@@ -9,7 +9,11 @@ import {
   listInboundSms,
 } from "@/lib/marketplace/repo";
 import { Card } from "@/components/marketplace/shell";
-import { textCleanerAction, textCustomerAction } from "../actions";
+import {
+  textAreaCleanersAction,
+  textCleanerAction,
+  textCustomerAction,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +39,17 @@ export default async function MessagesPage({
     job?: string;
     error?: string;
     sent?: string;
+    broadcast?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { cleaner: cleanerParam, job: jobParam, error, sent } = await searchParams;
+  const {
+    cleaner: cleanerParam,
+    job: jobParam,
+    error,
+    sent,
+    broadcast,
+  } = await searchParams;
 
   const [cleaners, customers, inbound] = await Promise.all([
     listCleaners("approved"),
@@ -83,6 +94,50 @@ export default async function MessagesPage({
           Text sent.
         </p>
       )}
+      {broadcast && (
+        <p className="mt-4 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+          {broadcast}
+        </p>
+      )}
+
+      <Card title="Ask everyone covering an area" className="mt-6">
+        <p className="mt-1 text-sm text-slate-500">
+          Texts every approved cleaner covering the area(s) at once — handy for
+          &ldquo;can anyone do 3 rooms in CH41 on Friday?&rdquo; before booking
+          a job in. Replies come back to each cleaner&apos;s own thread below.
+        </p>
+        <form
+          action={textAreaCleanersAction}
+          className="mt-3 flex flex-wrap items-end gap-2"
+        >
+          <label className="flex-none text-sm text-slate-600">
+            Area(s)
+            <input
+              name="areas"
+              required
+              placeholder="CH41, L4"
+              className="mt-1 block w-36 rounded-xl border border-slate-300 px-3 py-2 text-sm uppercase"
+            />
+          </label>
+          <label className="min-w-[240px] flex-1 text-sm text-slate-600">
+            Message
+            <textarea
+              name="body"
+              required
+              rows={2}
+              maxLength={600}
+              placeholder="Can anyone take 3 rooms + stairs in CH41 this Friday AM? Reply here if you can."
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-xl bg-primary-600 px-5 py-2 text-sm font-semibold text-white"
+          >
+            Send to all
+          </button>
+        </form>
+      </Card>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[260px_1fr]">
         <div className="min-w-0">
