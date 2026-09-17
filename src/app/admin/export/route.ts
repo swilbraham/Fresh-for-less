@@ -55,6 +55,17 @@ const EXPORTS: Record<string, { sql: string; filename: string }> = {
                  (SELECT count(*) FROM job_drops d WHERE d.cleaner_id = c.id) AS jobs_dropped
             FROM cleaners c ORDER BY c.created_at DESC`,
   },
+  // Just who cleans where — no contact or insurance details, so this one is
+  // safe to hand to a designer or VA for area pages and ad targeting.
+  coverage: {
+    filename: "cleaner-coverage",
+    sql: `SELECT c.name, c.business_name AS company, c.status,
+                 (SELECT string_agg(a.outward, ' ' ORDER BY a.outward)
+                    FROM cleaner_areas a WHERE a.cleaner_id = c.id) AS postcodes_covered
+            FROM cleaners c
+           ORDER BY CASE c.status WHEN 'approved' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END,
+                    c.name`,
+  },
   // Completed work month by month — the shape an accountant actually wants.
   // Dated by when the job was finished, in London time, to match /admin/finances.
   finance: {

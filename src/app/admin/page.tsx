@@ -199,6 +199,7 @@ export default async function AdminPage({
               { type: "finance", label: "Finance by month" },
               { type: "jobs", label: "Jobs" },
               { type: "cleaners", label: "Cleaners" },
+              { type: "coverage", label: "Cleaner coverage" },
               { type: "invoices", label: "Commission invoices" },
             ].map((item) => (
               <a
