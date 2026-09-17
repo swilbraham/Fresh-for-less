@@ -317,6 +317,20 @@ export async function getCleanerAreas(cleanerId: number): Promise<string[]> {
   return rows.map((r) => r.outward);
 }
 
+/** Every cleaner's coverage in one round trip, for filtering a whole list. */
+export async function getAllCleanerAreas(): Promise<Map<number, string[]>> {
+  const rows = await query<{ cleaner_id: number; outward: string }>(
+    `SELECT cleaner_id, outward FROM cleaner_areas ORDER BY outward`
+  );
+  const byCleaner = new Map<number, string[]>();
+  for (const row of rows) {
+    const areas = byCleaner.get(row.cleaner_id);
+    if (areas) areas.push(row.outward);
+    else byCleaner.set(row.cleaner_id, [row.outward]);
+  }
+  return byCleaner;
+}
+
 /**
  * Replace a cleaner's coverage in two round trips rather than one per postcode.
  *

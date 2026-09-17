@@ -5,8 +5,8 @@ import {
   cleanerReliability,
   DROP_REVIEW_DAYS,
   DROP_REVIEW_LIMIT,
+  getAllCleanerAreas,
   getAvailability,
-  getCleanerAreas,
   listCleaners,
 } from "@/lib/marketplace/repo";
 import {
@@ -45,14 +45,30 @@ export default async function AdminCleanersPage({
   if (!(await isAdmin())) redirect("/admin");
   const { error, saved, reset, q, sort, status } = await searchParams;
 
-  const all = await listCleaners();
+  const [all, areasByCleaner] = await Promise.all([
+    listCleaners(),
+    getAllCleanerAreas(),
+  ]);
 
   const term = (q ?? "").trim().toLowerCase();
   const sortKey = sort ?? "name";
 
+  // A search that looks like a postcode area ("CH41", or "SA" for the lot)
+  // also matches coverage, so you can see who covers a postcode.
+  const outwardTerm = /^[a-z]{1,2}\d{0,2}$/.test(term)
+    ? term.toUpperCase()
+    : null;
+
   const matches = all.filter((c) => {
     if (status && c.status !== status) return false;
     if (!term) return true;
+    if (
+      outwardTerm &&
+      (areasByCleaner.get(c.id) ?? []).some((area) =>
+        area.startsWith(outwardTerm)
+      )
+    )
+      return true;
     return [c.name, c.business_name, c.email, c.phone]
       .filter(Boolean)
       .some((v) => v.toLowerCase().includes(term));
@@ -81,15 +97,7 @@ export default async function AdminCleanersPage({
   });
 
   // Only the cleaners actually on screen need their detail loaded — these are
-  // three queries each, so fetching for the whole list would be wasted work.
-  const areasByCleaner = new Map(
-    await Promise.all(
-      cleaners.map(
-        async (cleaner) =>
-          [cleaner.id, await getCleanerAreas(cleaner.id)] as const
-      )
-    )
-  );
+  // two queries each, so fetching for the whole list would be wasted work.
   const reliabilityByCleaner = new Map(
     await Promise.all(
       cleaners.map(
@@ -142,7 +150,7 @@ export default async function AdminCleanersPage({
               type="search"
               name="q"
               defaultValue={q ?? ""}
-              placeholder="Name, business, email or phone"
+              placeholder="Name, business, email, phone or postcode (e.g. CH41)"
               className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
             />
           </label>
