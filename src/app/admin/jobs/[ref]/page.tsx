@@ -16,9 +16,11 @@ import {
 import { gbp } from "@/lib/marketplace/money";
 import { toE164 } from "@/lib/marketplace/phone";
 import { Alert, Card, Field, StatusPill } from "@/components/marketplace/shell";
+import ConfirmButton from "@/components/marketplace/ConfirmButton";
 import {
   assignJobAction,
   cancelJobAction,
+  deleteJobAction,
   waiveCommissionAction,
   setJobCommissionAction,
   textCleanerAction,
@@ -718,6 +720,33 @@ export default async function AdminJobPage({
             </div>
           )}
         </Card>
+
+        {/* Live upcoming bookings must be cancelled first (which tells both
+            sides); invoiced jobs are refused server-side too. */}
+        {!(
+          ["offered", "accepted"].includes(job.status) &&
+          job.slot_date >= new Date().toISOString().slice(0, 10)
+        ) && (
+          <Card title="Delete this job" className="mt-6">
+            <p className="mt-2 text-sm text-slate-600">
+              Only for jobs that shouldn&apos;t exist — a test booking, or an
+              old one that never happened. Nobody is texted or emailed; it
+              simply vanishes from every list, count and export. To call off a
+              real booking, use Cancel instead so both sides are told.
+            </p>
+            <form action={deleteJobAction} className="mt-3">
+              <input type="hidden" name="id" value={job.id} />
+              <input type="hidden" name="ref" value={job.ref} />
+              <ConfirmButton
+                action={deleteJobAction}
+                confirmText={`Delete ${job.ref} for good? This can't be undone and nobody is told.`}
+                className="rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+              >
+                Delete for good
+              </ConfirmButton>
+            </form>
+          </Card>
+        )}
 
         {drops.length > 0 && (
           <Card title="Handed back" className="mt-6">

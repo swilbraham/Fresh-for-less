@@ -10,11 +10,13 @@ import { gbp } from "@/lib/marketplace/money";
 import {
   assignJobAction,
   cancelJobAction,
+  deleteJobAction,
   reassignJobAction,
   rebroadcastJobAction,
 } from "../actions";
 import Link from "next/link";
 import { Alert, Card, StatusPill } from "@/components/marketplace/shell";
+import ConfirmButton from "@/components/marketplace/ConfirmButton";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,7 @@ export default async function AdminJobsPage({
   searchParams: Promise<{
     error?: string;
     saved?: string;
+    deleted?: string;
     offered?: string;
     assigned?: string;
     status?: string;
@@ -40,8 +43,19 @@ export default async function AdminJobsPage({
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, offered, assigned, status, group, sort, from, to, q } =
-    await searchParams;
+  const {
+    error,
+    saved,
+    deleted,
+    offered,
+    assigned,
+    status,
+    group,
+    sort,
+    from,
+    to,
+    q,
+  } = await searchParams;
 
   const isGroup = group === "outstanding" || group === "attention";
   // Upcoming work reads soonest-first; finished work reads newest-first.
@@ -107,6 +121,11 @@ export default async function AdminJobsPage({
       <div className="mx-auto max-w-6xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Job updated.</Alert>}
+        {deleted && (
+          <Alert tone="success">
+            {deleted} deleted for good — nobody was texted.
+          </Alert>
+        )}
         {assigned && <Alert tone="success">Job assigned and both sides told.</Alert>}
         {offered !== undefined && (
           <Alert tone="success">
@@ -474,6 +493,24 @@ export default async function AdminJobsPage({
                             >
                               Cancel
                             </button>
+                          </form>
+                        )}
+                        {/* Live upcoming bookings must be cancelled (which
+                            tells both sides) before they can be deleted. */}
+                        {!(
+                          ["offered", "accepted"].includes(job.status) &&
+                          job.slot_date >= today
+                        ) && (
+                          <form action={deleteJobAction}>
+                            <input type="hidden" name="id" value={job.id} />
+                            <input type="hidden" name="ref" value={job.ref} />
+                            <ConfirmButton
+                              action={deleteJobAction}
+                              confirmText={`Delete ${job.ref} for good? Nobody is texted — it just disappears from every list, count and export.`}
+                              className="text-xs font-semibold text-red-600 underline"
+                            >
+                              Delete
+                            </ConfirmButton>
                           </form>
                         )}
                       </div>

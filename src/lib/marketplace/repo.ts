@@ -1409,6 +1409,47 @@ export async function cancelJob(
   }
 }
 
+/**
+ * Erase a job completely — no texts, no emails, gone from every list, count
+ * and export. For test bookings and stale past jobs; cancelJob is the one
+ * that tells people. Two refusals: a live upcoming booking must be cancelled
+ * first so neither side turns up to nothing, and a job on a commission
+ * invoice must stay — the cascade would silently rewrite an issued bill.
+ */
+export async function deleteJob(
+  jobId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const job = await queryOne<{
+    status: string;
+    upcoming: boolean;
+    invoice_ref: string | null;
+  }>(
+    `SELECT j.status,
+            j.slot_date >= CURRENT_DATE AS upcoming,
+            (SELECT i.ref FROM commission_invoices i
+              JOIN commission_invoice_lines l ON l.invoice_id = i.id
+             WHERE l.job_id = j.id LIMIT 1) AS invoice_ref
+       FROM jobs j WHERE j.id = $1`,
+    [jobId]
+  );
+  if (!job) return { ok: false, reason: "That job is already gone." };
+  if (job.invoice_ref) {
+    return {
+      ok: false,
+      reason: `It's on commission invoice ${job.invoice_ref} — deleting it would change a bill that's already been issued.`,
+    };
+  }
+  if (job.upcoming && ["offered", "accepted"].includes(job.status)) {
+    return {
+      ok: false,
+      reason:
+        "That's a live upcoming booking — cancel it first so the customer and cleaner are told.",
+    };
+  }
+  await query(`DELETE FROM jobs WHERE id = $1`, [jobId]);
+  return { ok: true };
+}
+
 /** Put an unfilled or cancelled job back out to the market. */
 export async function rebroadcastJob(jobId: number): Promise<number> {
   const job = await getJob(jobId);

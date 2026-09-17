@@ -10,6 +10,7 @@ import {
 } from "@/lib/marketplace/auth";
 import {
   cancelJob,
+  deleteJob,
   deleteBundle,
   deletePriceItem,
   generateCommissionInvoices,
@@ -300,6 +301,26 @@ export async function cancelJobAction(data: FormData) {
   );
   revalidatePath("/admin/jobs");
   redirect("/admin/jobs?saved=1");
+}
+
+/**
+ * Hard-delete a job — nobody is told and nothing is kept. The guards live in
+ * deleteJob: live upcoming bookings and invoiced jobs are refused there.
+ */
+export async function deleteJobAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const jobId = Number(field(data, "id", 12));
+  const ref = field(data, "ref", 20);
+  const result = await deleteJob(jobId);
+  revalidatePath("/admin/jobs");
+  if (!result.ok) {
+    // Path-only and pattern-checked, so a crafted ref can't redirect off-site.
+    const back = /^[A-Z0-9-]+$/.test(ref) ? `/admin/jobs/${ref}` : "/admin/jobs";
+    redirect(
+      `${back}?error=${encodeURIComponent(result.reason ?? "Couldn't delete that job.")}`
+    );
+  }
+  redirect(`/admin/jobs?deleted=${encodeURIComponent(ref || "job")}`);
 }
 
 /**
