@@ -5,6 +5,12 @@ import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 
 export const dynamic = "force-dynamic";
 
+// A booking sends one text per covering cleaner plus the office and customer
+// notifications, all before responding. The platform's 10s default could cut
+// that off mid-broadcast when several cleaners cover the area — offers after
+// the cut-off were silently never sent.
+export const maxDuration = 60;
+
 function text(value: unknown, max = 200): string {
   return String(value ?? "").trim().slice(0, max);
 }

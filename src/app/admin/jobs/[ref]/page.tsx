@@ -257,7 +257,52 @@ export default async function AdminJobPage({
             </Card>
 
             <Card title="Cleaner">
-              {job.cleaner_id ? (
+              {assignedCleaner ? (
+                <>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <Row label="Name" value={assignedCleaner.name} />
+                    {assignedCleaner.business_name && (
+                      <Row label="Business" value={assignedCleaner.business_name} />
+                    )}
+                    <Row
+                      label="Phone"
+                      value={
+                        <a
+                          href={`tel:${toE164(assignedCleaner.phone) ?? assignedCleaner.phone}`}
+                          className="font-semibold text-primary-600 underline"
+                        >
+                          {assignedCleaner.phone}
+                        </a>
+                      }
+                    />
+                    <Row
+                      label="Email"
+                      value={
+                        <a
+                          href={`mailto:${assignedCleaner.email}`}
+                          className="text-primary-600 underline"
+                        >
+                          {assignedCleaner.email}
+                        </a>
+                      }
+                    />
+                  </dl>
+                  <p className="mt-3 flex flex-wrap gap-3 text-xs">
+                    <Link
+                      href={`/admin/cleaners?q=${encodeURIComponent(assignedCleaner.email)}#cleaner-${assignedCleaner.id}`}
+                      className="font-semibold text-primary-600 underline"
+                    >
+                      Full profile, coverage &amp; reliability
+                    </Link>
+                    <Link
+                      href={`/admin/messages?cleaner=${assignedCleaner.id}`}
+                      className="font-semibold text-primary-600 underline"
+                    >
+                      Message thread
+                    </Link>
+                  </p>
+                </>
+              ) : job.cleaner_id ? (
                 <p className="mt-2 text-sm text-slate-700">
                   Assigned — see the offer history below.
                 </p>

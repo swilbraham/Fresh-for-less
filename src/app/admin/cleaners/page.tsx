@@ -236,6 +236,7 @@ export default async function AdminCleanersPage({
             return (
               <li
                 key={cleaner.id}
+                id={`cleaner-${cleaner.id}`}
                 className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
