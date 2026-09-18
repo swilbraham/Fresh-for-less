@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 33;
+export const SCHEMA_VERSION = 34;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -342,6 +342,11 @@ export const STATEMENTS: string[] = [
   // Separate stamp from the day-before one: a job booked a month out gets both,
   // and neither should suppress the other.
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS reminded_week_at timestamptz`,
+
+  // ---- Morning-after completion nudge ---------------------------------------
+  // Stamped when the cleaner is asked to mark a finished job complete, so a
+  // cron retry can't nag twice.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS completion_nudged_at timestamptz`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------

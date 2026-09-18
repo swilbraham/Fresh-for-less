@@ -42,6 +42,17 @@ function slotLabel(job: Pick<Job, "slot_date" | "slot_window">): string {
   return `${date} · ${job.slot_window === "am" ? "Morning 8am–12pm" : "Afternoon 12pm–5pm"}`;
 }
 
+// Has the job's slot been and gone? Windows end at 12pm and 5pm London time.
+function slotOver(job: Pick<Job, "slot_date" | "slot_window">): boolean {
+  const london = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Europe/London" })
+  );
+  const today = `${london.getFullYear()}-${String(london.getMonth() + 1).padStart(2, "0")}-${String(london.getDate()).padStart(2, "0")}`;
+  if (job.slot_date < today) return true;
+  if (job.slot_date > today) return false;
+  return london.getHours() >= (job.slot_window === "am" ? 12 : 17);
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -249,8 +260,20 @@ export default async function DashboardPage({
               {upcoming.map((job) => (
                 <li
                   key={job.id}
-                  className="rounded-xl border border-slate-200 p-4"
+                  className={`rounded-xl border p-4 ${
+                    slotOver(job)
+                      ? "border-amber-300 bg-amber-50/50"
+                      : "border-slate-200"
+                  }`}
                 >
+                  {slotOver(job) && (
+                    <p className="mb-3 rounded-xl bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900">
+                      This clean&apos;s time slot has finished — all done and
+                      paid? Tap &ldquo;Mark complete&rdquo; below so it goes on
+                      your invoice correctly. Didn&apos;t happen? Use
+                      &ldquo;Can&apos;t make it?&rdquo; or reply to our text.
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="font-bold text-slate-900">

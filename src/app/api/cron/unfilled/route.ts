@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import {
+  claimJobsForCompletionNudge,
   claimJobsForReminder,
   claimJobsForWeekReminder,
+  sendCompletionNudge,
   sendWeekReminder,
   claimUnfilledJobsForAlert,
   sendBookingReminder,
@@ -43,6 +45,7 @@ export async function GET(request: Request) {
   // week-ahead nudge on anything booked far enough out to have been forgotten.
   let reminded = 0;
   let weekAhead = 0;
+  let completionNudges = 0;
   try {
     for (const job of await claimJobsForReminder()) {
       await sendBookingReminder(job);
@@ -52,6 +55,12 @@ export async function GET(request: Request) {
       await sendWeekReminder(job);
       weekAhead += 1;
     }
+    // Yesterday's jobs still sitting as accepted: ask the cleaner to mark
+    // them complete, so the invoice run isn't working from stale statuses.
+    for (const job of await claimJobsForCompletionNudge()) {
+      await sendCompletionNudge(job);
+      completionNudges += 1;
+    }
   } catch (error) {
     // A reminder failing must not cost the office its unfilled warning.
     console.error("reminders failed", error);
@@ -59,7 +68,13 @@ export async function GET(request: Request) {
 
   const jobs = await claimUnfilledJobsForAlert();
   if (jobs.length === 0) {
-    return NextResponse.json({ ok: true, reminded, weekAhead, jobs: 0 });
+    return NextResponse.json({
+      ok: true,
+      reminded,
+      weekAhead,
+      completionNudges,
+      jobs: 0,
+    });
   }
 
   const line = (j: (typeof jobs)[number]) =>
@@ -88,6 +103,7 @@ export async function GET(request: Request) {
     ok: true,
     reminded,
     weekAhead,
+    completionNudges,
     jobs: jobs.length,
     refs: jobs.map((j) => j.ref),
   });

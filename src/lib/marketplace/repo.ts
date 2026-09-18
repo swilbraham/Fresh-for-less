@@ -770,6 +770,52 @@ export async function sendWeekReminder(job: ReminderJob): Promise<void> {
   });
 }
 
+/**
+ * Accepted jobs whose day has been and gone with no "mark complete" click.
+ * Claimed with a stamp so a cron retry can't nag the same cleaner twice.
+ * Runs on yesterday's date, not the slot window, so an AM job gets its nudge
+ * the following morning rather than mid-afternoon while they may still be
+ * collecting payment.
+ */
+export async function claimJobsForCompletionNudge(): Promise<ReminderJob[]> {
+  return query<ReminderJob>(
+    `UPDATE jobs j
+        SET completion_nudged_at = now()
+      WHERE j.id IN (
+        SELECT id FROM jobs
+         WHERE status = 'accepted'
+           AND cleaner_id IS NOT NULL
+           AND completion_nudged_at IS NULL
+           AND slot_date < (now() AT TIME ZONE 'Europe/London')::date
+      )
+      RETURNING ${JOB_COLUMNS.replace(/\n\s+/g, " ").trim()},
+                (SELECT c.name FROM cleaners c WHERE c.id = j.cleaner_id) AS cleaner_name`
+  );
+}
+
+/** Ask the cleaner to mark yesterday's finished job complete. */
+export async function sendCompletionNudge(job: ReminderJob): Promise<void> {
+  if (!job.cleaner_id) return;
+  const cleaner = await getCleaner(job.cleaner_id);
+  if (!cleaner) return;
+
+  await notifyCleaner(cleaner, {
+    jobId: job.id,
+    subject: `All done at ${job.postcode}? Mark ${job.ref} complete`,
+    body:
+      `${firstName(cleaner.name)}, ${job.ref} at ${job.postcode} was booked ` +
+      `for ${job.slot_date} and is still showing as not done.\n\n` +
+      `If it's finished and paid, mark it complete on your dashboard — that's ` +
+      `what puts it on your invoice correctly.\n\n` +
+      `If it didn't happen, reply to this message and the office will sort it.\n\n` +
+      `${siteUrl()}/pro/dashboard`,
+    smsBody:
+      `Fresh For Less: all done at ${job.outward} (${job.ref}, ${job.slot_date})? ` +
+      `Mark it complete: ${siteUrl()}/pro/dashboard — ` +
+      `if it didn't happen, reply here.`,
+  });
+}
+
 /** Remind one customer their clean is tomorrow, with a way out if it isn't. */
 export async function sendBookingReminder(job: ReminderJob): Promise<void> {
   const when =
