@@ -2,12 +2,17 @@ import Link from "next/link";
 import { isAdmin } from "@/lib/marketplace/auth";
 import {
   getAdminStats,
+  getAttentionItems,
   getSettings,
   listCoverageDemand,
   listNotifications,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
-import { adminLoginAction, adminLogoutAction } from "./actions";
+import {
+  adminLoginAction,
+  adminLogoutAction,
+  retryNotificationAction,
+} from "./actions";
 import { Alert, Card } from "@/components/marketplace/shell";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +25,9 @@ export const metadata = {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; retried?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, retried } = await searchParams;
 
   if (!(await isAdmin())) {
     return (
@@ -63,16 +68,165 @@ export default async function AdminPage({
     );
   }
 
-  const [stats, settings, notifications, demand] = await Promise.all([
-    getAdminStats(),
-    getSettings(),
-    listNotifications(12),
-    listCoverageDemand(12),
-  ]);
+  const [stats, settings, notifications, demand, attention] =
+    await Promise.all([
+      getAdminStats(),
+      getSettings(),
+      listNotifications(12),
+      listCoverageDemand(12),
+      getAttentionItems(),
+    ]);
+
+  const attentionCount =
+    attention.provisional.length +
+    attention.uncovered_soon.length +
+    attention.awaiting_completion.length +
+    attention.failed_messages.length;
 
   return (
     <main>
       <div className="mx-auto max-w-6xl px-4 py-8">
+        {error && <Alert>{error}</Alert>}
+        {retried && <Alert tone="success">Sent — it went through this time.</Alert>}
+
+        {attentionCount > 0 && (
+          <Card
+            title={`Needs attention (${attentionCount})`}
+            description="Everything here is a call or a click to make today."
+            className="mb-8 border-amber-300"
+          >
+            {attention.provisional.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-bold text-slate-900">
+                  Booking requests waiting for a cleaner
+                  <span className="ml-2 font-normal text-slate-500">
+                    — the customer was promised confirmation within 24 hours
+                  </span>
+                </p>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {attention.provisional.map((job) => (
+                    <li key={job.id} className="flex flex-wrap items-baseline gap-2">
+                      <Link
+                        href={`/admin/jobs/${job.ref}`}
+                        className="font-semibold text-primary-600 underline"
+                      >
+                        {job.ref}
+                      </Link>
+                      <span className="text-slate-700">
+                        {job.customer_name} · {job.postcode} · wants {job.slot_date}
+                      </span>
+                      <a
+                        href={`tel:${job.customer_phone}`}
+                        className="font-semibold text-primary-600 underline"
+                      >
+                        {job.customer_phone}
+                      </a>
+                      <span
+                        className={`text-xs font-semibold ${
+                          job.hours_waiting >= 24 ? "text-red-600" : "text-amber-700"
+                        }`}
+                      >
+                        waiting {job.hours_waiting}h
+                        {job.hours_waiting >= 24 && " — promise broken"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {attention.uncovered_soon.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-bold text-slate-900">
+                  Inside 48 hours with no cleaner
+                </p>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {attention.uncovered_soon.map((job) => (
+                    <li key={job.id} className="flex flex-wrap items-baseline gap-2">
+                      <Link
+                        href={`/admin/jobs/${job.ref}`}
+                        className="font-semibold text-primary-600 underline"
+                      >
+                        {job.ref}
+                      </Link>
+                      <span className="text-slate-700">
+                        {job.postcode} · {job.slot_date} {job.slot_window.toUpperCase()}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {job.offers === 0
+                          ? "nobody offered"
+                          : `offered to ${job.offers}, nobody accepted`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {attention.awaiting_completion.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-bold text-slate-900">
+                  Should be finished, not marked complete
+                  <span className="ml-2 font-normal text-slate-500">
+                    — these fall off the invoice run until they are
+                  </span>
+                </p>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {attention.awaiting_completion.map((job) => (
+                    <li key={job.id} className="flex flex-wrap items-baseline gap-2">
+                      <Link
+                        href={`/admin/jobs/${job.ref}`}
+                        className="font-semibold text-primary-600 underline"
+                      >
+                        {job.ref}
+                      </Link>
+                      <span className="text-slate-700">
+                        {job.postcode} · was {job.slot_date}
+                        {job.cleaner_name ? ` · ${job.cleaner_name}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {attention.failed_messages.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-bold text-red-700">
+                  Messages that failed in the last 24 hours
+                </p>
+                <ul className="mt-2 space-y-1.5 text-sm">
+                  {attention.failed_messages.map((message) => (
+                    <li
+                      key={message.id}
+                      className="flex flex-wrap items-baseline gap-2"
+                    >
+                      <span className="font-mono text-xs text-slate-500">
+                        {message.created_at}
+                      </span>
+                      <span className="text-slate-700">
+                        {message.channel} to {message.recipient}
+                      </span>
+                      <span className="max-w-md truncate text-xs text-red-600">
+                        {message.error}
+                      </span>
+                      <form action={retryNotificationAction}>
+                        <input type="hidden" name="id" value={message.id} />
+                        <button
+                          type="submit"
+                          className="text-xs font-semibold text-primary-600 underline"
+                        >
+                          Retry
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </Card>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat
             label="Awaiting vetting"

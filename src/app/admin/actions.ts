@@ -11,10 +11,12 @@ import {
 import {
   approvedCleanersCovering,
   cancelJob,
+  chaseInvoice,
   createCleaner,
   deleteJob,
   deleteBundle,
   findCleanerByEmail,
+  retryNotification,
   siteUrl,
   deletePriceItem,
   generateCommissionInvoices,
@@ -306,6 +308,32 @@ export async function cancelJobAction(data: FormData) {
   );
   revalidatePath("/admin/jobs");
   redirect("/admin/jobs?saved=1");
+}
+
+/** Try a failed notification again, from the dashboard's attention panel. */
+export async function retryNotificationAction(data: FormData) {
+  await requireAdmin("/admin");
+  const id = Number(field(data, "id", 12));
+  const result = await retryNotification(id);
+  revalidatePath("/admin");
+  if (!result.ok) {
+    redirect(`/admin?error=${encodeURIComponent(result.reason ?? "Still failing.")}`);
+  }
+  redirect("/admin?retried=1");
+}
+
+/** Text a cleaner a payment reminder for one unpaid commission invoice. */
+export async function chaseInvoiceAction(data: FormData) {
+  await requireAdmin("/admin/invoices");
+  const id = Number(field(data, "id", 12));
+  const result = await chaseInvoice(id);
+  revalidatePath("/admin/invoices");
+  if (!result.ok) {
+    redirect(
+      `/admin/invoices?error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`
+    );
+  }
+  redirect("/admin/invoices?chased=1");
 }
 
 /**
@@ -1074,6 +1102,13 @@ export async function createPhoneBookingAction(data: FormData) {
     });
   } catch (error) {
     fail2(String((error as Error)?.message ?? "Couldn't create that booking."));
+  }
+
+  // Came from an enquiry? Close the loop so it stops showing as open.
+  const leadId = Number(field(data, "leadId", 12));
+  if (leadId) {
+    await setLeadStatus(leadId, "booked", `Booked as ${result!.job.ref}`);
+    revalidatePath("/admin/leads");
   }
 
   // Booked over the phone with a cleaner already agreed — put it straight in

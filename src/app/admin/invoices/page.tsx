@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import { listInvoices, listUninvoicedCommission } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
-import { generateInvoicesAction, setInvoiceStatusAction } from "../actions";
+import {
+  chaseInvoiceAction,
+  generateInvoicesAction,
+  setInvoiceStatusAction,
+} from "../actions";
 import { Alert, Card, StatusPill } from "@/components/marketplace/shell";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +31,15 @@ function monthBounds(): { start: string; end: string } {
 export default async function AdminInvoicesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string; created?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    saved?: string;
+    created?: string;
+    chased?: string;
+  }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, created } = await searchParams;
+  const { error, saved, created, chased } = await searchParams;
 
   const [pending, invoices] = await Promise.all([
     listUninvoicedCommission(),
@@ -48,6 +57,9 @@ export default async function AdminInvoicesPage({
       <div className="mx-auto max-w-5xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Invoice updated.</Alert>}
+        {chased && (
+          <Alert tone="success">Reminder texted to the cleaner.</Alert>
+        )}
         {created !== undefined && (
           <Alert tone="success">
             {created === "0"
@@ -184,24 +196,48 @@ export default async function AdminInvoicesPage({
                       </td>
                       <td className="py-2">
                         <StatusPill status={invoice.status} />
+                        {invoice.status === "issued" && invoice.days_old >= 7 && (
+                          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                            overdue {invoice.days_old}d
+                          </span>
+                        )}
+                        {invoice.status === "issued" && invoice.chased_at && (
+                          <span className="mt-1 block text-[11px] text-slate-400">
+                            chased {invoice.chased_at}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2 text-right">
-                        <form action={setInvoiceStatusAction}>
-                          <input type="hidden" name="id" value={invoice.id} />
-                          <input
-                            type="hidden"
-                            name="status"
-                            value={invoice.status === "paid" ? "issued" : "paid"}
-                          />
-                          <button
-                            type="submit"
-                            className="text-xs font-semibold text-primary-600 underline"
-                          >
-                            {invoice.status === "paid"
-                              ? "Mark unpaid"
-                              : "Mark paid"}
-                          </button>
-                        </form>
+                        <div className="flex justify-end gap-3">
+                          {invoice.status === "issued" && (
+                            <form action={chaseInvoiceAction}>
+                              <input type="hidden" name="id" value={invoice.id} />
+                              <button
+                                type="submit"
+                                title="Text the cleaner a payment reminder with the amount and a link to the invoice"
+                                className="text-xs font-semibold text-amber-700 underline"
+                              >
+                                Text reminder
+                              </button>
+                            </form>
+                          )}
+                          <form action={setInvoiceStatusAction}>
+                            <input type="hidden" name="id" value={invoice.id} />
+                            <input
+                              type="hidden"
+                              name="status"
+                              value={invoice.status === "paid" ? "issued" : "paid"}
+                            />
+                            <button
+                              type="submit"
+                              className="text-xs font-semibold text-primary-600 underline"
+                            >
+                              {invoice.status === "paid"
+                                ? "Mark unpaid"
+                                : "Mark paid"}
+                            </button>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   ))}

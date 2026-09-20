@@ -58,6 +58,21 @@ export default async function CoveragePage() {
   const producing = covered.filter((a) => a.jobs > 0);
   const idle = covered.length - producing.length;
 
+  // Single points of failure, grouped by the cleaner holding them: if that
+  // one person leaves or is suspended, these districts silently go dark on
+  // /book. Grouped per cleaner because that's the recruitment unit.
+  const singles = covered.filter((a) => a.cleaner_count === 1);
+  const soloByCleaner = new Map<string, typeof covered>();
+  for (const area of singles) {
+    soloByCleaner.set(area.cleaners, [
+      ...(soloByCleaner.get(area.cleaners) ?? []),
+      area,
+    ]);
+  }
+  const soloOrdered = [...soloByCleaner.entries()].sort(
+    (a, b) => b[1].length - a[1].length
+  );
+
   const allDistricts = covered.map((a) => a.outward).join("\n");
   const earningDistricts = producing.map((a) => a.outward).join("\n");
   const gapDistricts = gaps.map((g) => g.outward).join("\n");
@@ -111,11 +126,12 @@ export default async function CoveragePage() {
           </ul>
         </section>
 
-        <div className="my-6 grid gap-4 sm:grid-cols-4">
+        <div className="my-6 grid gap-4 sm:grid-cols-5">
           {[
             { label: "Districts covered", value: String(covered.length), hint: "Across all cleaners" },
             { label: "Producing work", value: String(producing.length), hint: "Have had a booking" },
             { label: "Nothing yet", value: String(idle), hint: "Covered but no jobs" },
+            { label: "One cleaner only", value: String(singles.length), hint: "Goes dark if they leave" },
             { label: "Gaps with demand", value: String(gaps.length), hint: "Wanted, nobody covers" },
           ].map((stat) => (
             <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -164,6 +180,35 @@ export default async function CoveragePage() {
             what the middle button is for.
           </p>
         </Card>
+
+        {soloOrdered.length > 0 && (
+          <Card
+            title="Covered by one cleaner only"
+            description="If that cleaner leaves, is suspended, or just stops answering, these districts silently disappear from /book. The bigger the block, the more a second cleaner there de-risks the business — recruit around the top of this list."
+            className="mb-6 border-amber-200"
+          >
+            <ul className="mt-4 space-y-3 text-sm">
+              {soloOrdered.map(([cleanerName, areas]) => (
+                <li key={cleanerName}>
+                  <p className="font-semibold text-slate-900">
+                    {cleanerName}
+                    <span className="ml-2 font-normal text-slate-500">
+                      — only cover for {areas.length} district
+                      {areas.length === 1 ? "" : "s"}
+                      {areas.some((a) => a.jobs > 0) &&
+                        `, ${areas.reduce((sum, a) => sum + a.jobs, 0)} job${
+                          areas.reduce((sum, a) => sum + a.jobs, 0) === 1 ? "" : "s"
+                        } to date`}
+                    </span>
+                  </p>
+                  <p className="mt-1 break-words font-mono text-xs text-amber-800">
+                    {areas.map((a) => a.outward).join(" ")}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         {gaps.length > 0 && (
           <Card

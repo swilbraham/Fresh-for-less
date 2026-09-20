@@ -1909,6 +1909,8 @@ export type InvoiceRow = {
   status: string;
   issued_at: string;
   paid_at: string | null;
+  chased_at: string | null;
+  days_old: number;
   jobs: number;
 };
 
@@ -1920,6 +1922,8 @@ export async function listInvoices(cleanerId?: number): Promise<InvoiceRow[]> {
             i.total_pence, i.status,
             to_char(i.issued_at, 'YYYY-MM-DD') AS issued_at,
             to_char(i.paid_at,   'YYYY-MM-DD') AS paid_at,
+            to_char(i.chased_at, 'YYYY-MM-DD') AS chased_at,
+            (current_date - i.issued_at::date)::int AS days_old,
             (SELECT count(*)::int FROM commission_invoice_lines l
               WHERE l.invoice_id = i.id) AS jobs
        FROM commission_invoices i
@@ -1940,6 +1944,52 @@ export async function setInvoiceStatus(
       WHERE id = $1`,
     [id, status]
   );
+}
+
+/**
+ * Text the cleaner a payment reminder for one unpaid invoice, and stamp when
+ * so the office can see it's been chased and when.
+ */
+export async function chaseInvoice(
+  invoiceId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const invoice = await queryOne<{
+    id: number;
+    ref: string;
+    cleaner_id: number;
+    total_pence: number;
+    status: string;
+    issued_at: string;
+  }>(
+    `SELECT id, ref, cleaner_id, total_pence, status,
+            to_char(issued_at, 'DD Mon') AS issued_at
+       FROM commission_invoices WHERE id = $1`,
+    [invoiceId]
+  );
+  if (!invoice) return { ok: false, reason: "Invoice not found." };
+  if (invoice.status !== "issued") {
+    return { ok: false, reason: "Only an unpaid invoice can be chased." };
+  }
+  const cleaner = await getCleaner(invoice.cleaner_id);
+  if (!cleaner) return { ok: false, reason: "Cleaner not found." };
+
+  await notifyCleaner(cleaner, {
+    subject: `Reminder — commission invoice ${invoice.ref} is unpaid`,
+    body:
+      `${firstName(cleaner.name)}, a reminder that commission invoice ` +
+      `${invoice.ref} for ${gbpShort(invoice.total_pence)} (issued ${invoice.issued_at}) ` +
+      `is still unpaid.\n\nThe details and job list are on your dashboard:\n` +
+      `${siteUrl()}/pro/invoices/${invoice.ref}\n\n` +
+      `If you've already paid, ignore this — it can take a day to be marked.`,
+    smsBody:
+      `Fresh For Less: commission invoice ${invoice.ref} ` +
+      `(${gbpShort(invoice.total_pence)}, issued ${invoice.issued_at}) is still ` +
+      `unpaid. Details: ${siteUrl()}/pro/invoices/${invoice.ref}`,
+  });
+  await query(`UPDATE commission_invoices SET chased_at = now() WHERE id = $1`, [
+    invoiceId,
+  ]);
+  return { ok: true };
 }
 
 /** Keep an invoice's total equal to the lines it actually has. */
@@ -2518,6 +2568,175 @@ export type AdminStats = {
   commission_pence: number;
   commission_unpaid_pence: number;
 };
+
+/**
+ * The dashboard's "what needs me right now" panel, in four lists:
+ * provisional bookings (the 24-hour confirmation promise is ticking), jobs
+ * inside 48 hours with nobody assigned, finished jobs never marked complete,
+ * and messages that failed to send in the last day. Everything here is a
+ * phone call or a click the office should make today.
+ */
+export async function getAttentionItems(): Promise<{
+  provisional: {
+    id: number;
+    ref: string;
+    postcode: string;
+    slot_date: string;
+    customer_name: string;
+    customer_phone: string;
+    hours_waiting: number;
+  }[];
+  uncovered_soon: {
+    id: number;
+    ref: string;
+    postcode: string;
+    slot_date: string;
+    slot_window: string;
+    status: string;
+    offers: number;
+  }[];
+  awaiting_completion: {
+    id: number;
+    ref: string;
+    postcode: string;
+    slot_date: string;
+    cleaner_name: string | null;
+  }[];
+  failed_messages: {
+    id: number;
+    channel: string;
+    recipient: string;
+    subject: string;
+    error: string;
+    created_at: string;
+  }[];
+}> {
+  const [provisional, uncoveredSoon, awaitingCompletion, failedMessages] =
+    await Promise.all([
+      query<{
+        id: number;
+        ref: string;
+        postcode: string;
+        slot_date: string;
+        customer_name: string;
+        customer_phone: string;
+        hours_waiting: number;
+      }>(
+        `SELECT id, ref, postcode, to_char(slot_date, 'YYYY-MM-DD') AS slot_date,
+                customer_name, customer_phone,
+                floor(extract(epoch FROM (now() - created_at)) / 3600)::int AS hours_waiting
+           FROM jobs WHERE status = 'provisional'
+          ORDER BY created_at`
+      ),
+      query<{
+        id: number;
+        ref: string;
+        postcode: string;
+        slot_date: string;
+        slot_window: string;
+        status: string;
+        offers: number;
+      }>(
+        `SELECT j.id, j.ref, j.postcode,
+                to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date,
+                j.slot_window, j.status,
+                (SELECT count(*)::int FROM job_offers o WHERE o.job_id = j.id) AS offers
+           FROM jobs j
+          WHERE j.status IN ('offered', 'unfilled')
+            AND j.slot_date >= (now() AT TIME ZONE 'Europe/London')::date
+            AND j.slot_date <= (now() AT TIME ZONE 'Europe/London')::date + 2
+          ORDER BY j.slot_date, j.slot_window`
+      ),
+      query<{
+        id: number;
+        ref: string;
+        postcode: string;
+        slot_date: string;
+        cleaner_name: string | null;
+      }>(
+        `SELECT j.id, j.ref, j.postcode,
+                to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date,
+                c.name AS cleaner_name
+           FROM jobs j LEFT JOIN cleaners c ON c.id = j.cleaner_id
+          WHERE j.status = 'accepted'
+            AND j.slot_date < (now() AT TIME ZONE 'Europe/London')::date
+          ORDER BY j.slot_date`
+      ),
+      query<{
+        id: number;
+        channel: string;
+        recipient: string;
+        subject: string;
+        error: string;
+        created_at: string;
+      }>(
+        `SELECT id, channel, recipient, subject, error,
+                to_char(created_at AT TIME ZONE 'Europe/London', 'HH24:MI') AS created_at
+           FROM notifications
+          WHERE error IS NOT NULL AND created_at > now() - interval '24 hours'
+          ORDER BY created_at DESC LIMIT 20`
+      ),
+    ]);
+  return {
+    provisional,
+    uncovered_soon: uncoveredSoon,
+    awaiting_completion: awaitingCompletion,
+    failed_messages: failedMessages,
+  };
+}
+
+/**
+ * Try a failed notification again with the same channel, recipient and body.
+ * Success clears the error and stamps sent_at; another failure records the
+ * fresh error so the dashboard stays honest about what's still stuck.
+ */
+export async function retryNotification(
+  id: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const row = await queryOne<{
+    id: number;
+    channel: string;
+    recipient: string;
+    subject: string;
+    body: string;
+    sent_at: string | null;
+  }>(
+    `SELECT id, channel, recipient, subject, body,
+            to_char(sent_at, 'YYYY-MM-DD') AS sent_at
+       FROM notifications WHERE id = $1`,
+    [id]
+  );
+  if (!row) return { ok: false, reason: "That message no longer exists." };
+  if (row.sent_at) return { ok: true };
+
+  try {
+    const delivered =
+      row.channel === "sms"
+        ? await sendSms(row.recipient, row.body)
+        : await sendEmail(row.recipient, row.subject, row.body);
+    if (!delivered) {
+      return {
+        ok: false,
+        reason:
+          row.channel === "sms"
+            ? "Texts aren't configured — the TWILIO_* variables are missing."
+            : "Email isn't configured — RESEND_API_KEY is missing.",
+      };
+    }
+    await query(
+      `UPDATE notifications SET sent_at = now(), error = NULL WHERE id = $1`,
+      [id]
+    );
+    return { ok: true };
+  } catch (error) {
+    const message = String((error as Error)?.message ?? error).slice(0, 500);
+    await query(`UPDATE notifications SET error = $2 WHERE id = $1`, [
+      id,
+      message,
+    ]);
+    return { ok: false, reason: message.slice(0, 160) };
+  }
+}
 
 export async function getAdminStats(): Promise<AdminStats> {
   const row = await queryOne<AdminStats>(

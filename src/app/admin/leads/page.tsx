@@ -117,6 +117,14 @@ export default async function LeadsPage({
                   <form action={setLeadStatusAction} className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                     <input type="hidden" name="id" value={lead.id} />
                     <input type="hidden" name="back" value={active} />
+                    {lead.status !== "booked" && (
+                      <Link
+                        href={`/admin/jobs/new?lead=${lead.id}&name=${encodeURIComponent(lead.name)}&phone=${encodeURIComponent(lead.phone)}&postcode=${encodeURIComponent(lead.postcode ?? "")}`}
+                        className="rounded-lg bg-accent-600 px-3 py-1.5 font-semibold text-white hover:bg-accent-700"
+                      >
+                        Book them in →
+                      </Link>
+                    )}
                     {["contacted", "booked", "dead"]
                       .filter((s) => s !== lead.status)
                       .map((s) => (

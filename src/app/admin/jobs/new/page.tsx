@@ -21,10 +21,18 @@ export const metadata = {
 export default async function NewJobPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    // Arriving from an enquiry: pre-fill what the lead already told us, and
+    // carry the lead id through so booking marks the enquiry as booked.
+    lead?: string;
+    name?: string;
+    phone?: string;
+    postcode?: string;
+  }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error } = await searchParams;
+  const { error, lead, name, phone, postcode } = await searchParams;
 
   const [items, bundles, settings, cleaners] = await Promise.all([
     getPriceItems(true),
@@ -56,6 +64,7 @@ export default async function NewJobPage({
         <div className="mt-6">{error && <Alert>{error}</Alert>}</div>
 
         <form action={createPhoneBookingAction} className="space-y-6">
+          {lead && <input type="hidden" name="leadId" value={lead} />}
           <Card title="What needs cleaning">
             <PhoneBookingForm
               items={items}
@@ -130,8 +139,8 @@ export default async function NewJobPage({
 
           <Card title="Customer">
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field label="Name" name="customerName" required />
-              <Field label="Phone" name="customerPhone" type="tel" required />
+              <Field label="Name" name="customerName" required defaultValue={name} />
+              <Field label="Phone" name="customerPhone" type="tel" required defaultValue={phone} />
               <Field
                 label="Email (optional)"
                 name="customerEmail"
@@ -141,7 +150,7 @@ export default async function NewJobPage({
               />
               <Field label="Address" name="addressLine" className="sm:col-span-2" />
               <Field label="Town" name="town" />
-              <Field label="Postcode" name="postcode" required />
+              <Field label="Postcode" name="postcode" required defaultValue={postcode} />
               <Field
                 label="Where can they park?"
                 name="parking"
