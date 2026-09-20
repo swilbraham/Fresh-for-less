@@ -20,6 +20,7 @@ import {
   generateCommissionInvoices,
   getPriceItems,
   rebroadcastJob,
+  reinstateJob,
   setCleanerStatus,
   setInvoiceStatus,
   setLeadStatus,
@@ -305,6 +306,27 @@ export async function cancelJobAction(data: FormData) {
   );
   revalidatePath("/admin/jobs");
   redirect("/admin/jobs?saved=1");
+}
+
+/**
+ * Quietly bring a cancelled booking back as unfilled. Nobody is texted —
+ * assigning or re-broadcasting afterwards is what notifies people.
+ */
+export async function reinstateJobAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const jobId = Number(field(data, "id", 12));
+  const ref = field(data, "ref", 20);
+  const result = await reinstateJob(jobId);
+  revalidatePath("/admin/jobs");
+  // Path-only and pattern-checked, so a crafted ref can't redirect off-site.
+  const back = /^[A-Z0-9-]+$/.test(ref) ? `/admin/jobs/${ref}` : "/admin/jobs";
+  if (!result.ok) {
+    redirect(
+      `${back}?error=${encodeURIComponent(result.reason ?? "Couldn't reinstate that.")}`
+    );
+  }
+  revalidatePath(back);
+  redirect(`${back}?reinstated=1`);
 }
 
 /**

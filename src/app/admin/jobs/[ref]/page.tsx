@@ -30,6 +30,7 @@ import {
   updateJobDetailsAction,
   reassignJobAction,
   rebroadcastJobAction,
+  reinstateJobAction,
 } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -58,12 +59,14 @@ export default async function AdminJobPage({
     moved?: string;
     sent?: string;
     details?: string;
+    reinstated?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
 
   const { ref } = await params;
-  const { error, waived, commission, moved, repriced, sent, details } = await searchParams;
+  const { error, waived, commission, moved, repriced, sent, details, reinstated } =
+    await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
@@ -135,6 +138,13 @@ export default async function AdminJobPage({
         </div>
 
         {error && <Alert>{error}</Alert>}
+        {reinstated && (
+          <Alert tone="success">
+            Reinstated — nobody has been told yet. Assign a cleaner or
+            re-broadcast below when you&apos;re ready; that&apos;s the step
+            that sends the texts.
+          </Alert>
+        )}
         {details && (
           <Alert tone={details === "moved-uncovered" ? "error" : "success"}>
             {details === "moved-uncovered"
@@ -313,14 +323,26 @@ export default async function AdminJobPage({
               )}
 
               {job.status === "cancelled" && (
-                <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  This booking is cancelled. Assigning a cleaner below (or
-                  re-broadcasting) reinstates it — the customer and cleaner
-                  get the normal confirmation texts.
-                </p>
+                <div className="mt-3 rounded-xl bg-amber-50 px-3 py-3 text-sm text-amber-900">
+                  <p>
+                    This booking is cancelled. Reinstating brings it back
+                    quietly — <strong>nobody is texted</strong> until you then
+                    assign a cleaner or re-broadcast it.
+                  </p>
+                  <form action={reinstateJobAction} className="mt-3">
+                    <input type="hidden" name="id" value={job.id} />
+                    <input type="hidden" name="ref" value={job.ref} />
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+                    >
+                      Reinstate booking (tells nobody)
+                    </button>
+                  </form>
+                </div>
               )}
 
-              {(open || job.status === "cancelled") && cleaners.length > 0 && (
+              {open && cleaners.length > 0 && (
                 <form action={assignJobAction} className="mt-4 flex flex-wrap items-center gap-2">
                   <input type="hidden" name="id" value={job.id} />
                   <select
@@ -329,11 +351,7 @@ export default async function AdminJobPage({
                     aria-label="Assign to a cleaner"
                     className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
                   >
-                    <option value="">
-                      {job.status === "cancelled"
-                        ? "Reinstate & assign to…"
-                        : "Assign to…"}
-                    </option>
+                    <option value="">Assign to…</option>
                     {cleaners.map((cleaner) => (
                       <option key={cleaner.id} value={cleaner.id}>
                         {cleaner.name}
@@ -358,7 +376,7 @@ export default async function AdminJobPage({
                 </form>
               )}
 
-              {(open || job.status === "cancelled") && (
+              {open && (
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-4 text-xs">
                   {job.status === "accepted" && (
                     <form action={reassignJobAction}>
@@ -368,26 +386,20 @@ export default async function AdminJobPage({
                       </button>
                     </form>
                   )}
-                  {["provisional", "unfilled", "offered", "cancelled"].includes(
-                    job.status
-                  ) && (
+                  {["provisional", "unfilled", "offered"].includes(job.status) && (
                     <form action={rebroadcastJobAction}>
                       <input type="hidden" name="id" value={job.id} />
                       <button type="submit" className="font-semibold text-primary-600 underline">
-                        {job.status === "cancelled"
-                          ? "Reinstate & re-broadcast"
-                          : "Re-broadcast"}
+                        Re-broadcast
                       </button>
                     </form>
                   )}
-                  {open && (
-                    <form action={cancelJobAction}>
-                      <input type="hidden" name="id" value={job.id} />
-                      <button type="submit" className="font-semibold text-red-600 underline">
-                        Cancel booking
-                      </button>
-                    </form>
-                  )}
+                  <form action={cancelJobAction}>
+                    <input type="hidden" name="id" value={job.id} />
+                    <button type="submit" className="font-semibold text-red-600 underline">
+                      Cancel booking
+                    </button>
+                  </form>
                 </div>
               )}
 

@@ -1319,16 +1319,16 @@ export async function assignJob(
   if (job.status === "completed") {
     return { ok: false, reason: "That job is already completed." };
   }
+  if (job.status === "cancelled") {
+    return {
+      ok: false,
+      reason: "Reinstate the booking first — then assign or re-broadcast.",
+    };
+  }
 
-  // Assigning a cancelled job reinstates it: the cancellation fields are
-  // wiped so it stops reading as cancelled anywhere, and the customer gets
-  // the normal "X is holding your slot" confirmation below, which tells
-  // them it's back on.
   await query(
     `UPDATE jobs
-        SET status = 'accepted', cleaner_id = $2, accepted_at = now(),
-            cancelled_at = NULL, cancel_reason = '', cancelled_by = '',
-            late_cancellation = false
+        SET status = 'accepted', cleaner_id = $2, accepted_at = now()
       WHERE id = $1`,
     [jobId, cleanerId]
   );
@@ -1516,10 +1516,35 @@ export async function deleteJob(
   return { ok: true };
 }
 
-/** Put an unfilled or cancelled job back out to the market. */
+/**
+ * Quietly bring a cancelled booking back: the cancellation is wiped and the
+ * job sits as unfilled with nobody assigned. Deliberately sends nothing —
+ * the office reinstates first, then assigns or re-broadcasts when ready,
+ * and only that second step notifies anyone.
+ */
+export async function reinstateJob(
+  jobId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const rows = await query<{ id: number }>(
+    `UPDATE jobs
+        SET status = 'unfilled', cleaner_id = NULL, accepted_at = NULL,
+            cancelled_at = NULL, cancel_reason = '', cancelled_by = '',
+            late_cancellation = false
+      WHERE id = $1 AND status = 'cancelled'
+      RETURNING id`,
+    [jobId]
+  );
+  if (rows.length === 0) {
+    return { ok: false, reason: "Only a cancelled booking can be reinstated." };
+  }
+  return { ok: true };
+}
+
+/** Put an unfilled job back out to the market. Cancelled ones are reinstated
+ *  (quietly) first — that's the step the office chooses to make noise after. */
 export async function rebroadcastJob(jobId: number): Promise<number> {
   const job = await getJob(jobId);
-  if (!job) return 0;
+  if (!job || job.status === "cancelled" || job.status === "completed") return 0;
   await query(
     `UPDATE jobs
         SET status = 'offered', cleaner_id = NULL, accepted_at = NULL,

@@ -13,6 +13,7 @@ import {
   deleteJobAction,
   reassignJobAction,
   rebroadcastJobAction,
+  reinstateJobAction,
 } from "../actions";
 import Link from "next/link";
 import { Alert, Card, StatusPill } from "@/components/marketplace/shell";
@@ -430,8 +431,7 @@ export default async function AdminJobsPage({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        {(job.status === "unfilled" ||
-                          job.status === "cancelled") && (
+                        {job.status === "unfilled" && (
                           <form action={rebroadcastJobAction}>
                             <input type="hidden" name="id" value={job.id} />
                             <button
@@ -442,9 +442,22 @@ export default async function AdminJobsPage({
                             </button>
                           </form>
                         )}
-                        {/* On a cancelled job "Assign to…" reinstates it:
-                            both sides get the normal confirmation texts. */}
-                        {job.status !== "completed" &&
+                        {/* Quiet first step: nobody is texted until the
+                            reinstated job is assigned or re-broadcast. */}
+                        {job.status === "cancelled" && (
+                          <form action={reinstateJobAction}>
+                            <input type="hidden" name="id" value={job.id} />
+                            <input type="hidden" name="ref" value={job.ref} />
+                            <button
+                              type="submit"
+                              title="Brings it back as unfilled without texting anyone — assign or re-broadcast afterwards"
+                              className="text-xs font-semibold text-amber-700 underline"
+                            >
+                              Reinstate
+                            </button>
+                          </form>
+                        )}
+                        {!["completed", "cancelled"].includes(job.status) &&
                           approvedCleaners.length > 0 && (
                             <form
                               action={assignJobAction}
@@ -457,11 +470,7 @@ export default async function AdminJobsPage({
                                 aria-label={`Assign ${job.ref} to a cleaner`}
                                 className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
                               >
-                                <option value="">
-                                  {job.status === "cancelled"
-                                    ? "Reinstate & assign to…"
-                                    : "Assign to…"}
-                                </option>
+                                <option value="">Assign to…</option>
                                 {approvedCleaners.map((cleaner) => (
                                   <option key={cleaner.id} value={cleaner.id}>
                                     {cleaner.name}
