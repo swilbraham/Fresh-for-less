@@ -442,7 +442,9 @@ export default async function AdminJobsPage({
                             </button>
                           </form>
                         )}
-                        {!["completed", "cancelled"].includes(job.status) &&
+                        {/* On a cancelled job "Assign to…" reinstates it:
+                            both sides get the normal confirmation texts. */}
+                        {job.status !== "completed" &&
                           approvedCleaners.length > 0 && (
                             <form
                               action={assignJobAction}
@@ -455,7 +457,11 @@ export default async function AdminJobsPage({
                                 aria-label={`Assign ${job.ref} to a cleaner`}
                                 className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
                               >
-                                <option value="">Assign to…</option>
+                                <option value="">
+                                  {job.status === "cancelled"
+                                    ? "Reinstate & assign to…"
+                                    : "Assign to…"}
+                                </option>
                                 {approvedCleaners.map((cleaner) => (
                                   <option key={cleaner.id} value={cleaner.id}>
                                     {cleaner.name}

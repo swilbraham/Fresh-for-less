@@ -312,7 +312,15 @@ export default async function AdminJobPage({
                 </p>
               )}
 
-              {open && cleaners.length > 0 && (
+              {job.status === "cancelled" && (
+                <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  This booking is cancelled. Assigning a cleaner below (or
+                  re-broadcasting) reinstates it — the customer and cleaner
+                  get the normal confirmation texts.
+                </p>
+              )}
+
+              {(open || job.status === "cancelled") && cleaners.length > 0 && (
                 <form action={assignJobAction} className="mt-4 flex flex-wrap items-center gap-2">
                   <input type="hidden" name="id" value={job.id} />
                   <select
@@ -321,7 +329,11 @@ export default async function AdminJobPage({
                     aria-label="Assign to a cleaner"
                     className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
                   >
-                    <option value="">Assign to…</option>
+                    <option value="">
+                      {job.status === "cancelled"
+                        ? "Reinstate & assign to…"
+                        : "Assign to…"}
+                    </option>
                     {cleaners.map((cleaner) => (
                       <option key={cleaner.id} value={cleaner.id}>
                         {cleaner.name}
@@ -346,7 +358,7 @@ export default async function AdminJobPage({
                 </form>
               )}
 
-              {open && (
+              {(open || job.status === "cancelled") && (
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-4 text-xs">
                   {job.status === "accepted" && (
                     <form action={reassignJobAction}>
@@ -356,20 +368,26 @@ export default async function AdminJobPage({
                       </button>
                     </form>
                   )}
-                  {["provisional", "unfilled", "offered"].includes(job.status) && (
+                  {["provisional", "unfilled", "offered", "cancelled"].includes(
+                    job.status
+                  ) && (
                     <form action={rebroadcastJobAction}>
                       <input type="hidden" name="id" value={job.id} />
                       <button type="submit" className="font-semibold text-primary-600 underline">
-                        Re-broadcast
+                        {job.status === "cancelled"
+                          ? "Reinstate & re-broadcast"
+                          : "Re-broadcast"}
                       </button>
                     </form>
                   )}
-                  <form action={cancelJobAction}>
-                    <input type="hidden" name="id" value={job.id} />
-                    <button type="submit" className="font-semibold text-red-600 underline">
-                      Cancel booking
-                    </button>
-                  </form>
+                  {open && (
+                    <form action={cancelJobAction}>
+                      <input type="hidden" name="id" value={job.id} />
+                      <button type="submit" className="font-semibold text-red-600 underline">
+                        Cancel booking
+                      </button>
+                    </form>
+                  )}
                 </div>
               )}
 

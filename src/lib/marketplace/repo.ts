@@ -1316,13 +1316,19 @@ export async function assignJob(
   if (cleaner.status !== "approved") {
     return { ok: false, reason: `${cleaner.name} isn't approved yet.` };
   }
-  if (job.status === "completed" || job.status === "cancelled") {
-    return { ok: false, reason: "That job is already closed." };
+  if (job.status === "completed") {
+    return { ok: false, reason: "That job is already completed." };
   }
 
+  // Assigning a cancelled job reinstates it: the cancellation fields are
+  // wiped so it stops reading as cancelled anywhere, and the customer gets
+  // the normal "X is holding your slot" confirmation below, which tells
+  // them it's back on.
   await query(
     `UPDATE jobs
-        SET status = 'accepted', cleaner_id = $2, accepted_at = now()
+        SET status = 'accepted', cleaner_id = $2, accepted_at = now(),
+            cancelled_at = NULL, cancel_reason = '', cancelled_by = '',
+            late_cancellation = false
       WHERE id = $1`,
     [jobId, cleanerId]
   );
@@ -1517,7 +1523,8 @@ export async function rebroadcastJob(jobId: number): Promise<number> {
   await query(
     `UPDATE jobs
         SET status = 'offered', cleaner_id = NULL, accepted_at = NULL,
-            cancelled_at = NULL, cancel_reason = ''
+            cancelled_at = NULL, cancel_reason = '', cancelled_by = '',
+            late_cancellation = false
       WHERE id = $1`,
     [jobId]
   );
