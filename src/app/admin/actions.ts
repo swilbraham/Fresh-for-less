@@ -11,8 +11,11 @@ import {
 import {
   approvedCleanersCovering,
   cancelJob,
+  createCleaner,
   deleteJob,
   deleteBundle,
+  findCleanerByEmail,
+  siteUrl,
   deletePriceItem,
   generateCommissionInvoices,
   getPriceItems,
@@ -36,7 +39,7 @@ import {
   invalidCoverageMessage,
   parseOutwardList,
 } from "@/lib/marketplace/postcode";
-import { makeResetToken } from "@/lib/marketplace/auth";
+import { hashPassword, makeResetToken } from "@/lib/marketplace/auth";
 import {
   activateProvisionalJobs,
   assignJob,
@@ -896,6 +899,88 @@ export async function issueResetLinkAction(data: FormData) {
 
   revalidatePath("/admin/cleaners");
   redirect(`/admin/cleaners?reset=${encodeURIComponent(link)}`);
+}
+
+/**
+ * Add a cleaner from the office — usually straight after a phone call, so
+ * they land already approved with their coverage set. They choose their own
+ * password through a set-up link, which is texted to them and shown in the
+ * banner in case the text doesn't land. Availability starts as every
+ * half-day; they trim it themselves, or the office can on their card.
+ */
+export async function createCleanerAction(data: FormData) {
+  await requireAdmin("/admin/cleaners");
+
+  const name = field(data, "name", 80);
+  const businessName = field(data, "businessName", 120);
+  const email = field(data, "email", 120).toLowerCase();
+  const phone = field(data, "phone", 30);
+  const coverageRaw = field(data, "coverage", 4000);
+
+  if (name.length < 2) fail("/admin/cleaners", "Enter the cleaner's name.");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    fail("/admin/cleaners", "Enter a valid email address.");
+  }
+  if (phone.replace(/\D/g, "").length < 10) {
+    fail("/admin/cleaners", "Enter a valid phone number.");
+  }
+
+  const { codes, invalid } = parseOutwardList(coverageRaw);
+  if (invalid.length) fail("/admin/cleaners", invalidCoverageMessage(invalid));
+  if (codes.length === 0) {
+    fail("/admin/cleaners", "List at least one postcode area they cover, e.g. CH41 CH42.");
+  }
+
+  if (await findCleanerByEmail(email)) {
+    fail("/admin/cleaners", "A cleaner already exists with that email.");
+  }
+
+  // A password only the set-up link can replace — nobody knows this one.
+  const cleanerId = await createCleaner({
+    name,
+    businessName,
+    email,
+    phone,
+    passwordHash: hashPassword(crypto.randomUUID() + crypto.randomUUID()),
+    insuranceProvider: field(data, "insuranceProvider", 120),
+    insuranceExpiry: null,
+    yearsExperience: 0,
+    equipment: "",
+  });
+  await setCleanerAreas(cleanerId, codes);
+  await setAvailability(
+    cleanerId,
+    [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, am: true, pm: true }))
+  );
+  await setCleanerStatus(cleanerId, "approved", "Added by the office.");
+
+  const hash = await getCleanerPasswordHash(cleanerId);
+  const token = makeResetToken(cleanerId, hash!);
+  const base = (
+    process.env.MARKETPLACE_BASE_URL ??
+    "https://www.freshforlesscarpetcleaning.co.uk"
+  ).replace(/\/$/, "");
+  const link = `${base}/pro/reset/${token}`;
+
+  const cleaner = await getCleaner(cleanerId);
+  if (cleaner) {
+    await notifyCleaner(cleaner, {
+      subject: "You're on Fresh For Less — set your password",
+      body:
+        `${name}, you've been added to Fresh For Less covering ` +
+        `${codes.length} postcode area${codes.length === 1 ? "" : "s"}.\n\n` +
+        `Set your password with this link (valid 48 hours):\n${link}\n\n` +
+        `Then your jobs live at ${siteUrl()}/pro/dashboard — job offers ` +
+        `arrive by text, first to accept wins.`,
+      smsBody:
+        `Fresh For Less: you're set up. Choose your password here (48h): ${link}`,
+    });
+  }
+
+  revalidatePath("/admin/cleaners");
+  redirect(
+    `/admin/cleaners?saved=1&reset=${encodeURIComponent(link)}&q=${encodeURIComponent(email)}`
+  );
 }
 
 

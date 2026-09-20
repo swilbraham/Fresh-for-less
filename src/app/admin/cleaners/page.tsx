@@ -10,6 +10,7 @@ import {
   listCleaners,
 } from "@/lib/marketplace/repo";
 import {
+  createCleanerAction,
   issueResetLinkAction,
   setCleanerStatusAction,
   updateCleanerAction,
@@ -138,6 +139,87 @@ export default async function AdminCleanersPage({
               : `${cleaners.length} of ${all.length}`})
           </span>
         </h1>
+
+        <details className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <summary className="cursor-pointer text-sm font-semibold text-primary-700">
+            + Add a cleaner
+          </summary>
+          <p className="mt-2 text-sm text-slate-500">
+            They land approved with coverage set, and get a text with a link to
+            choose their own password (the link also appears here in case the
+            text doesn&apos;t arrive). Availability starts as every half-day —
+            they can trim it on their dashboard, or you can on their card.
+          </p>
+          <form
+            action={createCleanerAction}
+            className="mt-3 grid gap-3 sm:grid-cols-2"
+          >
+            <label className="text-sm">
+              <span className="block font-semibold text-slate-700">Name</span>
+              <input
+                name="name"
+                required
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block font-semibold text-slate-700">
+                Business name <span className="font-normal text-slate-400">(optional)</span>
+              </span>
+              <input
+                name="businessName"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block font-semibold text-slate-700">Email</span>
+              <input
+                name="email"
+                type="email"
+                required
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block font-semibold text-slate-700">Mobile</span>
+              <input
+                name="phone"
+                required
+                placeholder="07…"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <label className="text-sm sm:col-span-2">
+              <span className="block font-semibold text-slate-700">
+                Postcode areas they cover
+              </span>
+              <textarea
+                name="coverage"
+                required
+                rows={2}
+                placeholder="CH41 CH42 L1 L2 — commas, spaces or new lines"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 uppercase"
+              />
+            </label>
+            <label className="text-sm sm:col-span-2">
+              <span className="block font-semibold text-slate-700">
+                Insurance provider <span className="font-normal text-slate-400">(optional, can be added later)</span>
+              </span>
+              <input
+                name="insuranceProvider"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <div className="sm:col-span-2">
+              <button
+                type="submit"
+                className="rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
+              >
+                Add cleaner &amp; text them their set-up link
+              </button>
+            </div>
+          </form>
+        </details>
 
         {/* A GET form so a filtered view is a shareable, reloadable URL. */}
         <form
