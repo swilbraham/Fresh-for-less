@@ -951,8 +951,15 @@ export async function createLead(input: {
 }
 
 export async function listLeads(status?: string): Promise<Lead[]> {
+  // Timestamps formatted in SQL: SELECT * hands back Date objects, which the
+  // page (typed to strings, like every other query here) crashed rendering
+  // the moment the first real lead arrived.
   return query<Lead>(
-    `SELECT * FROM leads
+    `SELECT id, ref, name, phone, postcode, outward, rooms, status, source,
+            referrer, landing_path, notes, job_id,
+            to_char(created_at AT TIME ZONE 'Europe/London', 'YYYY-MM-DD HH24:MI') AS created_at,
+            to_char(contacted_at AT TIME ZONE 'Europe/London', 'YYYY-MM-DD HH24:MI') AS contacted_at
+       FROM leads
       ${status ? "WHERE status = $1" : ""}
       ORDER BY created_at DESC LIMIT 200`,
     status ? [status] : []
