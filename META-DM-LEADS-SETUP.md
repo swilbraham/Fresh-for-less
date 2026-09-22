@@ -5,9 +5,11 @@ leads in `/admin/leads`, and the office gets the usual "new enquiry" text.
 Replies still happen in the Facebook/Instagram inbox — the site only captures
 messages, it never sends them.
 
-One Meta app serves **several pages** (e.g. Fresh For Less Carpet Cleaning and
-Wirral Carpet Cleaning): connect each page to the same app and each lead is
-labelled with the page that was messaged.
+One Meta app can serve **several pages**: connect each page to the same app
+and each lead is labelled with the page that was messaged. `META_ALLOWED_PAGES`
+(comma-separated page ids; for Instagram, the IG account id) restricts which
+pages are handled — currently set to the Fresh For Less page only
+(`312158372318245`); events from any other connected page are dropped.
 
 ## How it works
 
@@ -28,13 +30,13 @@ labelled with the page that was messaged.
    Instagram DMs too, **Instagram** (Instagram messaging requires the IG
    account to be a Business/Creator account linked to the Facebook Page).
 3. **Connect the Page(s)** — in Messenger → Settings, connect each business
-   Facebook Page (Fresh For Less, Wirral Carpet Cleaning, …) and click
-   **Generate token** for each. With one page, that token is
-   `META_PAGE_ACCESS_TOKEN`. With several pages, set one variable per page:
-   `META_PAGE_ACCESS_TOKEN_<pageid>` (the page id is shown next to the page in
-   the same screen, or under the page's About → Page transparency), e.g.
-   `META_PAGE_ACCESS_TOKEN_103456789012345`. A plain `META_PAGE_ACCESS_TOKEN`
-   still works as the fallback for any page without its own variable.
+   Facebook Page and click **Generate token** for each. With one page, that
+   token is `META_PAGE_ACCESS_TOKEN`. With several pages, set one variable per
+   page: `META_PAGE_ACCESS_TOKEN_<pageid>` (the page id is shown next to the
+   page in the same screen, or under the page's About → Page transparency),
+   e.g. `META_PAGE_ACCESS_TOKEN_312158372318245`. A plain
+   `META_PAGE_ACCESS_TOKEN` still works as the fallback for any page without
+   its own variable.
 4. **App secret** — App Settings → Basic → App Secret. That is
    `META_APP_SECRET`.
 5. **Set the env vars in Vercel** (Project → Settings → Environment

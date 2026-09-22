@@ -76,6 +76,7 @@ export async function POST(request: Request) {
   if (!platform) return NextResponse.json({ ok: true });
 
   for (const entry of body.entry ?? []) {
+    if (!pageAllowed(entry.id ?? "")) continue;
     for (const event of entry.messaging ?? []) {
       try {
         await handleMessage(platform, entry.id ?? "", event);
@@ -126,10 +127,22 @@ async function handleMessage(
 }
 
 /**
- * The app can be connected to several pages (Wirral Carpet Cleaning and Fresh
- * For Less), each with its own page access token. `META_PAGE_ACCESS_TOKEN_<id>`
- * wins for that page; `META_PAGE_ACCESS_TOKEN` is the fallback for a
- * single-page setup.
+ * Which pages this webhook handles. `META_ALLOWED_PAGES` is a comma-separated
+ * list of page ids (for Instagram, the IG account id); unset means every page
+ * the Meta app is connected to. Events from any other page are dropped.
+ */
+function pageAllowed(pageId: string): boolean {
+  const list = (process.env.META_ALLOWED_PAGES ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return list.length === 0 || list.includes(pageId);
+}
+
+/**
+ * The app can be connected to several pages, each with its own page access
+ * token. `META_PAGE_ACCESS_TOKEN_<id>` wins for that page;
+ * `META_PAGE_ACCESS_TOKEN` is the fallback for a single-page setup.
  */
 function pageToken(pageId: string): string | undefined {
   return (
