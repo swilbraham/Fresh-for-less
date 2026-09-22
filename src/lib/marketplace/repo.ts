@@ -8,6 +8,7 @@ import { bookingUrl } from "./auth";
 import { COMMISSION_TERMS_SHORT } from "./terms";
 import { firstName } from "./names";
 import { summariseEnquiry } from "./summarise";
+import { refundPaymentIntent } from "./stripe";
 import type {
   Cleaner,
   Job,
@@ -30,6 +31,10 @@ const JOB_COLUMNS = `
   j.subtotal_pence, j.total_pence, j.list_total_pence,
   j.commission_pct, j.commission_pence,
   j.commission_on_net,
+  j.deposit_pence,
+  to_char(j.deposit_paid_at,     'YYYY-MM-DD HH24:MI') AS deposit_paid_at,
+  to_char(j.deposit_refunded_at, 'YYYY-MM-DD HH24:MI') AS deposit_refunded_at,
+  j.stripe_payment_intent,
   j.status, j.cleaner_id,
   j.cancelled_by, j.late_cancellation, j.rescheduled_count,
   to_char(j.created_at,   'YYYY-MM-DD HH24:MI') AS created_at,
@@ -60,7 +65,9 @@ const OFFER_COLUMNS = `
   -- the house, so this is a deliberate trade of a little address detail for
   -- far fewer late drops.
   j.slot_window, j.items, j.notes, j.parking,
-  j.total_pence, j.commission_pct, j.commission_pence, j.status
+  j.total_pence, j.commission_pct, j.commission_pence, j.status,
+  j.deposit_pence,
+  to_char(j.deposit_paid_at, 'YYYY-MM-DD HH24:MI') AS deposit_paid_at
 `;
 
 const CLEANER_COLUMNS = `
@@ -530,6 +537,13 @@ export type BookingInput = {
    * both quote the figure that was actually agreed.
    */
   agreedPence?: number | null;
+  /**
+   * Hold the booking as pending_payment and collect the commission as an
+   * online deposit before anything is broadcast or anyone is told. Set by the
+   * public /book flow when deposits are enabled; phone/admin bookings never
+   * set it.
+   */
+  collectDeposit?: boolean;
 };
 
 export type BookingResult = {
@@ -574,7 +588,16 @@ export async function createBooking(
   // for the customer and as something to recruit against — but hold it as
   // provisional rather than confirming a slot nobody can work.
   const covered = await hasCoverage(outward);
-  const initialStatus = covered ? "offered" : "provisional";
+  // No deposit on provisional bookings — the customer was told "nothing to
+  // pay unless we confirm", and taking money for a slot nobody may cover
+  // would mean refund admin for a booking that never existed.
+  const collectDeposit =
+    Boolean(input.collectDeposit) && commissionPence > 0 && covered;
+  const initialStatus = collectDeposit
+    ? "pending_payment"
+    : covered
+      ? "offered"
+      : "provisional";
 
   let job: Job | null = null;
   for (let attempt = 0; attempt < 5 && !job; attempt++) {
@@ -584,8 +607,8 @@ export async function createBooking(
            (ref, customer_name, customer_email, customer_phone, address_line, town,
             postcode, outward, slot_date, slot_window, items, notes, parking,
             subtotal_pence, total_pence, list_total_pence,
-            commission_pct, commission_pence, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19)
+            commission_pct, commission_pence, status, deposit_pence)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20)
          RETURNING id, ref`,
         [
           makeRef("FFL"),
@@ -607,6 +630,7 @@ export async function createBooking(
           quote.commission_pct,
           commissionPence,
           initialStatus,
+          collectDeposit ? commissionPence : 0,
         ]
       );
     } catch (error) {
@@ -618,17 +642,84 @@ export async function createBooking(
   }
   if (!job) throw new Error("Could not create the booking. Please try again.");
 
-  const offered =
-    covered && !input.skipBroadcast
-      ? await broadcastJob(job.id, outward, input.slotDate, input.slotWindow)
-      : 0;
+  // Deposit bookings stay silent until the customer has actually paid —
+  // nothing is broadcast and nobody is told about a booking that may be
+  // abandoned at the card screen. activatePaidBooking() takes over once
+  // Stripe confirms the payment.
+  if (collectDeposit) {
+    const saved = (await getJob(job.id))!;
+    return { job: saved, quote, offered: 0 };
+  }
+
+  const offered = await announceBooking(job.id, input.skipBroadcast ?? false);
   const saved = (await getJob(job.id))!;
+  return { job: saved, quote, offered };
+}
+
+/** Remember which Checkout session is collecting this booking's deposit. */
+export async function setJobStripeSession(
+  jobId: number,
+  sessionId: string
+): Promise<void> {
+  await query(`UPDATE jobs SET stripe_session_id = $2 WHERE id = $1`, [
+    jobId,
+    sessionId,
+  ]);
+}
+
+/**
+ * A deposit has been confirmed paid — bring the booking to life. Idempotent:
+ * the conditional UPDATE only fires while the job is still pending_payment,
+ * so the success redirect and the Stripe webhook can both call this without
+ * double-broadcasting or double-texting anyone.
+ */
+export async function activatePaidBooking(
+  ref: string,
+  sessionId: string,
+  paymentIntent: string
+): Promise<Job | null> {
+  const job = await getJobByRef(ref);
+  if (!job) return null;
+
+  const covered = await hasCoverage(job.outward);
+  const activated = await query<{ id: number }>(
+    `UPDATE jobs
+        SET status = $2, deposit_paid_at = now(),
+            stripe_session_id = $3, stripe_payment_intent = $4
+      WHERE ref = $1 AND status = 'pending_payment'
+      RETURNING id`,
+    [ref, covered ? "offered" : "provisional", sessionId, paymentIntent]
+  );
+  // Zero rows: someone else already activated it (or it was never pending).
+  if (activated.length === 0) return getJobByRef(ref);
+
+  await announceBooking(job.id, false);
+  return getJobByRef(ref);
+}
+
+/**
+ * Everything that happens once a booking is real: broadcast to covering
+ * cleaners and tell the office and the customer. Shared by the pay-nothing
+ * flow (straight after insert) and the deposit flow (after payment).
+ */
+async function announceBooking(
+  jobId: number,
+  skipBroadcast: boolean
+): Promise<number> {
+  const pre = (await getJob(jobId))!;
+  const covered = await hasCoverage(pre.outward);
+
+  const offered =
+    covered && !skipBroadcast
+      ? await broadcastJob(pre.id, pre.outward, pre.slot_date, pre.slot_window)
+      : 0;
+  const saved = (await getJob(jobId))!;
 
   if (!covered) {
     const settings = await getSettings();
     await notify({
       recipient: settings.booking_email,
-      subject: `Provisional booking in ${outward} — ${gbpShort(saved.total_pence)} on ${saved.slot_date}`,
+      subject: `Provisional booking in ${saved.outward} — ${gbpShort(saved.total_pence)} on ${saved.slot_date}`,
       body:
         `${saved.customer_name} has booked provisionally in ${saved.postcode}, ` +
         `where nobody covers.\n\n` +
@@ -636,7 +727,7 @@ export async function createBooking(
         `Value: ${gbpShort(saved.total_pence)}\n` +
         `Phone: ${saved.customer_phone}\n\n` +
         `They were promised confirmation within 24 hours. Find a cleaner for ` +
-        `${outward} or call them back — ${siteUrl()}/admin/jobs?status=provisional`,
+        `${saved.outward} or call them back — ${siteUrl()}/admin/jobs?status=provisional`,
       jobId: saved.id,
     });
   }
@@ -645,8 +736,9 @@ export async function createBooking(
     subject: `New booking ${saved.ref} — ${saved.postcode}`,
     smsBody: covered
       ? `NEW BOOKING ${saved.ref}: ${saved.postcode}, ${saved.slot_date} ` +
-        `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
-        `${input.skipBroadcast
+        `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}` +
+        `${saved.deposit_paid_at ? ` (${gbpShort(saved.deposit_pence)} deposit PAID)` : ""}. ` +
+        `${skipBroadcast
           ? "Going straight to the cleaner you picked."
           : `Offered to ${offered} cleaner${offered === 1 ? "" : "s"}.`}`
       : `NEW REQUEST ${saved.ref}: ${saved.postcode}, ${saved.slot_date} ` +
@@ -656,6 +748,12 @@ export async function createBooking(
   });
 
   const manageLink = bookingUrl(saved.ref, siteUrl());
+  const depositPaid = Boolean(saved.deposit_paid_at);
+  const balancePence = saved.total_pence - (depositPaid ? saved.deposit_pence : 0);
+  const priceLine = depositPaid
+    ? `Fixed price: ${gbpShort(saved.total_pence)}. Deposit paid: ${gbpShort(saved.deposit_pence)}. ` +
+      `Balance: ${gbpShort(balancePence)}, payable to your cleaner on the day.`
+    : `Fixed price: ${gbpShort(saved.total_pence)}, payable to your cleaner on the day.`;
   await notifyCustomer(saved, {
     subject: covered
       ? `Booking received — ${saved.ref}`
@@ -665,27 +763,28 @@ export async function createBooking(
       `Reference: ${saved.ref}\n` +
       `Date: ${saved.slot_date} (${saved.slot_window === "am" ? "Morning 8am-12pm" : "Afternoon 12pm-5pm"})\n` +
       `Address: ${saved.address_line}, ${saved.postcode}\n` +
-      `Fixed price: ${gbpShort(saved.total_pence)}, payable to your cleaner on the day.\n\n` +
+      `${priceLine}\n\n` +
       (covered
-        ? input.skipBroadcast
+        ? skipBroadcast
           ? `We'll confirm your cleaner's details in a moment.\n\n`
           : `We're matching you with a vetted cleaner now and will confirm their ` +
             `details as soon as the job is claimed.\n\n`
-        : `We don't have a cleaner in ${outward} yet, so this is a request ` +
+        : `We don't have a cleaner in ${saved.outward} yet, so this is a request ` +
           `rather than a confirmed booking. We'll confirm within 24 hours, or ` +
           `call you to sort something out. You owe nothing either way.\n\n`) +
       `Need to change or cancel? Use this link any time:\n${manageLink}`,
     smsBody: covered
       ? `Booking ${saved.ref} confirmed for ${saved.slot_date} ` +
-        `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
+        `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}` +
+        `${depositPaid ? ` (${gbpShort(saved.deposit_pence)} deposit paid, ${gbpShort(balancePence)} on the day)` : ""}. ` +
         `Change or cancel: ${manageLink}`
       : `Request ${saved.ref} received for ${saved.slot_date} ` +
         `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
-        `We'll confirm within 24h — nothing to pay. ${manageLink}`,
+        `We'll confirm within 24h${depositPaid ? "" : " — nothing to pay"}. ${manageLink}`,
     jobId: saved.id,
   });
 
-  return { job: saved, quote, offered };
+  return offered;
 }
 
 export type ReminderJob = Job & { cleaner_name: string | null };
@@ -1103,6 +1202,7 @@ export async function broadcastJob(
     );
     const items = job.items.map((line) => `${line.qty}x ${line.label}`).join(", ");
     const youKeep = gbpShort(job.total_pence - job.commission_pence);
+    const depositPaid = Boolean(job.deposit_paid_at);
 
     await notifyCleaner(cleaner, {
       subject: `New job available — ${job.postcode} on ${job.slot_date} (${gbpShort(job.total_pence)})`,
@@ -1111,14 +1211,21 @@ export async function broadcastJob(
         `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
         `Job: ${items}\n` +
         `Job value: ${gbpShort(job.total_pence)}\n` +
-        `Commission: ${gbpShort(job.commission_pence)} — you keep ${youKeep}\n` +
-        `${COMMISSION_TERMS_SHORT}\n\n` +
-        `First to accept gets it — open your dashboard at ${siteUrl()}/pro/dashboard.`,
+        (depositPaid
+          ? `The customer has already paid our ${gbpShort(job.deposit_pence)} commission ` +
+            `online. You collect ${youKeep} on the day and keep every penny — ` +
+            `nothing to pay us afterwards.\n`
+          : `Commission: ${gbpShort(job.commission_pence)} — you keep ${youKeep}\n` +
+            `${COMMISSION_TERMS_SHORT}\n`) +
+        `\nFirst to accept gets it — open your dashboard at ${siteUrl()}/pro/dashboard.`,
       // Kept short and front-loaded: it has to be readable in a lock-screen preview.
-      smsBody:
-        `New job ${job.outward}, ${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
-        `${gbpShort(job.total_pence)}, you keep ${youKeep}. ` +
-        `First to accept wins: ${siteUrl()}/pro/dashboard`,
+      smsBody: depositPaid
+        ? `New job ${job.outward}, ${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
+          `Collect ${youKeep}, keep it all (commission pre-paid). ` +
+          `First to accept wins: ${siteUrl()}/pro/dashboard`
+        : `New job ${job.outward}, ${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
+          `${gbpShort(job.total_pence)}, you keep ${youKeep}. ` +
+          `First to accept wins: ${siteUrl()}/pro/dashboard`,
       jobId,
     });
   }
@@ -1253,6 +1360,9 @@ export async function applyCommissionBasis(
   const [job, cleaner] = await Promise.all([getJob(jobId), getCleaner(cleanerId)]);
   if (!job || !cleaner) return;
   if (job.commission_pence === 0) return; // waived — leave it alone
+  // The customer already paid the commission as their deposit — that figure is
+  // final regardless of who accepts, so the VAT-basis recalculation is skipped.
+  if (job.deposit_paid_at) return;
 
   const invoiced = await queryOne<{ id: number }>(
     `SELECT invoice_id AS id FROM commission_invoice_lines WHERE job_id = $1`,
@@ -1533,6 +1643,21 @@ export async function completeJob(
  * still expects a cleaner at their door, and a cleaner who hears nothing turns
  * up to one that isn't expecting them.
  */
+/**
+ * Refund a paid deposit, once. False when there was nothing to refund or
+ * Stripe declined — the deposit fields on the job say which afterwards.
+ */
+async function refundDepositIfPaid(job: Job): Promise<boolean> {
+  if (!job.deposit_paid_at || job.deposit_refunded_at || !job.stripe_payment_intent) {
+    return false;
+  }
+  const ok = await refundPaymentIntent(job.stripe_payment_intent);
+  if (ok) {
+    await query(`UPDATE jobs SET deposit_refunded_at = now() WHERE id = $1`, [job.id]);
+  }
+  return ok;
+}
+
 export async function cancelJob(
   jobId: number,
   reason: string
@@ -1553,6 +1678,7 @@ export async function cancelJob(
   // loosen, it stops a cleaner being billed for work that didn't happen.
   await dropJobFromInvoices(jobId);
 
+  const refunded = await refundDepositIfPaid(job);
   const when = `${job.slot_date} (${job.slot_window.toUpperCase()})`;
 
   await notifyCustomer(job, {
@@ -1560,11 +1686,15 @@ export async function cancelJob(
     body:
       `${job.customer_name}, we've cancelled your carpet clean for ${when}.\n\n` +
       `${reason ? `Reason: ${reason}\n\n` : ""}` +
+      `${refunded
+        ? `Your ${gbpShort(job.deposit_pence)} deposit is being refunded to your card — allow 5-10 working days.\n\n`
+        : ""}` +
       `There's nothing to pay. Call 0330 043 4811 and we'll rebook you, or ` +
       `book again at ${siteUrl()}/book.`,
     smsBody:
       `Your Fresh For Less booking ${job.ref} for ${when} has been cancelled. ` +
-      `Nothing to pay. Call 0330 043 4811 to rebook.`,
+      `${refunded ? `${gbpShort(job.deposit_pence)} deposit refunded. ` : "Nothing to pay. "}` +
+      `Call 0330 043 4811 to rebook.`,
     jobId,
   });
 
@@ -1695,6 +1825,8 @@ export type JobOffer = Pick<
   | "commission_pct"
   | "commission_pence"
   | "status"
+  | "deposit_pence"
+  | "deposit_paid_at"
 >;
 
 export async function listOffersForCleaner(
@@ -1898,6 +2030,7 @@ export async function listUninvoicedCommission(): Promise<
        JOIN cleaners c ON c.id = j.cleaner_id
       WHERE j.status = 'completed'
         AND j.commission_pence > 0
+        AND j.deposit_paid_at IS NULL
         AND NOT EXISTS (
           SELECT 1 FROM commission_invoice_lines l WHERE l.job_id = j.id
         )
@@ -1949,6 +2082,7 @@ export async function generateCommissionInvoices(
         WHERE j.status = 'completed'
           AND j.cleaner_id = $2
           AND j.commission_pence > 0
+          AND j.deposit_paid_at IS NULL
           AND NOT EXISTS (
             SELECT 1 FROM commission_invoice_lines l WHERE l.job_id = j.id
           )
@@ -3239,6 +3373,10 @@ export async function cancelJobByCustomer(
       WHERE id = $1`,
     [jobId, reason.slice(0, 200) || "Cancelled by customer", late]
   );
+
+  // The deposit goes back in full, late or not — a refund argument costs more
+  // than the commission. Late cancellations are still flagged for the office.
+  await refundDepositIfPaid(job);
 
   if (job.cleaner_id) {
     const cleaner = await getCleaner(job.cleaner_id);

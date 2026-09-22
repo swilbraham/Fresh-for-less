@@ -146,10 +146,30 @@ export default async function ManageBookingPage({
               label="Address"
               value={`${job.address_line}${job.town ? `, ${job.town}` : ""}, ${job.postcode}`}
             />
-            <Row
-              label="Price"
-              value={`${gbp(job.total_pence)} — pay your cleaner on the day`}
-            />
+            {job.deposit_paid_at ? (
+              <>
+                <Row label="Price" value={gbp(job.total_pence)} />
+                <Row
+                  label="Deposit"
+                  value={
+                    job.deposit_refunded_at
+                      ? `${gbp(job.deposit_pence)} refunded to your card`
+                      : `${gbp(job.deposit_pence)} paid ✓`
+                  }
+                />
+                {!job.deposit_refunded_at && (
+                  <Row
+                    label="Balance on the day"
+                    value={`${gbp(job.total_pence - job.deposit_pence)} — pay your cleaner directly`}
+                  />
+                )}
+              </>
+            ) : (
+              <Row
+                label="Price"
+                value={`${gbp(job.total_pence)} — pay your cleaner on the day`}
+              />
+            )}
             <Row
               label="Your cleaner"
               value={

@@ -9,6 +9,7 @@ import {
   getPriceItems,
   getSettings,
 } from "@/lib/marketplace/repo";
+import { depositsEnabled } from "@/lib/marketplace/stripe";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function BookPage() {
           commissionPct={Number(settings.commission_pct)}
           protectionPct={Number(settings.protection_pct)}
           protectionEnabled={settings.protection_enabled}
+          depositEnabled={depositsEnabled()}
           hero={
             <header className="relative overflow-hidden bg-slate-900 pb-14 pt-14">
               <div

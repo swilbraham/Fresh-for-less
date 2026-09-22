@@ -83,6 +83,7 @@ export default async function AdminJobsPage({
   ]);
 
   const STATUSES = [
+    "pending_payment",
     "provisional",
     "offered",
     "accepted",
@@ -410,6 +411,15 @@ export default async function AdminJobsPage({
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-slate-500">
                       {gbp(job.commission_pence)}
+                      {job.deposit_paid_at && (
+                        <p
+                          className={`mt-0.5 text-xs font-semibold ${
+                            job.deposit_refunded_at ? "text-slate-400" : "text-accent-700"
+                          }`}
+                        >
+                          {job.deposit_refunded_at ? "deposit refunded" : "deposit paid"}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <StatusPill status={job.status} />

@@ -202,6 +202,7 @@ export function StatusPill({ status }: { status: string }) {
     completed: "bg-accent-100 text-accent-800",
     paid: "bg-accent-100 text-accent-800",
     pending: "bg-amber-100 text-amber-800",
+    pending_payment: "bg-amber-100 text-amber-800",
     offered: "bg-primary-100 text-primary-800",
     accepted: "bg-primary-100 text-primary-800",
     issued: "bg-amber-100 text-amber-800",

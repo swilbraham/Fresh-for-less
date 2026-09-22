@@ -32,6 +32,7 @@ export default function BookingFlow({
   commissionPct,
   protectionPct,
   protectionEnabled,
+  depositEnabled = false,
   landing,
   hero,
 }: {
@@ -42,6 +43,8 @@ export default function BookingFlow({
   commissionPct: number;
   protectionPct: number;
   protectionEnabled: boolean;
+  /** Take the commission as a card deposit at booking (Stripe Checkout). */
+  depositEnabled?: boolean;
   /** Marketing content, shown only before the customer starts the quote. */
   landing?: ReactNode;
   /**
@@ -240,6 +243,12 @@ export default function BookingFlow({
       const data = await response.json();
       if (!data.ok) {
         setError(data.error ?? "We couldn't take that booking.");
+        return;
+      }
+      // Deposit flow: pay the deposit at Stripe first; the confirmation page
+      // takes over when the card payment succeeds.
+      if (data.checkout_url) {
+        window.location.assign(data.checkout_url);
         return;
       }
       router.push(`/book/confirmed/${data.ref}`);
@@ -846,7 +855,9 @@ export default function BookingFlow({
             <p className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
               {coverage?.provisional
                 ? `If we can cover ${coverage.outward}, you'll pay your cleaner ${gbp(quote.total_pence)} on the day. Nothing to pay unless we confirm.`
-                : `Pay your cleaner ${gbp(quote.total_pence)} on the day — cash or card. Nothing to pay now.`}
+                : depositEnabled && quote.commission_pence > 0
+                  ? `Pay a ${gbp(quote.commission_pence)} deposit by card now to secure your slot — the remaining ${gbp(quote.total_pence - quote.commission_pence)} goes straight to your cleaner on the day, cash or card. Deposit fully refunded if you cancel or we can't fill the slot.`
+                  : `Pay your cleaner ${gbp(quote.total_pence)} on the day — cash or card. Nothing to pay now.`}
             </p>
           </section>
 
@@ -877,7 +888,9 @@ export default function BookingFlow({
                 ? "Sending…"
                 : coverage?.provisional
                   ? `Request this booking — ${gbp(quote.total_pence)}`
-                  : `Confirm booking — ${gbp(quote.total_pence)}`}
+                  : depositEnabled && quote.commission_pence > 0
+                    ? `Confirm & pay ${gbp(quote.commission_pence)} deposit`
+                    : `Confirm booking — ${gbp(quote.total_pence)}`}
             </button>
           </div>
         </form>
@@ -904,7 +917,11 @@ export default function BookingFlow({
                   Offer saves you {gbp(quote.savings_pence)}
                 </p>
               )}
-              <p>No deposit · pay the cleaner on the day</p>
+              <p>
+                {depositEnabled && quote.commission_pence > 0 && !coverage?.provisional
+                  ? `${gbp(quote.commission_pence)} deposit now · rest to your cleaner on the day`
+                  : "No deposit · pay the cleaner on the day"}
+              </p>
             </div>
           </div>
         </div>
