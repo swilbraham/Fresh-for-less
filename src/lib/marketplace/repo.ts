@@ -1060,6 +1060,14 @@ export async function createSocialLead(input: {
   return lead;
 }
 
+/**
+ * Permanently remove an enquiry. If the same person messages again a fresh
+ * lead is simply created — nothing else references leads.
+ */
+export async function deleteLead(id: number): Promise<void> {
+  await query(`DELETE FROM leads WHERE id = $1`, [id]);
+}
+
 /** Append one line to a lead's notes — used to record auto-replies. */
 export async function appendLeadNote(leadId: number, note: string): Promise<void> {
   await query(

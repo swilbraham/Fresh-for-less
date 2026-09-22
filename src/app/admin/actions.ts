@@ -26,6 +26,7 @@ import {
   setCleanerStatus,
   setInvoiceStatus,
   setLeadStatus,
+  deleteLead,
   removeInvoiceLine,
   getInvoice,
   notifyInvoiceRaised,
@@ -789,6 +790,14 @@ export async function setLeadStatusAction(data: FormData) {
   const back = field(data, "back", 12);
 
   await setLeadStatus(id, status);
+  revalidatePath("/admin/leads");
+  redirect(`/admin/leads?status=${encodeURIComponent(back)}&saved=1`);
+}
+
+/** Bound-argument variant, same reason as removePriceItemAction above. */
+export async function deleteLeadAction(id: number, back: string, _data: FormData) {
+  await requireAdmin("/admin/leads");
+  await deleteLead(id);
   revalidatePath("/admin/leads");
   redirect(`/admin/leads?status=${encodeURIComponent(back)}&saved=1`);
 }

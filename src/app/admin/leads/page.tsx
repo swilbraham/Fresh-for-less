@@ -2,8 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import { listLeads, hasCoverage } from "@/lib/marketplace/repo";
-import { setLeadStatusAction } from "../actions";
+import { setLeadStatusAction, deleteLeadAction } from "../actions";
 import { AdminNav, Alert, Card } from "@/components/marketplace/shell";
+import ConfirmButton from "@/components/marketplace/ConfirmButton";
 
 export const dynamic = "force-dynamic";
 
@@ -156,6 +157,13 @@ export default async function LeadsPage({
                         </button>
                       ))}
                     <span className="ml-1 text-slate-400">now: {lead.status}</span>
+                    <ConfirmButton
+                      action={deleteLeadAction.bind(null, lead.id, active)}
+                      confirmText={`Delete this enquiry from ${lead.name} permanently? Mark it "Not proceeding" instead if you just want it out of the way.`}
+                      className="ml-auto rounded-lg px-3 py-1.5 font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </ConfirmButton>
                   </form>
                 </li>
               );
