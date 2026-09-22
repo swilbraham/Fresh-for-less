@@ -9,6 +9,7 @@
     "predev": "node -e \"require('fs').mkdirSync('.data/marketplace',{recursive:true})\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
     "@electric-sql/pglite": "^0.5.5",
     "@neondatabase/serverless": "^1.1.0",
     "framer-motion": "^12.34.0",

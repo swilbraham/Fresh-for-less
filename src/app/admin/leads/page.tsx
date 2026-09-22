@@ -81,12 +81,18 @@ export default async function LeadsPage({
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="font-bold text-slate-900">
                       {lead.name}
-                      <a
-                        href={`tel:${lead.phone}`}
-                        className="ml-3 font-semibold text-primary-600 underline"
-                      >
-                        {lead.phone}
-                      </a>
+                      {lead.phone ? (
+                        <a
+                          href={`tel:${lead.phone}`}
+                          className="ml-3 font-semibold text-primary-600 underline"
+                        >
+                          {lead.phone}
+                        </a>
+                      ) : (
+                        <span className="ml-3 text-sm font-normal text-slate-400">
+                          no phone yet — reply in the {lead.source === "instagram-dm" ? "Instagram" : "Facebook"} inbox
+                        </span>
+                      )}
                     </p>
                     <span className="font-mono text-xs text-slate-400">
                       {lead.ref} · {lead.created_at.slice(0, 16).replace("T", " ")}
@@ -113,6 +119,17 @@ export default async function LeadsPage({
                     {lead.landing_path ? ` · ${lead.landing_path}` : ""}
                     {lead.referrer ? ` · from ${lead.referrer.slice(0, 60)}` : ""}
                   </p>
+
+                  {lead.summary && (
+                    <p className="mt-2 text-sm font-semibold text-slate-800">
+                      {lead.summary}
+                    </p>
+                  )}
+                  {lead.notes && (
+                    <p className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                      {lead.notes}
+                    </p>
+                  )}
 
                   <form action={setLeadStatusAction} className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                     <input type="hidden" name="id" value={lead.id} />

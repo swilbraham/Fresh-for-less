@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 35;
+export const SCHEMA_VERSION = 37;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -352,6 +352,24 @@ export const STATEMENTS: string[] = [
   // When the cleaner was last texted a payment reminder, so the invoices page
   // can show it and the office doesn't double-chase.
   `ALTER TABLE commission_invoices ADD COLUMN IF NOT EXISTS chased_at timestamptz`,
+
+  // ---- Social DM leads ------------------------------------------------------
+  // Facebook/Instagram messages arrive as leads via /api/meta/webhook. The
+  // sender's platform-scoped id lets follow-up messages land on the same open
+  // lead instead of opening a new one per message.
+  `ALTER TABLE leads ADD COLUMN IF NOT EXISTS sender_id text NOT NULL DEFAULT ''`,
+  `CREATE INDEX IF NOT EXISTS leads_sender ON leads (sender_id) WHERE sender_id <> ''`,
+
+  // One-line AI gist of the conversation so the enquiries page scans at a
+  // glance. Written best-effort when ANTHROPIC_API_KEY is set; else empty.
+  `ALTER TABLE leads ADD COLUMN IF NOT EXISTS summary text NOT NULL DEFAULT ''`,
+
+  // Meta redelivers webhook events until it sees a 200, so each message id is
+  // recorded once here and duplicates are dropped.
+  `CREATE TABLE IF NOT EXISTS social_events (
+     mid        text PRIMARY KEY,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------

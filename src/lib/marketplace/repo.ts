@@ -7,6 +7,7 @@ import { isMobile, toE164 } from "./phone";
 import { bookingUrl } from "./auth";
 import { COMMISSION_TERMS_SHORT } from "./terms";
 import { firstName } from "./names";
+import { summariseEnquiry } from "./summarise";
 import type {
   Cleaner,
   Job,
@@ -901,6 +902,7 @@ export type Lead = {
   referrer: string;
   landing_path: string;
   notes: string;
+  summary: string;
   job_id: number | null;
   created_at: string;
   contacted_at: string | null;
@@ -956,7 +958,7 @@ export async function listLeads(status?: string): Promise<Lead[]> {
   // the moment the first real lead arrived.
   return query<Lead>(
     `SELECT id, ref, name, phone, postcode, outward, rooms, status, source,
-            referrer, landing_path, notes, job_id,
+            referrer, landing_path, notes, summary, job_id,
             to_char(created_at AT TIME ZONE 'Europe/London', 'YYYY-MM-DD HH24:MI') AS created_at,
             to_char(contacted_at AT TIME ZONE 'Europe/London', 'YYYY-MM-DD HH24:MI') AS contacted_at
        FROM leads
@@ -980,6 +982,90 @@ export async function setLeadStatus(
       WHERE id = $1`,
     [id, status, notes ?? null]
   );
+}
+
+/**
+ * Record a Meta webhook message id, returning false if it was already seen.
+ * Meta redelivers events until it gets a 200, so this makes the webhook safe
+ * to hit twice with the same message.
+ */
+export async function markSocialMessageSeen(mid: string): Promise<boolean> {
+  const row = await queryOne<{ mid: string }>(
+    `INSERT INTO social_events (mid) VALUES ($1)
+     ON CONFLICT (mid) DO NOTHING
+     RETURNING mid`,
+    [mid]
+  );
+  return row !== null;
+}
+
+/**
+ * A Facebook or Instagram DM becomes a lead. Follow-up messages from the same
+ * sender are appended to their open lead rather than opening a new one per
+ * message; the office is only texted when a genuinely new conversation starts.
+ * There's no phone number until someone reads the thread and gets one.
+ */
+export async function createSocialLead(input: {
+  platform: "facebook" | "instagram";
+  senderId: string;
+  senderName: string;
+  /** Which business page was messaged — several pages feed this one inbox. */
+  pageLabel?: string;
+  text: string;
+}): Promise<Lead> {
+  const source = input.platform === "facebook" ? "facebook-dm" : "instagram-dm";
+  // sv-SE formats as "YYYY-MM-DD HH:MM:SS"; sliced to minutes, London time to
+  // match every other timestamp the admin pages show.
+  const stamp = new Date()
+    .toLocaleString("sv-SE", { timeZone: "Europe/London" })
+    .slice(0, 16);
+  const line = `[${stamp}] ${input.text}`.slice(0, 2000);
+
+  const open = await queryOne<Lead>(
+    `UPDATE leads
+        SET notes = left(notes || E'\n' || $3, 8000)
+      WHERE id = (SELECT id FROM leads
+                   WHERE sender_id = $1 AND source = $2
+                     AND status IN ('new','contacted')
+                   ORDER BY created_at DESC LIMIT 1)
+      RETURNING *`,
+    [input.senderId, source, line]
+  );
+  if (open) {
+    // Follow-ups change what the customer wants, so re-gist the whole thread.
+    await updateLeadSummary(open.id, open.notes);
+    return open;
+  }
+
+  // The page name rides in landing_path, which the admin page already renders
+  // after the source — "via facebook-dm · Wirral Carpet Cleaning".
+  const lead = (await queryOne<Lead>(
+    `INSERT INTO leads (ref, name, phone, sender_id, source, landing_path, notes)
+     VALUES ($1,$2,'',$3,$4,$5,$6)
+     RETURNING *`,
+    [makeRef("LEAD"), input.senderName, input.senderId, source, input.pageLabel ?? "", line]
+  ))!;
+
+  const channel = input.platform === "facebook" ? "Facebook" : "Instagram";
+  const where = input.pageLabel ? ` (${input.pageLabel})` : "";
+  await notifyAdmin({
+    subject: `New ${channel} enquiry ${lead.ref}`,
+    smsBody:
+      `NEW ${channel.toUpperCase()} DM${where} ${lead.ref}: ${input.senderName}\n` +
+      `"${input.text.slice(0, 120)}"\n` +
+      `Reply in the ${channel} inbox · ${siteUrl()}/admin/leads`,
+  });
+
+  await updateLeadSummary(lead.id, lead.notes);
+  return lead;
+}
+
+/** Best-effort: a lead with no summary just shows its full messages instead. */
+async function updateLeadSummary(leadId: number, notes: string): Promise<void> {
+  const summary = await summariseEnquiry(notes);
+  if (summary) {
+    await query(`UPDATE leads SET summary = $2 WHERE id = $1`, [leadId, summary]);
+  }
 }
 
 /** Offer the job to every matching cleaner at once — first to accept wins. */
