@@ -131,7 +131,8 @@ src/lib/marketplace/
 | `RESEND_API_KEY` | Optional | Delivers notification emails. |
 | `MARKETPLACE_FROM_EMAIL` | Optional | From address, required alongside `RESEND_API_KEY`. |
 | `META_VERIFY_TOKEN` / `META_APP_SECRET` / `META_PAGE_ACCESS_TOKEN` | Optional | Facebook/Instagram DMs become leads via `/api/meta/webhook`. Setup steps in `META-DM-LEADS-SETUP.md`. |
-| `ANTHROPIC_API_KEY` | Optional | One-line AI summary of each DM lead on `/admin/leads` (`summarise.ts`, Claude Opus 5). Without it, leads just show the full messages. |
+| `ANTHROPIC_API_KEY` | Optional | One-line AI summary of each DM lead on `/admin/leads` (`summarise.ts`) and quote-request auto-replies (`social-reply.ts`), both Claude Opus 5. Without it, leads just show the full messages and no auto-reply is sent. |
+| `META_AUTO_REPLY` | Optional | Set to `off` to stop the automatic quote reply to Facebook/Instagram DMs without disabling anything else. |
 
 With no provider configured a message is still written to the `notifications`
 table and shown in the admin log as "logged only", so nothing is silently lost —

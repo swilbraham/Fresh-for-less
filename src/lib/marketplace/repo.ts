@@ -1060,6 +1060,14 @@ export async function createSocialLead(input: {
   return lead;
 }
 
+/** Append one line to a lead's notes — used to record auto-replies. */
+export async function appendLeadNote(leadId: number, note: string): Promise<void> {
+  await query(
+    `UPDATE leads SET notes = left(notes || E'\n' || $2, 8000) WHERE id = $1`,
+    [leadId, note]
+  );
+}
+
 /** Best-effort: a lead with no summary just shows its full messages instead. */
 async function updateLeadSummary(leadId: number, notes: string): Promise<void> {
   const summary = await summariseEnquiry(notes);

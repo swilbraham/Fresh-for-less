@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createSocialLead, markSocialMessageSeen } from "@/lib/marketplace/repo";
+import { maybeAutoReply } from "@/lib/marketplace/social-reply";
 
 export const dynamic = "force-dynamic";
 
@@ -111,13 +112,17 @@ async function handleMessage(
 
   if (!(await markSocialMessageSeen(mid))) return;
 
-  await createSocialLead({
+  const lead = await createSocialLead({
     platform,
     senderId,
     senderName: await senderName(platform, senderId, pageId),
     pageLabel: await pageLabel(pageId),
     text: text.slice(0, 1500),
   });
+
+  // Quote-request DMs get one automatic reply with the instant price and the
+  // /book link; everything else waits for a human.
+  await maybeAutoReply({ lead, senderId, pageToken: pageToken(pageId) });
 }
 
 /**

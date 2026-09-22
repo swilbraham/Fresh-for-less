@@ -54,6 +54,20 @@ labelled with the page that was messaged.
      Page** to the app — the webhook itself is set once per app, not per page.
    Repeat under the Instagram product for IG messages (field `messages`).
 
+## Auto-replies to quote requests
+
+When a DM looks like a quote request, the site replies once per conversation
+with the instant price for what they described (computed by `quoteBasket()`
+from the live admin price list — the AI only maps their words onto item codes,
+it never invents figures), a link to `/book`, and a line that prices are
+confirmed at booking. Messages that aren't quote requests get no auto-reply.
+The reply is recorded on the lead's notes as "↳ auto-reply sent".
+
+Needs `ANTHROPIC_API_KEY` and the page's access token. Set `META_AUTO_REPLY=off`
+in Vercel to switch replies off without touching anything else. Sending uses
+the same `pages_messaging` permission as receiving, so the App Review below
+covers both.
+
 ## The catch: App Review
 
 While the app is in **Development mode**, Meta only delivers messages from
