@@ -79,8 +79,11 @@ customer pays the platform's commission as a **card deposit at booking**
 (Stripe Checkout). The booking is held as `pending_payment` and nothing is
 broadcast or sent until Stripe confirms; the cleaner then collects the balance
 on the day and keeps all of it — no commission invoice is ever raised for a
-deposit-paid job. Deposits are auto-refunded in full when a booking is
-cancelled (by customer or admin). Provisional (no-coverage) bookings and
+deposit-paid job. Deposits are auto-refunded in full when the customer cancels
+with more than `settings.cancellation_notice_hours` notice (default 24) — a
+late customer cancellation keeps the fee (stated at checkout, on Stripe's
+payment page and on the manage page; rescheduling is always free), and admin
+cancellations always refund. Provisional (no-coverage) bookings and
 phone/admin bookings never take a deposit — those keep the old model: the
 cleaner collects the full price and commission is invoiced weekly.
 

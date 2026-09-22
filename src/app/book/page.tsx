@@ -41,6 +41,7 @@ export default async function BookPage() {
           protectionPct={Number(settings.protection_pct)}
           protectionEnabled={settings.protection_enabled}
           depositEnabled={depositsEnabled()}
+          cancelNoticeHours={settings.cancellation_notice_hours}
           hero={
             <header className="relative overflow-hidden bg-slate-900 pb-14 pt-14">
               <div

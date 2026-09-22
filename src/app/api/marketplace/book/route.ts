@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createBooking, setJobStripeSession, siteUrl } from "@/lib/marketplace/repo";
+import { createBooking, getSettings, setJobStripeSession, siteUrl } from "@/lib/marketplace/repo";
 import { normalisePostcode } from "@/lib/marketplace/postcode";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 import { createDepositCheckout, depositsEnabled } from "@/lib/marketplace/stripe";
@@ -107,6 +107,7 @@ export async function POST(request: Request) {
         amountPence: job.deposit_pence,
         customerEmail,
         siteUrl: siteUrl(),
+        noticeHours: (await getSettings()).cancellation_notice_hours,
       });
       if (!checkout) {
         return NextResponse.json(

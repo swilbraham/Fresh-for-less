@@ -3374,9 +3374,13 @@ export async function cancelJobByCustomer(
     [jobId, reason.slice(0, 200) || "Cancelled by customer", late]
   );
 
-  // The deposit goes back in full, late or not — a refund argument costs more
-  // than the commission. Late cancellations are still flagged for the office.
-  await refundDepositIfPaid(job);
+  // With notice, the deposit goes back in full. A late cancellation keeps it:
+  // the booking fee is the price of burning a slot a cleaner had set aside.
+  // The policy is stated at checkout, on Stripe's payment page and on the
+  // manage page — and rescheduling is always free, so moving beats cancelling.
+  // Office cancellations (cancelJob) still refund regardless: that's our
+  // fault, not the customer's.
+  if (!late) await refundDepositIfPaid(job);
 
   if (job.cleaner_id) {
     const cleaner = await getCleaner(job.cleaner_id);

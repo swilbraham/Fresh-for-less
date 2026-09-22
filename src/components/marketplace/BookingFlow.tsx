@@ -33,6 +33,7 @@ export default function BookingFlow({
   protectionPct,
   protectionEnabled,
   depositEnabled = false,
+  cancelNoticeHours = 24,
   landing,
   hero,
 }: {
@@ -45,6 +46,8 @@ export default function BookingFlow({
   protectionEnabled: boolean;
   /** Take the commission as a card deposit at booking (Stripe Checkout). */
   depositEnabled?: boolean;
+  /** Free-cancellation window, for stating the refund policy before payment. */
+  cancelNoticeHours?: number;
   /** Marketing content, shown only before the customer starts the quote. */
   landing?: ReactNode;
   /**
@@ -856,7 +859,7 @@ export default function BookingFlow({
               {coverage?.provisional
                 ? `If we can cover ${coverage.outward}, you'll pay your cleaner ${gbp(quote.total_pence)} on the day. Nothing to pay unless we confirm.`
                 : depositEnabled && quote.commission_pence > 0
-                  ? `Pay a ${gbp(quote.commission_pence)} deposit by card now to secure your slot — the remaining ${gbp(quote.total_pence - quote.commission_pence)} goes straight to your cleaner on the day, cash or card. Deposit fully refunded if you cancel or we can't fill the slot.`
+                  ? `Pay a ${gbp(quote.commission_pence)} deposit by card now to secure your slot — the remaining ${gbp(quote.total_pence - quote.commission_pence)} goes straight to your cleaner on the day, cash or card. Fully refunded if you cancel more than ${cancelNoticeHours} hours before your slot (or if we can't fill it) — within ${cancelNoticeHours} hours it's non-refundable, but moving your booking is always free.`
                   : `Pay your cleaner ${gbp(quote.total_pence)} on the day — cash or card. Nothing to pay now.`}
             </p>
           </section>

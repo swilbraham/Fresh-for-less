@@ -29,6 +29,8 @@ export async function createDepositCheckout(input: {
   amountPence: number;
   customerEmail: string;
   siteUrl: string;
+  /** Cancellation notice period, so the payment page states the refund policy. */
+  noticeHours: number;
 }): Promise<{ id: string; url: string } | null> {
   try {
     const session = await stripe().checkout.sessions.create({
@@ -42,7 +44,9 @@ export async function createDepositCheckout(input: {
           product_data: {
             name: `Booking deposit — ${input.ref}`,
             description:
-              "Deducted from your fixed price. The balance is payable to your cleaner on the day.",
+              "Deducted from your fixed price; the balance is payable to your cleaner on the day. " +
+              `Refunded in full if you cancel more than ${input.noticeHours} hours before your slot; ` +
+              "non-refundable after that. Rescheduling is always free.",
           },
           unit_amount: input.amountPence,
         },

@@ -414,10 +414,18 @@ export default async function AdminJobsPage({
                       {job.deposit_paid_at && (
                         <p
                           className={`mt-0.5 text-xs font-semibold ${
-                            job.deposit_refunded_at ? "text-slate-400" : "text-accent-700"
+                            job.deposit_refunded_at
+                              ? "text-slate-400"
+                              : job.status === "cancelled"
+                                ? "text-amber-700"
+                                : "text-accent-700"
                           }`}
                         >
-                          {job.deposit_refunded_at ? "deposit refunded" : "deposit paid"}
+                          {job.deposit_refunded_at
+                            ? "deposit refunded"
+                            : job.status === "cancelled"
+                              ? "fee kept (late cancel)"
+                              : "deposit paid"}
                         </p>
                       )}
                     </td>

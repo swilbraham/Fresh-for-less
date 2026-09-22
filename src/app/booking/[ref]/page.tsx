@@ -124,7 +124,12 @@ export default async function ManageBookingPage({
           )}
           {cancelled && (
             <Alert tone="success">
-              Your booking is cancelled. There&apos;s nothing to pay.
+              Your booking is cancelled.{" "}
+              {job.deposit_refunded_at
+                ? `Your ${gbp(job.deposit_pence)} deposit is on its way back to your card — allow 5-10 working days.`
+                : job.deposit_paid_at
+                  ? "As this was inside our notice period, the booking fee is non-refundable — there's nothing more to pay."
+                  : "There's nothing to pay."}
             </Alert>
           )}
         </div>
@@ -154,10 +159,12 @@ export default async function ManageBookingPage({
                   value={
                     job.deposit_refunded_at
                       ? `${gbp(job.deposit_pence)} refunded to your card`
-                      : `${gbp(job.deposit_pence)} paid ✓`
+                      : job.status === "cancelled"
+                        ? `${gbp(job.deposit_pence)} — non-refundable (cancelled at short notice)`
+                        : `${gbp(job.deposit_pence)} paid ✓`
                   }
                 />
-                {!job.deposit_refunded_at && (
+                {!job.deposit_refunded_at && job.status !== "cancelled" && (
                   <Row
                     label="Balance on the day"
                     value={`${gbp(job.total_pence - job.deposit_pence)} — pay your cleaner directly`}
@@ -234,7 +241,7 @@ export default async function ManageBookingPage({
             {/* Reschedule */}
             <Card
               title="Move to another day"
-              description="Only times with a cleaner free in your area are shown. We'll keep your current cleaner whenever they can make the new slot."
+              description="Moving your booking is always free. Only times with a cleaner free in your area are shown, and we'll keep your current cleaner whenever they can make the new slot."
               className="mt-6"
             >
               {slots.length === 0 ? (
@@ -262,14 +269,21 @@ export default async function ManageBookingPage({
             {/* Cancel */}
             <Card
               title="Cancel this booking"
-              description="There's nothing to pay — you haven't been charged."
+              description={
+                job.deposit_paid_at
+                  ? `Cancel more than ${settings.cancellation_notice_hours} hours before your slot and your ${gbp(job.deposit_pence)} booking fee is refunded in full. Within ${settings.cancellation_notice_hours} hours it's non-refundable — moving your booking above is free instead.`
+                  : "There's nothing to pay — you haven't been charged."
+              }
               className="mt-6"
             >
               {isLate && (
                 <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   Your clean is in under {settings.cancellation_notice_hours}{" "}
                   hours. You can still cancel, but your cleaner has set the time
-                  aside — please let us know as early as you can.
+                  aside
+                  {job.deposit_paid_at
+                    ? ` — at this notice the ${gbp(job.deposit_pence)} booking fee is non-refundable. Moving your booking above is free.`
+                    : " — please let us know as early as you can."}
                 </p>
               )}
               <form action={cancelBookingAction} className="mt-4">
