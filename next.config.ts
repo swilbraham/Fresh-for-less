@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
       { source: "/3for79/:path*", destination: "/book", permanent: true },
       { source: "/3for49", destination: "/book", permanent: true },
       { source: "/3for49/:path*", destination: "/book", permanent: true },
+      { source: "/3for59", destination: "/book", permanent: true },
+      { source: "/3for59/:path*", destination: "/book", permanent: true },
+      { source: "/4for99", destination: "/book", permanent: true },
+      { source: "/4for99/:path*", destination: "/book", permanent: true },
     ];
   },
 };
