@@ -8,6 +8,7 @@ export const metadata: Metadata = {
     canonical: "https://www.freshforlesscarpetcleaning.co.uk/cleaning",
   },
   openGraph: {
+    images: [{ url: "/images/og-image.jpg", width: 1200, height: 630, alt: "Fresh For Less Carpet Cleaning" }],
     type: "website",
     locale: "en_GB",
     siteName: "Fresh For Less Carpet Cleaning",
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
       "Spotless carpets at affordable prices. Trusted by 2,000+ families. Free quotes, eco-friendly products, fast drying. Book today.",
   },
   twitter: {
+    images: ["/images/og-image.jpg"],
     card: "summary_large_image",
     title: "Professional Carpet Cleaning | Fresh For Less",
     description:

@@ -8,6 +8,7 @@ export const metadata: Metadata = {
     canonical: "https://www.freshforlesscarpetcleaning.co.uk/franchise",
   },
   openGraph: {
+    images: [{ url: "/images/og-image.jpg", width: 1200, height: 630, alt: "Fresh For Less Carpet Cleaning" }],
     type: "website",
     locale: "en_GB",
     siteName: "Fresh For Less Carpet Cleaning",
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
       "Own a Fresh For Less carpet cleaning franchise in your area. Proven system, exclusive territory, full training, ongoing support.",
   },
   twitter: {
+    images: ["/images/og-image.jpg"],
     card: "summary_large_image",
     title: "Fresh For Less — Franchise Opportunity",
     description:

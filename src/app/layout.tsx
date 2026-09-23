@@ -56,6 +56,7 @@ export const metadata: Metadata = {
     address: true,
   },
   openGraph: {
+    images: [{ url: "/images/og-image.jpg", width: 1200, height: 630, alt: "Fresh For Less Carpet Cleaning" }],
     type: "website",
     locale: "en_GB",
     siteName: "Fresh For Less Carpet Cleaning",
@@ -65,6 +66,7 @@ export const metadata: Metadata = {
       "Professional carpet & upholstery cleaning trusted by 2,000+ families nationwide. Free no-obligation quotes, eco-friendly products, 100% satisfaction guarantee.",
   },
   twitter: {
+    images: ["/images/og-image.jpg"],
     card: "summary_large_image",
     title: "Professional Carpet Cleaning UK | Fresh For Less",
     description:

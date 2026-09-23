@@ -8,6 +8,7 @@ export const metadata: Metadata = {
     canonical: "https://www.freshforlesscarpetcleaning.co.uk/training",
   },
   openGraph: {
+    images: [{ url: "/images/og-image.jpg", width: 1200, height: 630, alt: "Fresh For Less Carpet Cleaning" }],
     type: "website",
     locale: "en_GB",
     siteName: "Fresh For Less Carpet Cleaning",
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
       "A 5-day live carpet cleaning training experience on genuine customer bookings. One trainee per course, trainees welcome from anywhere in the UK. £995 with certificate of completion.",
   },
   twitter: {
+    images: ["/images/og-image.jpg"],
     card: "summary_large_image",
     title: "Carpet Cleaning Training Course UK | Fresh For Less",
     description:

@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     canonical: "https://www.freshforlesscarpetcleaning.co.uk/areas",
   },
   openGraph: {
+    images: [{ url: "/images/og-image.jpg", width: 1200, height: 630, alt: "Fresh For Less Carpet Cleaning" }],
     type: "website",
     locale: "en_GB",
     siteName: "Fresh For Less Carpet Cleaning",
