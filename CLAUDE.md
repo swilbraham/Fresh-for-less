@@ -74,24 +74,9 @@ availability, jobs are broadcast to everyone who covers the postcode, and the
 first cleaner to accept keeps the job.
 
 ### Money model
-With deposits on (STRIPE_SECRET_KEY set, the default in production): the
-customer pays the platform's commission as a **card deposit at booking**
-(Stripe Checkout). The booking is held as `pending_payment` and nothing is
-broadcast or sent until Stripe confirms; the cleaner then collects the balance
-on the day and keeps all of it — no commission invoice is ever raised for a
-deposit-paid job. Deposits are auto-refunded in full when the customer cancels
-with more than `settings.cancellation_notice_hours` notice (default 24) — a
-late customer cancellation keeps the fee (stated at checkout, on Stripe's
-payment page and on the manage page; rescheduling is always free), and admin
-cancellations always refund. Provisional (no-coverage) bookings and
-phone/admin bookings never take a deposit — those keep the old model: the
-cleaner collects the full price and commission is invoiced weekly.
-
-`BOOKING_DEPOSIT=off` reverts the whole site to the old model without a code
-change. `src/lib/marketplace/stripe.ts` holds all Stripe calls; activation is
-idempotent (`activatePaidBooking`) and driven by the success redirect with the
-Stripe webhook (`/api/stripe/webhook`, needs `STRIPE_WEBHOOK_SECRET`) as the
-backstop for customers who pay and close the tab.
+The cleaner collects the full job price from the customer on the day. The platform
+invoices commission to the cleaner separately. No card payments run through the
+marketplace.
 
 ### Routes
 | Route | Who | Purpose |
@@ -149,9 +134,6 @@ src/lib/marketplace/
 | `ANTHROPIC_API_KEY` | Optional | One-line AI summary of each DM lead on `/admin/leads` (`summarise.ts`) and quote-request auto-replies (`social-reply.ts`), both Claude Opus 5. Without it, leads just show the full messages and no auto-reply is sent. |
 | `META_AUTO_REPLY` | Optional | Set to `off` to stop the automatic quote reply to Facebook/Instagram DMs without disabling anything else. |
 | `META_ALLOWED_PAGES` | Optional | Comma-separated page ids the webhook handles (unset = all connected pages). Currently the Fresh For Less page only. |
-| `STRIPE_SECRET_KEY` | Production | Enables booking deposits (customer pays commission by card at booking). Unset = old pay-on-the-day model. |
-| `STRIPE_WEBHOOK_SECRET` | Recommended | Signs `/api/stripe/webhook` (Stripe dashboard → Webhooks → `checkout.session.completed`). Without it, only the success redirect activates paid bookings. |
-| `BOOKING_DEPOSIT` | Optional | Set to `off` to disable deposits without removing the Stripe key. |
 
 With no provider configured a message is still written to the `notifications`
 table and shown in the admin log as "logged only", so nothing is silently lost —

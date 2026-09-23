@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { createBooking, getSettings, setJobStripeSession, siteUrl } from "@/lib/marketplace/repo";
+import { createBooking } from "@/lib/marketplace/repo";
 import { normalisePostcode } from "@/lib/marketplace/postcode";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
-import { createDepositCheckout, depositsEnabled } from "@/lib/marketplace/stripe";
 
 export const dynamic = "force-dynamic";
 
@@ -95,40 +94,7 @@ export async function POST(request: Request) {
       notes,
       parking,
       protection: payload.protection === true,
-      collectDeposit: depositsEnabled(),
     });
-
-    // Deposit flow: nothing is broadcast yet — the customer pays the
-    // commission at Stripe first, and the success redirect (or the Stripe
-    // webhook) activates the booking.
-    if (job.status === "pending_payment") {
-      const checkout = await createDepositCheckout({
-        ref: job.ref,
-        amountPence: job.deposit_pence,
-        customerEmail,
-        siteUrl: siteUrl(),
-        noticeHours: (await getSettings()).cancellation_notice_hours,
-      });
-      if (!checkout) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "We couldn't start the card payment. Please call 0330 043 4811 and we'll book you in.",
-          },
-          { status: 502 }
-        );
-      }
-      await setJobStripeSession(job.id, checkout.id);
-      return NextResponse.json({
-        ok: true,
-        ref: job.ref,
-        total_pence: job.total_pence,
-        deposit_pence: job.deposit_pence,
-        checkout_url: checkout.url,
-        offered: 0,
-      });
-    }
 
     return NextResponse.json({
       ok: true,

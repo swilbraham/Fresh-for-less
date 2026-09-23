@@ -1,6 +1,5 @@
 export type CleanerStatus = "pending" | "approved" | "suspended" | "rejected";
 export type JobStatus =
-  | "pending_payment"
   | "provisional"
   | "offered"
   | "accepted"
@@ -114,11 +113,6 @@ export type Job = {
   commission_on_net: boolean;
   status: JobStatus;
   cleaner_id: number | null;
-  /** Commission taken as an online deposit at booking; 0 when not collected. */
-  deposit_pence: number;
-  deposit_paid_at: string | null;
-  deposit_refunded_at: string | null;
-  stripe_payment_intent: string;
   created_at: string;
   accepted_at: string | null;
   completed_at: string | null;

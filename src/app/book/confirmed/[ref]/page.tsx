@@ -2,8 +2,7 @@ import SiteHeader from "@/components/marketplace/SiteHeader";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getJobByRef, activatePaidBooking } from "@/lib/marketplace/repo";
-import { verifyPaidSession } from "@/lib/marketplace/stripe";
+import { getJobByRef } from "@/lib/marketplace/repo";
 import { bookingToken } from "@/lib/marketplace/auth";
 import TrackBooking from "@/components/marketplace/TrackBooking";
 import { gbp } from "@/lib/marketplace/money";
@@ -17,58 +16,12 @@ export const metadata = {
 
 export default async function ConfirmedPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ ref: string }>;
-  searchParams: Promise<{ session_id?: string }>;
 }) {
   const { ref } = await params;
-  const { session_id } = await searchParams;
-  let job = await getJobByRef(ref.toUpperCase());
+  const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
-
-  // Back from Stripe with a session id: verify the payment server-side and
-  // bring the booking to life. Idempotent — refreshing this page, or the
-  // webhook getting there first, changes nothing.
-  if (job.status === "pending_payment" && session_id) {
-    const paymentIntent = await verifyPaidSession(session_id, job.ref);
-    if (paymentIntent) {
-      job = (await activatePaidBooking(job.ref, session_id, paymentIntent)) ?? job;
-    }
-  }
-
-  // Still unpaid: they landed here without completing the card step.
-  if (job.status === "pending_payment") {
-    return (
-      <>
-        <SiteHeader />
-        <main className="min-h-screen bg-slate-50 pt-10 pb-20">
-          <div className="mx-auto max-w-2xl px-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-              <h1 className="text-3xl font-bold text-slate-900">
-                One step left — your deposit
-              </h1>
-              <p className="mt-3 text-slate-600">
-                Your booking <strong>{job.ref}</strong> is reserved but not yet
-                confirmed: the {gbp(job.deposit_pence)} deposit hasn&apos;t been
-                paid. Nothing has been scheduled and no cleaner has been
-                notified.
-              </p>
-              <p className="mt-3 text-slate-600">
-                To confirm it, book again at{" "}
-                <Link href="/book" className="font-semibold text-primary-600 underline">
-                  freshforlesscarpetcleaning.co.uk/book
-                </Link>{" "}
-                or call <strong>0330 043 4811</strong> and we&apos;ll sort it on
-                the phone.
-              </p>
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </>
-    );
-  }
 
   const itemsTotal = job.items.reduce((sum, line) => sum + line.amount_pence, 0);
   const minimumTopUp = Math.max(0, job.total_pence - itemsTotal);
@@ -103,18 +56,7 @@ export default async function ConfirmedPage({
           <dl className="mt-6 divide-y divide-slate-100 border-y border-slate-100">
             <Row label="Date" value={`${date} · ${job.slot_window === "am" ? "Morning 8am–12pm" : "Afternoon 12pm–5pm"}`} />
             <Row label="Address" value={`${job.address_line}${job.town ? `, ${job.town}` : ""}, ${job.postcode}`} />
-            {job.deposit_paid_at ? (
-              <>
-                <Row label="Fixed price" value={gbp(job.total_pence)} />
-                <Row label="Deposit paid" value={`${gbp(job.deposit_pence)} ✓`} />
-                <Row
-                  label="Balance on the day"
-                  value={`${gbp(job.total_pence - job.deposit_pence)} — pay your cleaner directly`}
-                />
-              </>
-            ) : (
-              <Row label="Fixed price" value={`${gbp(job.total_pence)} — pay your cleaner on the day`} />
-            )}
+            <Row label="Fixed price" value={`${gbp(job.total_pence)} — pay your cleaner on the day`} />
           </dl>
 
           <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">

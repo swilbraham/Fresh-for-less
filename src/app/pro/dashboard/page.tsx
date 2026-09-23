@@ -75,19 +75,13 @@ export default async function DashboardPage({
     listInvoices(cleaner.id),
   ]);
 
-  // On a deposit job the customer paid our commission online, so the cleaner
-  // only ever handled the balance — and owes nothing on it.
-  const earned = done.reduce(
-    (sum, job) =>
-      sum + job.total_pence - (job.deposit_paid_at ? job.deposit_pence : 0),
-    0
-  );
+  const earned = done.reduce((sum, job) => sum + job.total_pence, 0);
 
   // Everything earned on completed jobs, less whatever has actually been paid.
   // Counting only issued invoices read as "you owe nothing" in the gap between
   // finishing a job and the invoice being raised, which isn't true.
   const commissionToDate = done.reduce(
-    (sum, job) => sum + (job.deposit_paid_at ? 0 : job.commission_pence),
+    (sum, job) => sum + job.commission_pence,
     0
   );
   const commissionPaid = invoices
@@ -187,25 +181,12 @@ export default async function DashboardPage({
                       <p className="text-3xl font-bold text-accent-700 tabular-nums">
                         {gbp(job.total_pence - job.commission_pence)}
                       </p>
-                      {job.deposit_paid_at ? (
-                        <>
-                          <p className="mt-1 text-xs text-slate-600">
-                            Collect {gbp(job.total_pence - job.deposit_pence)} from the customer
-                          </p>
-                          <p className="text-xs font-semibold text-accent-700">
-                            Commission pre-paid — it&apos;s all yours
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="mt-1 text-xs text-slate-600">
-                            Collect {gbp(job.total_pence)} from the customer
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            less {gbp(job.commission_pence)} commission
-                          </p>
-                        </>
-                      )}
+                      <p className="mt-1 text-xs text-slate-600">
+                        Collect {gbp(job.total_pence)} from the customer
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        less {gbp(job.commission_pence)} commission
+                      </p>
                     </div>
                   </div>
 
@@ -254,23 +235,11 @@ export default async function DashboardPage({
                     </form>
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    {job.deposit_paid_at ? (
-                      <>
-                        Accept and the job is yours: you get the full address
-                        and phone number straight away, and you collect{" "}
-                        {gbp(job.total_pence - job.deposit_pence)} from the
-                        customer on the day and keep every penny — the customer
-                        has already paid the commission online.
-                      </>
-                    ) : (
-                      <>
-                        Accept and the job is yours: you get the full address and
-                        phone number straight away, you collect{" "}
-                        {gbp(job.total_pence)} from the customer on the day, and you
-                        keep {gbp(job.total_pence - job.commission_pence)}.{" "}
-                        {COMMISSION_TERMS_SHORT}
-                      </>
-                    )}
+                    Accept and the job is yours: you get the full address and
+                    phone number straight away, you collect{" "}
+                    {gbp(job.total_pence)} from the customer on the day, and you
+                    keep {gbp(job.total_pence - job.commission_pence)}.{" "}
+                    {COMMISSION_TERMS_SHORT}
                   </p>
                 </li>
               ))}
@@ -324,15 +293,13 @@ export default async function DashboardPage({
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-slate-900 tabular-nums">
-                        {gbp(job.total_pence - (job.deposit_paid_at ? job.deposit_pence : 0))}
+                        {gbp(job.total_pence)}
                       </p>
                       <p className="text-xs text-slate-500">
                         to collect on the day
                       </p>
                       <p className="mt-1 text-sm font-semibold text-accent-700 tabular-nums">
-                        {job.deposit_paid_at
-                          ? "All yours — commission pre-paid"
-                          : `You keep ${gbp(job.total_pence - job.commission_pence)}`}
+                        You keep {gbp(job.total_pence - job.commission_pence)}
                       </p>
                     </div>
                   </div>
@@ -430,7 +397,7 @@ export default async function DashboardPage({
                         {gbp(job.total_pence)}
                       </td>
                       <td className="py-2 text-right tabular-nums text-slate-500">
-                        {job.deposit_paid_at ? "pre-paid" : gbp(job.commission_pence)}
+                        {gbp(job.commission_pence)}
                       </td>
                     </tr>
                   ))}

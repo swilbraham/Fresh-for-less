@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 38;
+export const SCHEMA_VERSION = 37;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -370,16 +370,6 @@ export const STATEMENTS: string[] = [
      mid        text PRIMARY KEY,
      created_at timestamptz NOT NULL DEFAULT now()
    )`,
-
-  // ---- Booking deposits ------------------------------------------------------
-  // The customer pays the commission as a deposit at booking (Stripe Checkout);
-  // the cleaner collects the balance on the day and owes the platform nothing.
-  // A job with deposit_paid_at set is never commission-invoiced.
-  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS deposit_pence int NOT NULL DEFAULT 0`,
-  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS deposit_paid_at timestamptz`,
-  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS deposit_refunded_at timestamptz`,
-  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS stripe_session_id text NOT NULL DEFAULT ''`,
-  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS stripe_payment_intent text NOT NULL DEFAULT ''`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------
