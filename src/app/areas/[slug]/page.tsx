@@ -24,13 +24,13 @@ export async function generateMetadata({
     title: {
       absolute: `Carpet Cleaning ${name}${postcodeStr} | Fresh For Less`,
     },
-    description: `Professional carpet & upholstery cleaning in ${name}, ${county}${postcode ? ` ${postcode}` : ""} from £39. Hot-water extraction, stain removal, pet-safe products, fast drying. Free local quotes — call 0330 043 4811.`,
+    description: `Professional carpet & upholstery cleaning in ${name}, ${county}${postcode ? ` ${postcode}` : ""} — 3 rooms for £99, £90 minimum charge. Hot-water extraction, stain removal, pet-safe products, fast drying. Free local quotes — call 0330 043 4811.`,
     alternates: {
       canonical: `https://www.freshforlesscarpetcleaning.co.uk/areas/${slug}`,
     },
     openGraph: {
       title: `Carpet Cleaning in ${name}, ${county} | Fresh For Less`,
-      description: `Local carpet and upholstery cleaning in ${name}, ${county}. Affordable prices from £39, eco-friendly products, same-week availability. Free quotes.`,
+      description: `Local carpet and upholstery cleaning in ${name}, ${county}. 3 rooms for £99, eco-friendly products, same-week availability. Free quotes.`,
       type: "website",
       locale: "en_GB",
       siteName: "Fresh For Less Carpet Cleaning",
@@ -39,7 +39,7 @@ export async function generateMetadata({
     twitter: {
       card: "summary_large_image",
       title: `Carpet Cleaning ${name} | Fresh For Less`,
-      description: `Local carpet cleaning in ${name}${postcode ? ` (${postcode})` : ""} from £39. Free quotes — 0330 043 4811.`,
+      description: `Local carpet cleaning in ${name}${postcode ? ` (${postcode})` : ""} — 3 rooms for £99. Free quotes — 0330 043 4811.`,
     },
   };
 }

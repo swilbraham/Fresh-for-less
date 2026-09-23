@@ -16,9 +16,9 @@ const packages: Package[] = [
   {
     name: "3 Rooms Cleaned",
     price: 99,
-    originalPrice: 150,
+    originalPrice: 135,
     subtitle: "per service",
-    description: "Our most popular choice — save £51 today",
+    description: "Our most popular choice — save £36 today",
     popular: true,
     features: [
       "3 rooms of your choice — professionally deep-cleaned",
@@ -26,7 +26,7 @@ const packages: Package[] = [
       "Pre-treatment of all stains & high-traffic areas",
       "Deodorising treatment included",
       "Typically dry in 2–4 hours",
-      "Free hallway clean",
+      "A staircase can count as one of your three areas",
       "100% satisfaction guarantee",
     ],
   },

@@ -43,7 +43,7 @@ const faqs = [
   {
     question: "How do I pay?",
     answer:
-      "We accept card payments, bank transfers, and Klarna (buy now, pay later). You can pay a \u00a320 booking fee to secure your slot, which is deducted from the final amount.",
+      "There is nothing to pay when you book \u2014 no deposit and no card details. You pay your cleaner directly once the work is done, by card or bank transfer.",
   },
 ];
 

@@ -210,7 +210,7 @@ export default function AreaPage({ slug }: { slug: string }) {
   const localFaqs = [
     {
       q: `How much does carpet cleaning cost in ${area.name}?`,
-      a: `Our carpet cleaning prices in ${area.name} start from £39 for a single room. Most 3-bedroom homes are £99 for the whole house. We give a fixed, no-obligation quote before we start — no hidden fees.`,
+      a: `Carpet cleaning in ${area.name} is £45 a room, with a £90 minimum charge. Our most popular option is any 3 areas for £99 — rooms or a staircase, your choice. You see the full fixed price before you book, so there is nothing to pay on the day you did not agree to.`,
     },
     {
       q: `Do you cover ${postcode || area.name} postcodes?`,

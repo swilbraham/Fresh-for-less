@@ -34,7 +34,7 @@ const servicesData: Record<string, ServiceData> = {
     description:
       "Professional deep carpet cleaning that removes embedded dirt, allergens, and stubborn stains — leaving your carpets fresh, soft, and looking like new.",
     heroSubtitle: "Deep Clean. Fresh Feel. Affordable Price.",
-    pricing: "Starting from £39",
+    pricing: "3 rooms £99 · £90 minimum",
     features: [
       {
         icon: (
@@ -122,7 +122,7 @@ const servicesData: Record<string, ServiceData> = {
     description:
       "Expert upholstery cleaning for sofas, chairs, and cushions. We restore your furniture to its original freshness with gentle yet thorough cleaning methods.",
     heroSubtitle: "Revive Your Furniture. Restore the Freshness.",
-    pricing: "Starting from £49",
+    pricing: "Sofas from £75 · £90 minimum",
     features: [
       {
         icon: (
@@ -210,7 +210,7 @@ const servicesData: Record<string, ServiceData> = {
     description:
       "Thorough carpet cleaning designed to meet landlord and letting agent standards. Help secure your deposit with professionally cleaned carpets throughout the property.",
     heroSubtitle: "Get Your Deposit Back. Guaranteed Clean.",
-    pricing: "Starting from £99",
+    pricing: "From £99 for 3 rooms",
     features: [
       {
         icon: (
@@ -385,7 +385,7 @@ const servicesData: Record<string, ServiceData> = {
     description:
       "Specialist stain treatment for even the most stubborn marks. From wine and coffee to ink and pet accidents, we have the expertise and products to tackle it all.",
     heroSubtitle: "Stubborn Stains? We Have the Solution.",
-    pricing: "Starting from £29 per stain",
+    pricing: "£15 per stain · £90 minimum",
     features: [
       {
         icon: (
@@ -473,7 +473,7 @@ const servicesData: Record<string, ServiceData> = {
     description:
       "Professional pet odour and stain removal that eliminates smells at the source. Our enzyme-based treatments neutralise odours permanently, not just mask them.",
     heroSubtitle: "Love Your Pets. Love Your Clean Home.",
-    pricing: "Starting from £49",
+    pricing: "£20 per room · £90 minimum",
     features: [
       {
         icon: (
@@ -560,7 +560,7 @@ const servicesData: Record<string, ServiceData> = {
     description:
       "Professional hard floor cleaning for tile, laminate, vinyl, stone, and wood floors. We restore your floors to their original shine using specialist equipment and floor-specific products.",
     heroSubtitle: "Restore. Protect. Shine.",
-    pricing: "Starting from £3 per sq metre",
+    pricing: "Price on application",
     features: [
       {
         icon: (
