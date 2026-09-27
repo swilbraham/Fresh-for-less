@@ -41,6 +41,9 @@ export default function TrackBooking({
     if (sessionStorage.getItem(key)) return;
 
     if (typeof window.fbq === "function") {
+      // The confirmation renders without a full page load, so the layout's
+      // pixel snippet never reports it — pair the conversion with a PageView.
+      window.fbq("track", "PageView");
       window.fbq("track", provisional ? "Lead" : "Schedule", {
         content_name: provisional ? "Provisional booking" : "Confirmed booking",
         value: valuePence / 100,
