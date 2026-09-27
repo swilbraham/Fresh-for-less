@@ -10,16 +10,11 @@
 export const GOOGLE_ADS_ID = "AW-17323788558";
 
 /**
- * STOPGAP — this is the /landing lead-form action, which is count-only at £0.
- * Bookings are reported against it so the campaign has *some* conversion
- * signal, but Google will optimise for the number of bookings rather than
- * their value, so a £99 job and a £300 job look identical to it.
- *
- * When a booking-specific conversion action exists (Purchase category, "use
- * different values for each conversion"), replace this label and nothing else
- * — the value and currency are already being sent.
+ * The booking conversion action. The real booking value and GBP are sent
+ * with every event, with the booking ref as transaction_id so Google
+ * discards any duplicate report of the same booking.
  */
-export const GOOGLE_ADS_BOOKING_LABEL = "v7HjCKq9_sIcEI6S0MRA";
+export const GOOGLE_ADS_BOOKING_LABEL = "W8ZvCL7x74cdEI6S0MRA";
 
 export const GOOGLE_ADS_BOOKING_TARGET =
   `${GOOGLE_ADS_ID}/${GOOGLE_ADS_BOOKING_LABEL}`;
