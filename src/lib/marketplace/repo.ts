@@ -1649,6 +1649,28 @@ export async function reinstateJob(
   return { ok: true };
 }
 
+/**
+ * A live booking at the same postcode for the same slot, made in the last
+ * hour. Almost always the same customer booking again — typically after
+ * mistyping their phone number, which also slips past the per-contact rate
+ * limit because the contact details changed. The online form refuses these;
+ * the office can still book whatever it likes by phone.
+ */
+export async function findRecentDuplicate(
+  postcode: string,
+  slotDate: string,
+  slotWindow: string
+): Promise<{ ref: string } | null> {
+  return queryOne<{ ref: string }>(
+    `SELECT ref FROM jobs
+      WHERE postcode = $1 AND slot_date = $2::date AND slot_window = $3
+        AND status <> 'cancelled'
+        AND created_at > now() - interval '60 minutes'
+      ORDER BY created_at DESC LIMIT 1`,
+    [postcode, slotDate, slotWindow]
+  );
+}
+
 /** Put an unfilled job back out to the market. Cancelled ones are reinstated
  *  (quietly) first — that's the step the office chooses to make noise after. */
 export async function rebroadcastJob(jobId: number): Promise<number> {

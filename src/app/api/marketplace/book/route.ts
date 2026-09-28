@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createBooking } from "@/lib/marketplace/repo";
+import { createBooking, findRecentDuplicate } from "@/lib/marketplace/repo";
 import { normalisePostcode } from "@/lib/marketplace/postcode";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 
@@ -75,6 +75,25 @@ export async function POST(request: Request) {
           "We've had a lot of booking attempts just now. Please call 0330 043 4811 and we'll book you in.",
       },
       { status: 429 }
+    );
+  }
+
+  // The same address booking the same slot twice within the hour is a
+  // double-submission, not a second job — the classic case being a retype
+  // after a mistyped phone number, which the per-contact rate limit can't
+  // see because the contact details changed.
+  const duplicate = await findRecentDuplicate(postcode!, slotDate, slotWindow);
+  if (duplicate) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          `Looks like this slot is already booked for ${postcode} — your reference is ` +
+          `${duplicate.ref}. There's no need to book again: if you want to change ` +
+          `any details (like a phone number), call 0330 043 4811 and we'll fix it ` +
+          `on the existing booking.`,
+      },
+      { status: 409 }
     );
   }
 
