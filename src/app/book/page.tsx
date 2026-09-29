@@ -58,6 +58,18 @@ export default async function BookPage() {
                   cleaner.
                 </p>
 
+                <p className="mt-6">
+                  <a
+                    href="tel:03300434811"
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-lg font-bold text-white transition hover:bg-white/20"
+                  >
+                    <svg className="h-5 w-5 text-accent-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                    </svg>
+                    Or call to book: 0330 043 4811
+                  </a>
+                </p>
+
                 <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300">
                   {[
                     "4.9/5 from 2,000+ homes",
@@ -91,6 +103,19 @@ export default async function BookPage() {
 
     </main>
       <Footer />
+
+      {/* Always-reachable phone escape hatch: the flow asks for 3 days'
+          notice, and the callers it turns away are often the most urgent. */}
+      <a
+        href="tel:03300434811"
+        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-accent-600 px-5 py-3.5 font-bold text-white shadow-xl shadow-accent-600/30 transition hover:bg-accent-700"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+        </svg>
+        Call now
+        <span className="hidden sm:inline">· 0330 043 4811</span>
+      </a>
     </>
   );
 }
