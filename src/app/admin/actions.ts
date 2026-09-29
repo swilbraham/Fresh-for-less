@@ -27,6 +27,9 @@ import {
   setInvoiceStatus,
   setLeadStatus,
   deleteLead,
+  createTrainingEnquiry,
+  setTrainingEnquiryStatus,
+  deleteTrainingEnquiry,
   removeInvoiceLine,
   getInvoice,
   notifyInvoiceRaised,
@@ -800,6 +803,54 @@ export async function deleteLeadAction(id: number, back: string, _data: FormData
   await deleteLead(id);
   revalidatePath("/admin/leads");
   redirect(`/admin/leads?status=${encodeURIComponent(back)}&saved=1`);
+}
+
+// ---------------------------------------------------------------- training --
+
+/** Record a training enquiry taken on the phone or from a DM. */
+export async function addTrainingEnquiryAction(data: FormData) {
+  await requireAdmin("/admin/training");
+  const name = field(data, "name", 80);
+  const phone = field(data, "phone", 30);
+  const email = field(data, "email", 120);
+
+  if (name.length < 2) fail("/admin/training", "A name is needed.");
+  if (!phone && !email) {
+    fail("/admin/training", "A phone number or email is needed to get back to them.");
+  }
+
+  await createTrainingEnquiry({
+    name,
+    phone,
+    email,
+    message: field(data, "message", 2000),
+    source: "admin",
+  });
+  revalidatePath("/admin/training");
+  redirect("/admin/training?saved=1");
+}
+
+/** Move a training enquiry along: rung, booked on a course, or not proceeding. */
+export async function setTrainingEnquiryStatusAction(data: FormData) {
+  await requireAdmin("/admin/training");
+  const id = Number(field(data, "id", 12));
+  const raw = field(data, "status", 12);
+  const status = ["new", "contacted", "booked", "dead"].includes(raw)
+    ? (raw as "new" | "contacted" | "booked" | "dead")
+    : "contacted";
+  const back = field(data, "back", 12);
+
+  await setTrainingEnquiryStatus(id, status);
+  revalidatePath("/admin/training");
+  redirect(`/admin/training?status=${encodeURIComponent(back)}&saved=1`);
+}
+
+/** Bound-argument variant, same reason as removePriceItemAction above. */
+export async function deleteTrainingEnquiryAction(id: number, back: string, _data: FormData) {
+  await requireAdmin("/admin/training");
+  await deleteTrainingEnquiry(id);
+  revalidatePath("/admin/training");
+  redirect(`/admin/training?status=${encodeURIComponent(back)}&saved=1`);
 }
 
 export async function reassignJobAction(data: FormData) {

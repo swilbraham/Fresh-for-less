@@ -244,11 +244,16 @@ export default function TrainingPage() {
     setFormSending(true);
 
     try {
-      await fetch("https://api.web3forms.com/submit", {
-        method: "POST",
-        headers: { Accept: "application/json" },
-        body: formData,
-      });
+      // Source of record: /admin/training. The web3forms email is a
+      // best-effort backup alert, not where enquiries live.
+      await Promise.allSettled([
+        fetch("/api/training", { method: "POST", body: formData }),
+        fetch("https://api.web3forms.com/submit", {
+          method: "POST",
+          headers: { Accept: "application/json" },
+          body: formData,
+        }),
+      ]);
       setFormSubmitted(true);
     } catch {
       setFormSubmitted(true);

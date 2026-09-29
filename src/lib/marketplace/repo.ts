@@ -1076,6 +1076,86 @@ export async function appendLeadNote(leadId: number, note: string): Promise<void
   );
 }
 
+// ---------------------------------------------------------------- training --
+
+export type TrainingEnquiry = {
+  id: number;
+  ref: string;
+  name: string;
+  phone: string;
+  email: string;
+  message: string;
+  source: string;
+  status: string;
+  notes: string;
+  created_at: string;
+  contacted_at: string | null;
+};
+
+/** Capture a training course enquiry and tell the office straight away. */
+export async function createTrainingEnquiry(input: {
+  name: string;
+  phone: string;
+  email: string;
+  message: string;
+  source: string;
+}): Promise<TrainingEnquiry> {
+  const enquiry = (await queryOne<TrainingEnquiry>(
+    `INSERT INTO training_enquiries (ref, name, phone, email, message, source)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     RETURNING *`,
+    [makeRef("TRN"), input.name, input.phone, input.email, input.message, input.source]
+  ))!;
+
+  // Manual entries come from the office itself — no point texting them back.
+  if (input.source !== "admin") {
+    await notifyAdmin({
+      subject: `Training enquiry ${enquiry.ref} — ${input.name}`,
+      smsBody:
+        `TRAINING ENQUIRY ${enquiry.ref}: ${input.name}` +
+        `${input.phone ? `, ${input.phone}` : ""}${input.email ? `, ${input.email}` : ""}\n` +
+        `${input.message ? `${input.message.slice(0, 200)}\n` : ""}` +
+        `${siteUrl()}/admin/training`,
+    });
+  }
+
+  return enquiry;
+}
+
+export async function listTrainingEnquiries(status?: string): Promise<TrainingEnquiry[]> {
+  // Timestamps formatted in SQL for the same reason as listLeads: the pages
+  // are typed to strings, and Date objects crash the render.
+  return query<TrainingEnquiry>(
+    `SELECT id, ref, name, phone, email, message, source, status, notes,
+            to_char(created_at AT TIME ZONE 'Europe/London', 'YYYY-MM-DD HH24:MI') AS created_at,
+            to_char(contacted_at AT TIME ZONE 'Europe/London', 'YYYY-MM-DD HH24:MI') AS contacted_at
+       FROM training_enquiries
+      ${status ? "WHERE status = $1" : ""}
+      ORDER BY created_at DESC LIMIT 200`,
+    status ? [status] : []
+  );
+}
+
+export async function setTrainingEnquiryStatus(
+  id: number,
+  status: "new" | "contacted" | "booked" | "dead",
+  notes?: string
+): Promise<void> {
+  await query(
+    `UPDATE training_enquiries
+        SET status = $2,
+            notes = COALESCE($3, notes),
+            contacted_at = CASE WHEN $2 = 'new' THEN NULL
+                                ELSE COALESCE(contacted_at, now()) END
+      WHERE id = $1`,
+    [id, status, notes ?? null]
+  );
+}
+
+export async function deleteTrainingEnquiry(id: number): Promise<void> {
+  await query(`DELETE FROM training_enquiries WHERE id = $1`, [id]);
+}
+
 /** Best-effort: a lead with no summary just shows its full messages instead. */
 async function updateLeadSummary(leadId: number, notes: string): Promise<void> {
   const summary = await summariseEnquiry(notes);

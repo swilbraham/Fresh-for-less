@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 37;
+export const SCHEMA_VERSION = 38;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -370,6 +370,27 @@ export const STATEMENTS: string[] = [
      mid        text PRIMARY KEY,
      created_at timestamptz NOT NULL DEFAULT now()
    )`,
+
+  // ---- Training course enquiries -------------------------------------------
+  // The /training page form used to post to web3forms, so enquiries only ever
+  // existed as emails. They're a separate pipeline from cleaning leads — no
+  // postcode or rooms, and "booked" means a course place, not a job — so they
+  // get their own table rather than overloading leads.
+  `CREATE TABLE IF NOT EXISTS training_enquiries (
+     id           serial PRIMARY KEY,
+     ref          text NOT NULL UNIQUE,
+     name         text NOT NULL,
+     phone        text NOT NULL DEFAULT '',
+     email        text NOT NULL DEFAULT '',
+     message      text NOT NULL DEFAULT '',
+     source       text NOT NULL DEFAULT '',
+     status       text NOT NULL DEFAULT 'new',
+     notes        text NOT NULL DEFAULT '',
+     created_at   timestamptz NOT NULL DEFAULT now(),
+     contacted_at timestamptz
+   )`,
+  `CREATE INDEX IF NOT EXISTS training_enquiries_status
+     ON training_enquiries (status, created_at DESC)`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------

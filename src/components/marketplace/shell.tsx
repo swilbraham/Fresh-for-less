@@ -174,6 +174,7 @@ export function AdminNav() {
     { href: "/admin/jobs", label: "Jobs" },
     { href: "/admin/diary", label: "Diary" },
     { href: "/admin/leads", label: "Enquiries" },
+    { href: "/admin/training", label: "Training" },
     { href: "/admin/messages", label: "Messages" },
     { href: "/admin/invoices", label: "Commission invoices" },
     { href: "/admin/finances", label: "Finances" },
