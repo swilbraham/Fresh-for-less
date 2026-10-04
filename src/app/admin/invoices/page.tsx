@@ -289,7 +289,9 @@ export default async function AdminInvoicesPage({
                     <th className="py-2 font-semibold">Period</th>
                     <th className="py-2 font-semibold">Jobs</th>
                     <th className="py-2 text-right font-semibold">Amount</th>
-                    <th className="py-2 font-semibold">Card</th>
+                    {/* Amount is right-aligned, so without a gutter the two
+                        headings read as one word. */}
+                    <th className="py-2 pl-4 font-semibold">Card</th>
                     <th className="py-2 font-semibold">Status</th>
                     <th className="py-2 font-semibold" />
                   </tr>
@@ -315,7 +317,7 @@ export default async function AdminInvoicesPage({
                       <td className="py-2 text-right font-semibold tabular-nums">
                         {gbp(invoice.total_pence)}
                       </td>
-                      <td className="py-2 text-xs">
+                      <td className="py-2 pl-4 text-xs">
                         {invoice.square_payment_id ? (
                           <span className="font-semibold text-accent-700">
                             paid by card
