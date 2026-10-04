@@ -81,6 +81,84 @@ export function squareEnabled(): boolean {
   return squareConfig() !== null;
 }
 
+/**
+ * What the running deploy actually believes, for the admin diagnostics page.
+ * Reports which variables are short and which Square it would call, never a
+ * secret's value: a token on a screen is a token in a screenshot.
+ */
+export function squareStatus(): {
+  env: string;
+  host: string | null;
+  locationId: string;
+  missing: string[];
+} {
+  const env = (process.env.SQUARE_ENV ?? "").trim().toLowerCase() || "(unset)";
+  const missing = [
+    process.env.SQUARE_ACCESS_TOKEN?.trim() ? "" : "SQUARE_ACCESS_TOKEN",
+    process.env.SQUARE_LOCATION_ID?.trim() ? "" : "SQUARE_LOCATION_ID",
+    process.env.SQUARE_WEBHOOK_SIGNATURE_KEY?.trim()
+      ? ""
+      : "SQUARE_WEBHOOK_SIGNATURE_KEY",
+  ].filter(Boolean);
+  const config = squareConfig();
+  return {
+    env,
+    host: config ? new URL(config.baseUrl).host : null,
+    locationId: process.env.SQUARE_LOCATION_ID?.trim() ?? "",
+    missing,
+  };
+}
+
+export type SquareLocation = {
+  id: string;
+  name: string;
+  status: string;
+  currency: string;
+  country: string;
+};
+
+/**
+ * The locations this token can actually see. A location id is only valid in
+ * the environment it came from, and "Invalid location id" is indistinguishable
+ * from a typo, so the fix is to read the real list rather than retype it.
+ */
+export async function listLocations(): Promise<SquareLocation[]> {
+  const config = squareConfig();
+  if (!config) throw new Error("Square is not configured.");
+
+  const response = await fetch(`${config.baseUrl}/v2/locations`, {
+    headers: {
+      "Square-Version": API_VERSION,
+      Authorization: `Bearer ${config.accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    const host = new URL(config.baseUrl).host;
+    throw new Error(`Square ${response.status} at ${host}: ${text.slice(0, 260)}`);
+  }
+
+  const parsed = JSON.parse(text) as {
+    locations?: Array<{
+      id?: string;
+      name?: string;
+      status?: string;
+      currency?: string;
+      country?: string;
+    }>;
+  };
+
+  return (parsed.locations ?? []).map((location) => ({
+    id: location.id ?? "",
+    name: location.name ?? "(unnamed)",
+    status: location.status ?? "",
+    currency: location.currency ?? "",
+    country: location.country ?? "",
+  }));
+}
+
 export type PaymentLink = {
   url: string;
   orderId: string;

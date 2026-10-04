@@ -178,6 +178,7 @@ export function AdminNav() {
     { href: "/admin/messages", label: "Messages" },
     { href: "/admin/invoices", label: "Commission invoices" },
     { href: "/admin/finances", label: "Finances" },
+    { href: "/admin/square", label: "Square" },
   ];
   return (
     <nav className="border-b border-slate-800 bg-slate-900 text-white">
