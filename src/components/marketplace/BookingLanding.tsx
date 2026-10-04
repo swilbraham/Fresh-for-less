@@ -29,7 +29,7 @@ export default function BookingLanding({
     },
     {
       title: "Choose a slot and book",
-      body: "Nothing to pay now. Your cleaner is confirmed and you pay them on the day.",
+      body: "Nothing to pay now. Your cleaner is confirmed, and you pay them once the job is finished.",
     },
   ];
 

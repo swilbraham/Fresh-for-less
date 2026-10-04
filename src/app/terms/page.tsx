@@ -100,9 +100,19 @@ export default async function TermsPage() {
 
           <Section heading="4. Paying">
             <p>
-              You pay your cleaner directly on the day, once the work is
-              finished, by card, cash or bank transfer. Nothing is taken when
-              you book and no deposit is held.
+              <strong className="font-semibold text-slate-900">
+                Payment in full is due immediately on completion of the clean.
+              </strong>{" "}
+              You pay your cleaner directly, before they leave, by card, cash
+              or bank transfer. There is nothing to pay when you book, no
+              deposit is held, and we do not invoice afterwards or offer credit
+              terms.
+            </p>
+            <p>
+              If you are not happy with the work, pay as agreed and tell us
+              within 48 hours — the guarantee in section 8 is how we put it
+              right, and it costs you nothing. Your statutory rights are not
+              affected.
             </p>
           </Section>
 

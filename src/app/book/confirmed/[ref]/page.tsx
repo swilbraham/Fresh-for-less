@@ -56,7 +56,7 @@ export default async function ConfirmedPage({
           <dl className="mt-6 divide-y divide-slate-100 border-y border-slate-100">
             <Row label="Date" value={`${date} · ${job.slot_window === "am" ? "Morning 8am–12pm" : "Afternoon 12pm–5pm"}`} />
             <Row label="Address" value={`${job.address_line}${job.town ? `, ${job.town}` : ""}, ${job.postcode}`} />
-            <Row label="Fixed price" value={`${gbp(job.total_pence)} — pay your cleaner on the day`} />
+            <Row label="Fixed price" value={`${gbp(job.total_pence)} — pay your cleaner when the job is finished`} />
           </dl>
 
           <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">

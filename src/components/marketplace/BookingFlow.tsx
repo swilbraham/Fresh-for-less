@@ -848,7 +848,7 @@ export default function BookingFlow({
             <p className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
               {coverage?.provisional
                 ? `If we can cover ${coverage.outward}, you'll pay your cleaner ${gbp(quote.total_pence)} on the day. Nothing to pay unless we confirm.`
-                : `Pay your cleaner ${gbp(quote.total_pence)} on the day — cash or card. Nothing to pay now.`}
+                : `Pay your cleaner ${gbp(quote.total_pence)} when the job is finished — cash or card. Nothing to pay now.`}
             </p>
           </section>
 
