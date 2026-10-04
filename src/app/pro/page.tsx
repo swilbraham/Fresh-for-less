@@ -11,7 +11,10 @@ import {
 } from "@/lib/marketplace/repo";
 import { buildQuote, type Basket } from "@/lib/marketplace/pricing";
 import { gbp, gbpShort } from "@/lib/marketplace/money";
-import { COMMISSION_TERMS_LONG } from "@/lib/marketplace/terms";
+import {
+  COMMISSION_TERMS_LONG,
+  COMMISSION_TERMS_SHORT,
+} from "@/lib/marketplace/terms";
 import {
   DROP_REVIEW_DAYS,
   DROP_REVIEW_LIMIT,
@@ -90,7 +93,7 @@ export default async function ProPage({
             {[
               [
                 "No lead fees, no bidding",
-                `You pay ${Number(settings.commission_pct)}% commission on completed jobs only, invoiced weekly. Nothing for quotes that go nowhere.`,
+                `You pay ${Number(settings.commission_pct)}% commission on completed jobs only. ${COMMISSION_TERMS_SHORT} Nothing for quotes that go nowhere.`,
               ],
               [
                 "You control your patch",
@@ -245,10 +248,22 @@ export default async function ProPage({
               ))}
             </ul>
 
-            <p className="mt-4 text-xs text-slate-500">
-              Do those and you&apos;ll get a steady run of priced local work. We
-              don&apos;t charge lead fees, so we only make money when you do.
-            </p>
+            <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              <p>
+                <strong className="text-slate-800">
+                  What we don&apos;t promise.
+                </strong>{" "}
+                There is no guaranteed amount of work in any postcode. Jobs only
+                exist when a customer books one, so what reaches you depends on
+                demand where you are — it might be several in a week, or none.
+                This is meant for filling the gaps in your diary, not for
+                replacing the work you already have.
+              </p>
+              <p className="mt-2">
+                We don&apos;t charge lead fees or a monthly subscription, so a
+                quiet month costs you nothing — we only make money when you do.
+              </p>
+            </div>
           </div>
 
           <Link
