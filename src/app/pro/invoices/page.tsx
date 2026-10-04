@@ -6,7 +6,8 @@ import { gbp } from "@/lib/marketplace/money";
 import { Card, ProNav, StatusPill } from "@/components/marketplace/shell";
 import {
   COMMISSION_TERMS_LONG,
-  formatCommissionMonday,
+  formatCommissionRun,
+  COMMISSION_ENFORCEMENT,
 } from "@/lib/marketplace/terms";
 
 export const dynamic = "force-dynamic";
@@ -39,8 +40,11 @@ export default async function InvoicesPage() {
       <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-900">Commission</h1>
         <p className="mt-2 text-slate-600">{COMMISSION_TERMS_LONG}</p>
+        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+          {COMMISSION_ENFORCEMENT}
+        </p>
         <p className="mt-2 text-sm font-semibold text-slate-700">
-          Next invoice run: {formatCommissionMonday()}
+          Next run: {formatCommissionRun()}
         </p>
 
         <div className="my-6 grid gap-4 sm:grid-cols-2">

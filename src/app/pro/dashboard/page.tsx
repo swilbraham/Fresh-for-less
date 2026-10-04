@@ -10,7 +10,7 @@ import {
 import { gbp } from "@/lib/marketplace/money";
 import {
   COMMISSION_TERMS_SHORT,
-  formatCommissionMonday,
+  formatCommissionRun,
 } from "@/lib/marketplace/terms";
 import type { Job } from "@/lib/marketplace/types";
 import {
@@ -128,8 +128,8 @@ export default async function DashboardPage({
               owed === 0
                 ? "Nothing to pay"
                 : invoiced > 0
-                  ? `${gbp(invoiced)} invoiced · next run ${formatCommissionMonday()}`
-                  : `Invoiced ${formatCommissionMonday()}`
+                  ? `${gbp(invoiced)} invoiced · next run ${formatCommissionRun()}`
+                  : `Invoiced ${formatCommissionRun()}`
             }
           />
         </div>

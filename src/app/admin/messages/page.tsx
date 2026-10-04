@@ -10,6 +10,7 @@ import {
 } from "@/lib/marketplace/repo";
 import { Card } from "@/components/marketplace/shell";
 import {
+  textAllCleanersAction,
   textAreaCleanersAction,
   textCleanerAction,
   textCustomerAction,
@@ -136,6 +137,46 @@ export default async function MessagesPage({
           >
             Send to all
           </button>
+        </form>
+      </Card>
+
+      <Card title="Tell every cleaner something" className="mt-6">
+        <p className="mt-1 text-sm text-slate-500">
+          Texts every approved cleaner on the network, whatever area they
+          cover. For announcements — a change to the terms, a price change,
+          a shutdown over Christmas. Replies come back to each cleaner&apos;s
+          own thread below.
+        </p>
+        <form action={textAllCleanersAction} className="mt-3 space-y-3">
+          <label className="block text-sm text-slate-600">
+            Message
+            <textarea
+              name="body"
+              required
+              rows={4}
+              maxLength={600}
+              placeholder="Write it in full — this goes to everybody and there is no undo."
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex-none text-sm text-slate-600">
+              Type SEND to confirm
+              <input
+                name="confirm"
+                required
+                placeholder="SEND"
+                autoComplete="off"
+                className="mt-1 block w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm uppercase"
+              />
+            </label>
+            <button
+              type="submit"
+              className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
+            >
+              Text everyone
+            </button>
+          </div>
         </form>
       </Card>
 

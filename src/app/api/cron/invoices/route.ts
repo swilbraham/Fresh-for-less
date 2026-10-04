@@ -6,6 +6,7 @@ import {
   notifyInvoiceRaised,
 } from "@/lib/marketplace/repo";
 import { gbpShort } from "@/lib/marketplace/money";
+import { commissionDueBy } from "@/lib/marketplace/terms";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,7 +26,7 @@ function longDate(date: Date): string {
 }
 
 /**
- * Weekly commission run — Vercel cron hits this every Monday morning.
+ * Nightly commission run — Vercel cron hits this at 8pm.
  *
  * It bills every completed job that isn't already on an invoice, not just ones
  * inside the labelled week, so anything completed late still gets picked up
@@ -43,16 +44,14 @@ export async function GET(request: Request) {
     }
   }
 
+  // Nightly at 8pm, covering today. The run still bills every completed job
+  // that isn't already on an invoice rather than only the ones inside the
+  // labelled day, so a job marked complete late is picked up by the next run
+  // instead of falling through the gap.
   const today = new Date();
-  const lastMonday = new Date(today);
-  lastMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7) - 7);
-  const lastSunday = new Date(lastMonday);
-  lastSunday.setDate(lastMonday.getDate() + 6);
+  const dueBy = commissionDueBy(today);
 
-  const dueBy = new Date(today);
-  dueBy.setDate(today.getDate() + 7);
-
-  const raised = await generateCommissionInvoices(iso(lastMonday), iso(lastSunday));
+  const raised = await generateCommissionInvoices(iso(today), iso(today));
 
   for (const invoice of raised) {
     await notifyInvoiceRaised(invoice, longDate(dueBy));
@@ -63,9 +62,9 @@ export async function GET(request: Request) {
     const total = raised.reduce((sum, i) => sum + i.totalPence, 0);
     await notify({
       recipient: settings.booking_email,
-      subject: `Weekly commission run — ${raised.length} invoice${raised.length === 1 ? "" : "s"}, ${gbpShort(total)}`,
+      subject: `Commission run ${iso(today)} — ${raised.length} invoice${raised.length === 1 ? "" : "s"}, ${gbpShort(total)}`,
       body:
-        `Commission invoices for ${iso(lastMonday)} to ${iso(lastSunday)}:\n\n` +
+        `Commission raised for ${longDate(today)}:\n\n` +
         raised
           .map((i) => `${i.ref} — ${gbpShort(i.totalPence)} (${i.jobs} job${i.jobs === 1 ? "" : "s"})`)
           .join("\n") +
@@ -75,7 +74,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    period: { from: iso(lastMonday), to: iso(lastSunday) },
+    period: { from: iso(today), to: iso(today) },
     invoicesRaised: raised.length,
     totalPence: raised.reduce((sum, i) => sum + i.totalPence, 0),
   });

@@ -5,7 +5,7 @@ import { gbpShort } from "./money";
 import { outwardOf, normalisePostcode } from "./postcode";
 import { isMobile, toE164 } from "./phone";
 import { bookingUrl } from "./auth";
-import { COMMISSION_TERMS_SHORT } from "./terms";
+import { COMMISSION_ENFORCEMENT, COMMISSION_TERMS_SHORT } from "./terms";
 import { firstName } from "./names";
 import { summariseEnquiry } from "./summarise";
 import type {
@@ -2093,18 +2093,21 @@ export async function notifyInvoiceRaised(
   const cleaner = await getCleaner(invoice.cleanerId);
   if (!cleaner) return;
 
+  // The consequence rides along with the invoice rather than living only in
+  // the terms somebody read once at sign-up.
   await notifyCleaner(cleaner, {
-    subject: `Commission invoice ${invoice.ref} — ${gbpShort(invoice.totalPence)}`,
+    subject: `Commission ${invoice.ref} — ${gbpShort(invoice.totalPence)}, due ${dueBy}`,
     body:
-      `${cleaner.name}, here's your commission invoice for last week.\n\n` +
+      `${cleaner.name}, here is today's commission.\n\n` +
       `Invoice: ${invoice.ref}\n` +
       `Jobs completed: ${invoice.jobs}\n` +
       `Commission due: ${gbpShort(invoice.totalPence)}\n` +
-      `Payable by: ${dueBy}\n\n` +
-      `View, print or pay it here:\n${siteUrl()}/pro/invoices/${invoice.ref}`,
+      `Payable by: ${dueBy} (48 hours from the clean)\n\n` +
+      `View or pay it here:\n${siteUrl()}/pro/invoices/${invoice.ref}\n\n` +
+      `${COMMISSION_ENFORCEMENT}`,
     smsBody:
-      `Commission invoice ${invoice.ref}: ${gbpShort(invoice.totalPence)} for ` +
-      `${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"}, due ${dueBy}. ` +
+      `Commission ${invoice.ref}: ${gbpShort(invoice.totalPence)} for ` +
+      `${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"} today, due ${dueBy}. ` +
       `${siteUrl()}/pro/invoices/${invoice.ref}`,
   });
 }

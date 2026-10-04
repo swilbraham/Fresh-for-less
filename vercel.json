@@ -37,7 +37,7 @@
   "crons": [
     {
       "path": "/api/cron/invoices",
-      "schedule": "0 7 * * 1"
+      "schedule": "0 20 * * *"
     },
     {
       "path": "/api/cron/unfilled",

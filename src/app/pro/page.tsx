@@ -220,6 +220,18 @@ export default async function ProPage({
                   "Collect the full amount",
                   "Take the whole price from the customer on the day. Commission is invoiced separately, never deducted at your end.",
                 ],
+                [
+                  "Work the slot the customer chose",
+                  "The customer picks their own date and half-day when they book. That is the appointment you are accepting — it is not an opening position to negotiate when you ring them.",
+                ],
+                [
+                  "The customer is ours, not the job's",
+                  "Customers booked through Fresh For Less stay Fresh For Less customers. Taking repeat or referred work from them off the platform, or passing them your own details to book direct, ends the arrangement.",
+                ],
+                [
+                  "The booking is on our terms",
+                  "The customer agrees Fresh For Less Carpet Cleaning's terms and conditions when they book, and those are the terms the job runs on — the price, the cancellation window and the guarantee.",
+                ],
               ].map(([title, body]) => (
                 <li key={title} className="flex gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">

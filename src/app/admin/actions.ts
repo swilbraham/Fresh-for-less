@@ -9,6 +9,7 @@ import {
   startAdminSession,
 } from "@/lib/marketplace/auth";
 import {
+  listCleaners,
   approvedCleanersCovering,
   cancelJob,
   chaseInvoice,
@@ -562,6 +563,55 @@ export async function textAreaCleanersAction(data: FormData) {
   revalidatePath("/admin/messages");
   const summary =
     `Sent to ${sent} cleaner${sent === 1 ? "" : "s"} covering ${codes.join(", ")}` +
+    (unreachable.length > 0
+      ? ` — couldn't text ${unreachable.join(", ")} (no mobile on file)`
+      : "");
+  redirect(to(`broadcast=${encodeURIComponent(summary)}`));
+}
+
+/**
+ * Text every approved cleaner, regardless of area.
+ *
+ * Separate from the by-area send rather than a special case of it, because
+ * the two are used for opposite things: one asks who can cover a job, this
+ * one announces something everybody has to know, like a change to the
+ * commission terms. Keeping them apart means an empty area box can never
+ * quietly turn a local question into a message to the whole network.
+ *
+ * Requires the message to be typed twice-over long, because there is no undo
+ * on a hundred text messages.
+ */
+export async function textAllCleanersAction(data: FormData) {
+  await requireAdmin("/admin/messages");
+  const body = field(data, "body", 600);
+  const confirm = field(data, "confirm", 20);
+  const to = (param: string) => `/admin/messages?${param}`;
+
+  if (!body) redirect(to(`error=${encodeURIComponent("Write a message first.")}`));
+  if (body.length < 20)
+    redirect(
+      to(`error=${encodeURIComponent("That's very short for a message to everybody — write it out in full.")}`)
+    );
+  if (confirm.toUpperCase() !== "SEND")
+    redirect(
+      to(`error=${encodeURIComponent("Type SEND in the confirm box to text every cleaner.")}`)
+    );
+
+  const everyone = await listCleaners("approved");
+  if (everyone.length === 0)
+    redirect(to(`error=${encodeURIComponent("There are no approved cleaners to text.")}`));
+
+  const unreachable: string[] = [];
+  let sent = 0;
+  for (const cleaner of everyone) {
+    const result = await textCleaner(cleaner.id, body);
+    if (result.ok) sent += 1;
+    else unreachable.push(cleaner.name);
+  }
+
+  revalidatePath("/admin/messages");
+  const summary =
+    `Sent to ${sent} of ${everyone.length} approved cleaner${everyone.length === 1 ? "" : "s"}` +
     (unreachable.length > 0
       ? ` — couldn't text ${unreachable.join(", ")} (no mobile on file)`
       : "");

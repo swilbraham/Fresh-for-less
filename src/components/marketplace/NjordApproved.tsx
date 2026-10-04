@@ -1,12 +1,18 @@
 import NjordBadge from "./NjordBadge";
 
 /**
- * The Njord Approved standard.
+ * The standard every cleaner in the network works to.
  *
- * The same six points serve two very different readers, so the copy is written
+ * The same points serve two very different readers, so the copy is written
  * twice rather than shared: a cleaner needs to know what is required of them,
  * a customer needs to know what it buys them. Keeping both in one file means
  * the standard can't quietly say different things in different places.
+ *
+ * The cleaner-facing wording states outcomes rather than a particular
+ * supplier's course. Recruiting now runs well beyond the people Njord trained,
+ * and a time-served cleaner holding NCCA or IICRC certification reads "you
+ * must be Njord approved" as a door closed in their face. Njord remains the
+ * recommended supplier and is named as such below.
  */
 
 type Point = { title: string; body: string };
@@ -14,7 +20,7 @@ type Point = { title: string; body: string };
 const FOR_CLEANERS: Point[] = [
   {
     title: "Trained & Certified",
-    body: "Professionally trained and certified.",
+    body: "Professionally trained and certified by a recognised industry body — NCCA, IICRC, Njord or equivalent.",
   },
   {
     title: "Fully Insured",
@@ -22,7 +28,7 @@ const FOR_CLEANERS: Point[] = [
   },
   {
     title: "Greener Cleaning",
-    body: "Modern professional chemistry and cleaning methods designed to reduce unnecessary chemical and water use.",
+    body: "Modern professional chemistry and methods chosen to reduce unnecessary chemical and water use. Which range you buy is your business.",
   },
   {
     title: "Professional & Friendly",
@@ -70,11 +76,11 @@ export default function NjordApproved({
       <div className="border-b border-slate-800 bg-slate-950/40 px-6 py-6 text-center">
         <NjordBadge className="mx-auto h-auto w-full max-w-[280px]" />
         <h2 className="mt-4 text-lg font-bold text-white">
-          The Njord Approved Standard
+          {cleaner ? "The standard we work to" : "The Njord Approved Standard"}
         </h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
           {cleaner
-            ? "Every cleaner receiving work through the network must meet the Njord Approved standard."
+            ? "Every cleaner taking work through the network meets this standard — whoever trained you and whichever chemistry you run."
             : "For customers, it means more than simply getting a cleaner."}
         </p>
       </div>
@@ -96,7 +102,9 @@ export default function NjordApproved({
       {cleaner && (
         <div className="border-t border-slate-800 px-6 py-4 text-center">
           <p className="text-sm text-slate-400">
-            Training and approval is run by Njord Chemicals —{" "}
+            Our recommended training and chemical supplier is Njord Chemicals,
+            whose certification meets this standard in full. Not certified yet,
+            or looking to move on from the range you are using?{" "}
             <a
               href="https://www.njordchemicals.com"
               target="_blank"
