@@ -2474,6 +2474,48 @@ async function attachPaymentLink(input: {
 }
 
 /**
+ * Give an invoice that hasn't got one a Square link, after the event.
+ *
+ * Invoices raised before Square was switched on have no link, and chasing or
+ * reissuing one would otherwise send a cleaner to bank details when a card
+ * link is now perfectly possible. Safe to call repeatedly: the invoice
+ * reference is the idempotency key, so Square hands back the same link rather
+ * than opening a second way to pay the same bill.
+ */
+export async function ensurePaymentLink(
+  invoiceId: number
+): Promise<{ url?: string; error?: string }> {
+  if (!squareEnabled()) return {};
+
+  const invoice = await queryOne<{
+    id: number;
+    ref: string;
+    total_pence: number;
+    status: string;
+    payment_url: string;
+    cleaner_name: string;
+  }>(
+    `SELECT i.id, i.ref, i.total_pence, i.status, i.payment_url,
+            c.name AS cleaner_name
+       FROM commission_invoices i
+       JOIN cleaners c ON c.id = i.cleaner_id
+      WHERE i.id = $1`,
+    [invoiceId]
+  );
+  if (!invoice) return { error: "Invoice not found." };
+  // Only an unpaid invoice should ever grow a way to pay it.
+  if (invoice.status !== "issued") return {};
+  if (invoice.payment_url.trim()) return { url: invoice.payment_url };
+
+  return attachPaymentLink({
+    invoiceId: invoice.id,
+    ref: invoice.ref,
+    totalPence: invoice.total_pence,
+    cleanerName: invoice.cleaner_name,
+  });
+}
+
+/**
  * Mark an invoice paid from a Square payment, matched on the order id Square
  * gave us when the link was made.
  *
@@ -2684,18 +2726,28 @@ export async function chaseInvoice(
   const cleaner = await getCleaner(invoice.cleaner_id);
   if (!cleaner) return { ok: false, reason: "Cleaner not found." };
 
+  // An invoice raised before Square was switched on has no link yet. Making
+  // one now is the difference between a chase they can act on in ten seconds
+  // and a chase that asks them to go and find their banking app.
+  const link = await ensurePaymentLink(invoice.id);
+  const invoicePage = `${siteUrl()}/pro/invoices/${invoice.ref}`;
+
   await notifyCleaner(cleaner, {
     subject: `Reminder — commission invoice ${invoice.ref} is unpaid`,
     body:
       `${firstName(cleaner.name)}, a reminder that commission invoice ` +
       `${invoice.ref} for ${gbpShort(invoice.total_pence)} (issued ${invoice.issued_at}) ` +
-      `is still unpaid.\n\nThe details and job list are on your dashboard:\n` +
-      `${siteUrl()}/pro/invoices/${invoice.ref}\n\n` +
+      `is still unpaid.\n\n` +
+      (link.url
+        ? `Pay by card here:\n${link.url}\n\nOr see the job list and bank details:\n${invoicePage}\n\n`
+        : `The details and job list are on your dashboard:\n${invoicePage}\n\n`) +
       `If you've already paid, ignore this — it can take a day to be marked.`,
-    smsBody:
-      `Fresh For Less: commission invoice ${invoice.ref} ` +
-      `(${gbpShort(invoice.total_pence)}, issued ${invoice.issued_at}) is still ` +
-      `unpaid. Details: ${siteUrl()}/pro/invoices/${invoice.ref}`,
+    smsBody: link.url
+      ? `Fresh For Less: commission ${invoice.ref} (${gbpShort(invoice.total_pence)}) ` +
+        `is still unpaid. Pay by card: ${link.url}`
+      : `Fresh For Less: commission invoice ${invoice.ref} ` +
+        `(${gbpShort(invoice.total_pence)}, issued ${invoice.issued_at}) is still ` +
+        `unpaid. Details: ${invoicePage}`,
   });
   await query(`UPDATE commission_invoices SET chased_at = now() WHERE id = $1`, [
     invoiceId,

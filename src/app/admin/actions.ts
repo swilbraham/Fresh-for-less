@@ -9,6 +9,7 @@ import {
   startAdminSession,
 } from "@/lib/marketplace/auth";
 import {
+  ensurePaymentLink,
   listCleaners,
   approvedCleanersCovering,
   cancelJob,
@@ -807,6 +808,10 @@ export async function reissueInvoiceAction(data: FormData) {
   if (found!.invoice.status === "void") {
     redirect(`${back}?error=${encodeURIComponent("That invoice is void — nothing to reissue.")}`);
   }
+
+  // Backfill a card link if this one predates Square, so a reissue is
+  // actually more useful than the original rather than identical to it.
+  await ensurePaymentLink(found!.invoice.id);
 
   const settings = await getSettings();
   const due = new Date(`${found!.invoice.issued_at}T12:00:00`);
