@@ -323,11 +323,15 @@ export default async function AdminInvoicesPage({
                             paid by card
                           </span>
                         ) : invoice.payment_link_error ? (
-                          <span
-                            title={invoice.payment_link_error}
-                            className="font-semibold text-red-700"
-                          >
+                          // Printed, not hidden behind a tooltip: this is the
+                          // only place Square's own words appear, and it is
+                          // the difference between a five-minute fix and an
+                          // afternoon of guessing at the configuration.
+                          <span className="block max-w-[22rem] font-semibold text-red-700">
                             no link
+                            <span className="mt-0.5 block font-normal text-[11px] leading-snug text-red-600">
+                              {invoice.payment_link_error}
+                            </span>
                           </span>
                         ) : invoice.payment_url ? (
                           <a
@@ -337,7 +341,17 @@ export default async function AdminInvoicesPage({
                             link
                           </a>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          // No url and no error means the link was never
+                          // attempted, which only happens when Square is
+                          // switched off — a different problem from a failed
+                          // call, and worth saying so rather than showing a
+                          // dash that could mean either.
+                          <span
+                            title="Square is off — a SQUARE_* variable is missing, or the app hasn't been redeployed since they were added."
+                            className="text-slate-400"
+                          >
+                            Square off
+                          </span>
                         )}
                       </td>
                       <td className="py-2">
