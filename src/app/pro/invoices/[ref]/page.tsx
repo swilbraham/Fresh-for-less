@@ -212,6 +212,15 @@ export default async function InvoicePage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {lines.length === 0 && invoice.manual_reason && (
+                <tr>
+                  <td className="py-2 text-slate-700">{invoice.manual_reason}</td>
+                  <td className="py-2 text-right tabular-nums text-slate-900">
+                    {gbp(invoice.total_pence)}
+                  </td>
+                </tr>
+              )}
+
               {lines.map((line) => (
                 <tr key={line.ref}>
                   <td className="py-2 whitespace-nowrap text-slate-600">

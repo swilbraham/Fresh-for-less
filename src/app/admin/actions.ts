@@ -9,6 +9,7 @@ import {
   startAdminSession,
 } from "@/lib/marketplace/auth";
 import {
+  createManualInvoice,
   ensurePaymentLink,
   listCleaners,
   approvedCleanersCovering,
@@ -930,6 +931,38 @@ export async function rebroadcastJobAction(data: FormData) {
 }
 
 // -------------------------------------------------------------- invoicing --
+
+/**
+ * Raise an invoice by hand from /admin/invoices.
+ *
+ * Pounds in the form, pence in the database: the conversion happens here and
+ * nowhere else, because a figure typed as pounds reaching storage untouched
+ * would bill a cleaner a hundredth of what was meant.
+ */
+export async function createManualInvoiceAction(data: FormData) {
+  await requireAdmin("/admin/invoices");
+  const cleanerId = Number(field(data, "cleanerId", 12));
+  const pounds = Number(field(data, "amount", 12));
+  const reason = field(data, "reason", 200);
+
+  if (!Number.isFinite(cleanerId) || cleanerId <= 0) {
+    fail("/admin/invoices", "Pick a cleaner.");
+  }
+  if (!Number.isFinite(pounds) || pounds <= 0) {
+    fail("/admin/invoices", "Enter an amount in pounds, like 1 or 19.80.");
+  }
+
+  const result = await createManualInvoice({
+    cleanerId,
+    amountPence: Math.round(pounds * 100),
+    reason,
+  });
+  revalidatePath("/admin/invoices");
+  if (!result.ok) {
+    fail("/admin/invoices", result.reason ?? "Couldn't raise that invoice.");
+  }
+  redirect(`/admin/invoices?created=1&ref=${encodeURIComponent(result.ref ?? "")}`);
+}
 
 export async function generateInvoicesAction(data: FormData) {
   await requireAdmin("/admin/invoices");

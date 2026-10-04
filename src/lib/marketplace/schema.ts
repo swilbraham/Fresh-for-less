@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 39;
+export const SCHEMA_VERSION = 40;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -432,6 +432,12 @@ export const STATEMENTS: string[] = [
 
   // A cleaner saying a job never happened. Blocks assumed completion, and
   // after same-evening billing it can also arrive once the invoice has gone.
+  // ---- Manual invoices -----------------------------------------------------
+  // An invoice raised by hand has no job lines, so without a stated reason it
+  // would reach a cleaner as a bare amount with nothing explaining it. The
+  // reason is the line item.
+  `ALTER TABLE commission_invoices ADD COLUMN IF NOT EXISTS manual_reason text NOT NULL DEFAULT ''`,
+
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cleaner_disputed_at timestamptz`,
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cleaner_dispute_reason text NOT NULL DEFAULT ''`,
 

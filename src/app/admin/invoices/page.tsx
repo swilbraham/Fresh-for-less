@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import {
+  listCleaners,
   listCompletionConcerns,
   listInvoices,
   listUninvoicedCommission,
@@ -9,6 +10,7 @@ import {
 import { gbp } from "@/lib/marketplace/money";
 import {
   chaseInvoiceAction,
+  createManualInvoiceAction,
   generateInvoicesAction,
   setInvoiceStatusAction,
 } from "../actions";
@@ -45,10 +47,11 @@ export default async function AdminInvoicesPage({
   if (!(await isAdmin())) redirect("/admin");
   const { error, saved, created, chased } = await searchParams;
 
-  const [pending, invoices, concerns] = await Promise.all([
+  const [pending, invoices, concerns, cleaners] = await Promise.all([
     listUninvoicedCommission(),
     listInvoices(),
     listCompletionConcerns(),
+    listCleaners("approved"),
   ]);
   const { start, end } = monthBounds();
 
@@ -171,6 +174,61 @@ export default async function AdminInvoicesPage({
               ))}
             </ul>
           )}
+
+          <form action={createManualInvoiceAction} className="mt-6 border-t border-slate-200 pt-5">
+            <p className="text-sm font-semibold text-slate-900">
+              Or raise one by hand
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              For a correction, a one-off charge, or a small test payment. It
+              carries no job lines, so the reason is what the cleaner sees in
+              their place.
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <label className="flex-none text-sm text-slate-600">
+                Cleaner
+                <select
+                  name="cleanerId"
+                  required
+                  className="mt-1 block w-44 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                >
+                  {cleaners.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex-none text-sm text-slate-600">
+                Amount (&pound;)
+                <input
+                  name="amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  placeholder="1.00"
+                  className="mt-1 block w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="min-w-[200px] flex-1 text-sm text-slate-600">
+                What it&apos;s for
+                <input
+                  name="reason"
+                  required
+                  maxLength={200}
+                  placeholder="Test payment"
+                  className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                />
+              </label>
+              <button
+                type="submit"
+                className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
+              >
+                Raise invoice
+              </button>
+            </div>
+          </form>
 
           <form
             action={generateInvoicesAction}

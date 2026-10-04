@@ -5,7 +5,11 @@ import { gbpShort } from "./money";
 import { outwardOf, normalisePostcode } from "./postcode";
 import { isMobile, toE164 } from "./phone";
 import { bookingUrl } from "./auth";
-import { COMMISSION_ENFORCEMENT, COMMISSION_TERMS_SHORT } from "./terms";
+import {
+  COMMISSION_ENFORCEMENT,
+  COMMISSION_TERMS_SHORT,
+  formatCommissionDueBy,
+} from "./terms";
 import { firstName } from "./names";
 import { createPaymentLink, squareEnabled } from "./square";
 import { summariseEnquiry } from "./summarise";
@@ -2474,6 +2478,64 @@ async function attachPaymentLink(input: {
 }
 
 /**
+ * Raise an invoice by hand, for an amount that isn't the sum of job lines.
+ *
+ * Needed for the things the nightly run cannot know about: a correction, a
+ * one-off charge, or a small test payment. It carries no lines, which is why
+ * the reason is mandatory — a cleaner receiving a bare amount with no job list
+ * and no explanation will reasonably assume it is a mistake.
+ *
+ * `recalcInvoice` only ever runs when a line is removed, and this invoice has
+ * none, so nothing can later recalculate its total down to zero.
+ */
+export async function createManualInvoice(input: {
+  cleanerId: number;
+  amountPence: number;
+  reason: string;
+}): Promise<{ ok: boolean; reason?: string; ref?: string; paymentUrl?: string }> {
+  const amount = Math.round(Number(input.amountPence));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, reason: "Enter an amount greater than zero." };
+  }
+  if (!input.reason.trim()) {
+    return { ok: false, reason: "Say what the invoice is for." };
+  }
+
+  const cleaner = await getCleaner(input.cleanerId);
+  if (!cleaner) return { ok: false, reason: "Cleaner not found." };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const invoice = await queryOne<{ id: number; ref: string }>(
+    `INSERT INTO commission_invoices
+       (ref, cleaner_id, period_start, period_end, total_pence, manual_reason)
+     VALUES ($1,$2,$3::date,$3::date,$4,$5) RETURNING id, ref`,
+    [makeRef("CI"), input.cleanerId, today, amount, input.reason.trim()]
+  );
+  if (!invoice) return { ok: false, reason: "Couldn't create that invoice." };
+
+  const link = await attachPaymentLink({
+    invoiceId: invoice.id,
+    ref: invoice.ref,
+    totalPence: amount,
+    cleanerName: cleaner.name,
+  });
+
+  await notifyInvoiceRaised(
+    {
+      id: invoice.id,
+      ref: invoice.ref,
+      cleanerId: input.cleanerId,
+      totalPence: amount,
+      jobs: 0,
+      paymentUrl: link.url,
+    },
+    formatCommissionDueBy()
+  );
+
+  return { ok: true, ref: invoice.ref, paymentUrl: link.url };
+}
+
+/**
  * Give an invoice that hasn't got one a Square link, after the event.
  *
  * Invoices raised before Square was switched on have no link, and chasing or
@@ -2664,6 +2726,8 @@ export type InvoiceRow = {
   payment_url: string;
   square_payment_id: string | null;
   payment_link_error: string;
+  /** Set only on an invoice raised by hand, which has no job lines. */
+  manual_reason: string;
 };
 
 export async function listInvoices(cleanerId?: number): Promise<InvoiceRow[]> {
@@ -2676,6 +2740,7 @@ export async function listInvoices(cleanerId?: number): Promise<InvoiceRow[]> {
             to_char(i.paid_at,   'YYYY-MM-DD') AS paid_at,
             to_char(i.chased_at, 'YYYY-MM-DD') AS chased_at,
             i.payment_url, i.square_payment_id, i.payment_link_error,
+            i.manual_reason,
             (current_date - i.issued_at::date)::int AS days_old,
             (SELECT count(*)::int FROM commission_invoice_lines l
               WHERE l.invoice_id = i.id) AS jobs
@@ -4246,6 +4311,7 @@ export async function getInvoice(
             to_char(i.paid_at,   'YYYY-MM-DD') AS paid_at,
             to_char(i.chased_at, 'YYYY-MM-DD') AS chased_at,
             i.payment_url, i.square_payment_id, i.payment_link_error,
+            i.manual_reason,
             (current_date - i.issued_at::date)::int AS days_old,
             (SELECT count(*)::int FROM commission_invoice_lines l
               WHERE l.invoice_id = i.id) AS jobs
