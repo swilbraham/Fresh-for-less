@@ -7,6 +7,7 @@ import { isMobile, toE164 } from "./phone";
 import { bookingUrl } from "./auth";
 import { COMMISSION_ENFORCEMENT, COMMISSION_TERMS_SHORT } from "./terms";
 import { firstName } from "./names";
+import { createPaymentLink, squareEnabled } from "./square";
 import { summariseEnquiry } from "./summarise";
 import type {
   Cleaner,
@@ -32,6 +33,8 @@ const JOB_COLUMNS = `
   j.commission_on_net,
   j.status, j.cleaner_id,
   j.cancelled_by, j.late_cancellation, j.rescheduled_count,
+  j.completion_assumed, j.customer_confirmed, j.cleaner_dispute_reason,
+  to_char(j.cleaner_disputed_at, 'YYYY-MM-DD HH24:MI') AS cleaner_disputed_at,
   to_char(j.created_at,   'YYYY-MM-DD HH24:MI') AS created_at,
   to_char(j.accepted_at,  'YYYY-MM-DD HH24:MI') AS accepted_at,
   to_char(j.completed_at, 'YYYY-MM-DD HH24:MI') AS completed_at,
@@ -815,6 +818,339 @@ export async function sendCompletionNudge(job: ReminderJob): Promise<void> {
       `Mark it complete: ${siteUrl()}/pro/dashboard — ` +
       `if it didn't happen, reply here.`,
   });
+}
+
+/**
+ * Today's jobs whose customer hasn't been asked whether the cleaner turned up.
+ *
+ * Both 'accepted' and 'completed' are included: a cleaner who marked the job
+ * done is the person being asked about, so their word isn't the end of it.
+ * The stamp goes on in the same statement that selects the rows, so a re-fired
+ * cron cannot text the same household twice.
+ */
+export async function claimJobsForCustomerConfirm(): Promise<ReminderJob[]> {
+  return query<ReminderJob>(
+    `UPDATE jobs j
+        SET confirm_asked_at = now()
+      WHERE j.id IN (
+        SELECT id FROM jobs
+         WHERE status IN ('accepted', 'completed')
+           AND cleaner_id IS NOT NULL
+           AND confirm_asked_at IS NULL
+           AND slot_date = (now() AT TIME ZONE 'Europe/London')::date
+      )
+      RETURNING ${JOB_COLUMNS.replace(/\n\s+/g, " ").trim()},
+                (SELECT c.name FROM cleaners c WHERE c.id = j.cleaner_id) AS cleaner_name`
+  );
+}
+
+/**
+ * Ask the customer, by text only, whether the cleaner came.
+ *
+ * Text only on purpose: the answer is a one-letter reply to this message, and
+ * an email saying "reply Y" has nowhere to reply to. A landline-only customer
+ * simply isn't asked, which is the position before this existed.
+ */
+export async function sendCustomerConfirmation(job: ReminderJob): Promise<void> {
+  const mobile = toE164(job.customer_phone);
+  if (!mobile || !isMobile(job.customer_phone)) return;
+
+  const who = job.cleaner_name ? firstName(job.cleaner_name) : "your cleaner";
+  await notify({
+    channel: "sms",
+    recipient: mobile,
+    subject: `Did the cleaner turn up? (${job.ref})`,
+    body:
+      `Fresh For Less: did ${who} carry out your clean today? ` +
+      `Please reply Y if all went ahead, or N if nobody came. ` +
+      `It takes a second and it is how we keep our cleaners honest.`,
+    jobId: job.id,
+  });
+}
+
+/** Y or N from a customer's handset, or null when it is anything else. */
+export function parseConfirmationReply(body: string): "yes" | "no" | null {
+  const word = body.trim().toUpperCase().replace(/[^A-Z]/g, "");
+  if (word === "Y" || word === "YES") return "yes";
+  if (word === "N" || word === "NO") return "no";
+  return null;
+}
+
+export type ConfirmationResult = {
+  matched: boolean;
+  /** The reply arrived but an answer was already on file; the first one stands. */
+  alreadyAnswered: boolean;
+  jobId?: number;
+  ref?: string;
+  cleanerName?: string | null;
+  slotDate?: string;
+  /** Invoice the job was taken off, when an N landed after billing. */
+  invoiceRef?: string;
+  /** True when an assumed completion was put back to accepted. */
+  reopened?: boolean;
+};
+
+/**
+ * Record a Y or N against the most recent job this number was asked about.
+ *
+ * An N is treated as "don't bill this yet" rather than "argue about it later":
+ * the job comes out of assumed completion and off any unpaid invoice, and
+ * admin is told loudly. A wrongly-sent N costs a phone call to put right,
+ * where a wrongly-sent bill costs the cleaner's trust.
+ */
+export async function recordCustomerConfirmation(input: {
+  from: string;
+  answer: "yes" | "no";
+}): Promise<ConfirmationResult> {
+  const digits = (toE164(input.from) ?? input.from)
+    .replace(/[^0-9]/g, "")
+    .slice(-9);
+  if (!digits) return { matched: false, alreadyAnswered: false };
+
+  const job = await queryOne<{
+    id: number;
+    ref: string;
+    status: string;
+    slot_date: string;
+    completion_assumed: boolean;
+    customer_confirmed: string;
+    cleaner_name: string | null;
+  }>(
+    `SELECT j.id, j.ref, j.status,
+            to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date,
+            j.completion_assumed, j.customer_confirmed,
+            (SELECT c.name FROM cleaners c WHERE c.id = j.cleaner_id) AS cleaner_name
+       FROM jobs j
+      WHERE regexp_replace(j.customer_phone, '[^0-9]', '', 'g') LIKE $1
+        AND j.confirm_asked_at IS NOT NULL
+      ORDER BY j.confirm_asked_at DESC
+      LIMIT 1`,
+    [`%${digits}`]
+  );
+  if (!job) return { matched: false, alreadyAnswered: false };
+
+  // Conditional on the answer still being blank, so a second text — or a
+  // Twilio redelivery that got past the message-level check — can't flip it.
+  const saved = await query<{ id: number }>(
+    `UPDATE jobs
+        SET customer_confirmed = $2, customer_confirmed_at = now()
+      WHERE id = $1 AND customer_confirmed = ''
+      RETURNING id`,
+    [job.id, input.answer]
+  );
+  if (saved.length === 0) {
+    return {
+      matched: true,
+      alreadyAnswered: true,
+      jobId: job.id,
+      ref: job.ref,
+      cleanerName: job.cleaner_name,
+      slotDate: job.slot_date,
+    };
+  }
+
+  if (input.answer === "yes") {
+    return {
+      matched: true,
+      alreadyAnswered: false,
+      jobId: job.id,
+      ref: job.ref,
+      cleanerName: job.cleaner_name,
+      slotDate: job.slot_date,
+    };
+  }
+
+  // Only an assumed completion is reopened. If the cleaner marked it done
+  // themselves the two accounts genuinely disagree, and that is a call for the
+  // office to make, not for this function to settle by rewriting the status.
+  const reopened = await query<{ id: number }>(
+    `UPDATE jobs
+        SET status = 'accepted', completed_at = NULL, completion_assumed = false
+      WHERE id = $1 AND status = 'completed' AND completion_assumed = true
+      RETURNING id`,
+    [job.id]
+  );
+
+  const dropped = await dropJobFromInvoices(job.id);
+
+  return {
+    matched: true,
+    alreadyAnswered: false,
+    jobId: job.id,
+    ref: job.ref,
+    cleanerName: job.cleaner_name,
+    slotDate: job.slot_date,
+    invoiceRef: dropped.invoiceRef,
+    reopened: reopened.length > 0,
+  };
+}
+
+export type AutoCompleted = {
+  id: number;
+  ref: string;
+  postcode: string;
+  slot_date: string;
+  commission_pence: number;
+  cleaner_name: string | null;
+};
+
+/**
+ * Complete today's accepted jobs that nobody has said anything against.
+ *
+ * Without this a cleaner who simply never taps "mark complete" is never
+ * billed, which quietly makes the honest ones subsidise everyone else. The
+ * completion is stamped as assumed, so an invoice raised on this basis can
+ * always be told apart from one the cleaner stood behind.
+ *
+ * Deliberately only today's slots. Sweeping up every past accepted job would,
+ * on the first run, bill a backlog of history in one go — far worse than
+ * leaving yesterday's stragglers to the 8am nudge and the admin attention list.
+ *
+ * Must run after both slot windows have closed (the 8pm job does).
+ */
+export async function autoCompleteDueJobs(): Promise<AutoCompleted[]> {
+  return query<AutoCompleted>(
+    `UPDATE jobs j
+        SET status = 'completed', completed_at = now(), completion_assumed = true
+      WHERE j.id IN (
+        SELECT id FROM jobs
+         WHERE status = 'accepted'
+           AND cleaner_id IS NOT NULL
+           AND customer_confirmed <> 'no'
+           AND cleaner_disputed_at IS NULL
+           AND slot_date = (now() AT TIME ZONE 'Europe/London')::date
+      )
+      RETURNING j.id, j.ref, j.postcode,
+                to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date,
+                j.commission_pence,
+                (SELECT c.name FROM cleaners c WHERE c.id = j.cleaner_id) AS cleaner_name`
+  );
+}
+
+export type DisputeResult = {
+  ok: boolean;
+  reason?: string;
+  ref?: string;
+  /** Invoice the job came off, when the dispute arrived after billing. */
+  invoiceRef?: string;
+  invoiceVoided?: boolean;
+};
+
+/**
+ * A cleaner saying a job never happened.
+ *
+ * Needed because billing is same-evening: the thing being disputed may already
+ * have been invoiced by the time they get to a screen. So this both blocks
+ * assumed completion and unwinds the bill if one has gone out.
+ */
+export async function disputeJobByCleaner(input: {
+  jobId: number;
+  cleanerId: number;
+  reason: string;
+}): Promise<DisputeResult> {
+  const job = await getJob(input.jobId);
+  if (!job || job.cleaner_id !== input.cleanerId) {
+    return { ok: false, reason: "That job isn't yours." };
+  }
+  if (!["accepted", "completed"].includes(job.status)) {
+    return {
+      ok: false,
+      reason: "Only a job in your diary or just completed can be disputed.",
+    };
+  }
+
+  await query(
+    `UPDATE jobs
+        SET cleaner_disputed_at = COALESCE(cleaner_disputed_at, now()),
+            cleaner_dispute_reason = $2
+      WHERE id = $1`,
+    [input.jobId, input.reason.slice(0, 300)]
+  );
+
+  // Their own "mark complete" is left standing: only a completion this system
+  // assumed on their behalf is theirs to take back this way.
+  await query(
+    `UPDATE jobs
+        SET status = 'accepted', completed_at = NULL, completion_assumed = false
+      WHERE id = $1 AND status = 'completed' AND completion_assumed = true`,
+    [input.jobId]
+  );
+
+  const dropped = await dropJobFromInvoices(input.jobId);
+  if (dropped.removed && dropped.invoiceRef) {
+    const invoice = await queryOne<{ status: string }>(
+      `SELECT status FROM commission_invoices WHERE ref = $1`,
+      [dropped.invoiceRef]
+    );
+    await notifyAdmin({
+      subject: `Cleaner disputes ${job.ref} — invoice ${dropped.invoiceRef} amended`,
+      smsBody:
+        `DISPUTED: ${job.ref} (${job.slot_date}, ${job.postcode}) — the cleaner ` +
+        `says it didn't happen. Taken off invoice ${dropped.invoiceRef}` +
+        `${invoice?.status === "void" ? " (now void)" : ""}. ` +
+        `${input.reason ? `Reason: ${input.reason.slice(0, 120)}. ` : ""}` +
+        `${siteUrl()}/admin/jobs/${job.ref}`,
+      jobId: input.jobId,
+    });
+    return {
+      ok: true,
+      ref: job.ref,
+      invoiceRef: dropped.invoiceRef,
+      invoiceVoided: invoice?.status === "void",
+    };
+  }
+
+  await notifyAdmin({
+    subject: `Cleaner disputes ${job.ref}`,
+    smsBody:
+      `DISPUTED: ${job.ref} (${job.slot_date}, ${job.postcode}) — the cleaner ` +
+      `says it didn't happen. Not invoiced, so nothing to unwind. ` +
+      `${input.reason ? `Reason: ${input.reason.slice(0, 120)}. ` : ""}` +
+      `${siteUrl()}/admin/jobs/${job.ref}`,
+    jobId: input.jobId,
+  });
+  return { ok: true, ref: job.ref };
+}
+
+export type CompletionConcern = {
+  id: number;
+  ref: string;
+  postcode: string;
+  slot_date: string;
+  status: string;
+  customer_name: string;
+  customer_phone: string;
+  cleaner_name: string | null;
+  customer_confirmed: string;
+  cleaner_dispute_reason: string;
+  cleaner_disputed_at: string | null;
+  completion_assumed: boolean;
+  invoice_ref: string | null;
+  invoice_status: string | null;
+};
+
+/** Jobs somebody has said didn't happen — the office's morning read. */
+export async function listCompletionConcerns(): Promise<CompletionConcern[]> {
+  return query<CompletionConcern>(
+    `SELECT j.id, j.ref, j.postcode,
+            to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date,
+            j.status, j.customer_name, j.customer_phone,
+            j.customer_confirmed, j.cleaner_dispute_reason,
+            to_char(j.cleaner_disputed_at, 'YYYY-MM-DD HH24:MI') AS cleaner_disputed_at,
+            j.completion_assumed,
+            c.name AS cleaner_name,
+            (SELECT i.ref FROM commission_invoice_lines l
+               JOIN commission_invoices i ON i.id = l.invoice_id
+              WHERE l.job_id = j.id) AS invoice_ref,
+            (SELECT i.status FROM commission_invoice_lines l
+               JOIN commission_invoices i ON i.id = l.invoice_id
+              WHERE l.job_id = j.id) AS invoice_status
+       FROM jobs j
+       LEFT JOIN cleaners c ON c.id = j.cleaner_id
+      WHERE j.customer_confirmed = 'no' OR j.cleaner_disputed_at IS NOT NULL
+      ORDER BY j.slot_date DESC
+      LIMIT 100`
+  );
 }
 
 /** Remind one customer their clean is tomorrow, with a way out if it isn't. */
@@ -2019,6 +2355,10 @@ export type RaisedInvoice = {
   cleanerId: number;
   totalPence: number;
   jobs: number;
+  /** Square checkout link, when one could be created. */
+  paymentUrl?: string;
+  /** Why there is no link, for the morning's admin alert. */
+  linkError?: string;
 };
 
 export async function generateCommissionInvoices(
@@ -2073,16 +2413,155 @@ export async function generateCommissionInvoices(
       [invoice.id, total]
     );
 
+    const link = await attachPaymentLink({
+      invoiceId: invoice.id,
+      ref: saved!.ref,
+      totalPence: total,
+      cleanerName: group.cleaner_name,
+    });
+
     created.push({
       id: invoice.id,
       ref: saved!.ref,
       cleanerId: group.cleaner_id,
       totalPence: total,
       jobs: lines.length,
+      paymentUrl: link.url,
+      linkError: link.error,
     });
   }
 
   return created;
+}
+
+/**
+ * Give one invoice a Square checkout link, if Square is switched on.
+ *
+ * A link that can't be created must never cost the cleaner their invoice: the
+ * bill stands, the reason is written to the row, and the message falls back to
+ * the invoice page and bank transfer exactly as it did before Square existed.
+ */
+async function attachPaymentLink(input: {
+  invoiceId: number;
+  ref: string;
+  totalPence: number;
+  cleanerName: string;
+}): Promise<{ url?: string; error?: string }> {
+  if (!squareEnabled()) return {};
+
+  try {
+    const link = await createPaymentLink({
+      invoiceRef: input.ref,
+      amountPence: input.totalPence,
+      description: `commission, ${input.cleanerName}`,
+    });
+    await query(
+      `UPDATE commission_invoices
+          SET payment_url = $2, square_order_id = $3, payment_link_error = ''
+        WHERE id = $1`,
+      [input.invoiceId, link.url, link.orderId]
+    );
+    return { url: link.url };
+  } catch (error) {
+    const message = String((error as Error)?.message ?? error).slice(0, 300);
+    await query(
+      `UPDATE commission_invoices SET payment_link_error = $2 WHERE id = $1`,
+      [input.invoiceId, message]
+    );
+    console.error(`Square payment link failed for ${input.ref}`, error);
+    return { error: message };
+  }
+}
+
+/**
+ * Mark an invoice paid from a Square payment, matched on the order id Square
+ * gave us when the link was made.
+ *
+ * Matching on the order id rather than anything in the payment note is the
+ * point: a note is free text a payer controls, so trusting it would let anyone
+ * clear anyone's commission by typing a reference.
+ *
+ * Idempotent — a redelivered or repeated payment event finds the invoice
+ * already paid and writes nothing.
+ */
+export async function markInvoicePaidBySquare(input: {
+  orderId: string;
+  paymentId: string;
+}): Promise<{
+  found: boolean;
+  alreadyPaid: boolean;
+  ref?: string;
+  cleanerId?: number;
+  totalPence?: number;
+}> {
+  const invoice = await queryOne<{
+    id: number;
+    ref: string;
+    cleaner_id: number;
+    total_pence: number;
+    status: string;
+  }>(
+    `SELECT id, ref, cleaner_id, total_pence, status
+       FROM commission_invoices WHERE square_order_id = $1`,
+    [input.orderId]
+  );
+  if (!invoice) return { found: false, alreadyPaid: false };
+
+  const paid = await query<{ id: number }>(
+    `UPDATE commission_invoices
+        SET status = 'paid', paid_at = now(), square_payment_id = $2
+      WHERE id = $1 AND status <> 'paid'
+      RETURNING id`,
+    [invoice.id, input.paymentId]
+  );
+
+  return {
+    found: true,
+    alreadyPaid: paid.length === 0,
+    ref: invoice.ref,
+    cleanerId: invoice.cleaner_id,
+    totalPence: invoice.total_pence,
+  };
+}
+
+/**
+ * Claim a Square webhook event id. False means it has been seen before, so
+ * the caller must do nothing: Square retries until it gets a 2xx.
+ */
+export async function recordSquareEvent(eventId: string): Promise<boolean> {
+  const row = await queryOne<{ event_id: string }>(
+    `INSERT INTO square_events (event_id) VALUES ($1)
+     ON CONFLICT (event_id) DO NOTHING
+     RETURNING event_id`,
+    [eventId]
+  );
+  return row !== null;
+}
+
+/**
+ * Give an event id back after a failure, so Square's retry is treated as new.
+ *
+ * Without this, a claimed event whose processing then threw would be dropped
+ * on every redelivery and the payment would sit unrecorded forever. Safe to
+ * pair with the claim because marking an invoice paid is itself idempotent.
+ */
+export async function releaseSquareEvent(eventId: string): Promise<void> {
+  await query(`DELETE FROM square_events WHERE event_id = $1`, [eventId]);
+}
+
+/** Invoices raised today that never got a payment link — one morning glance. */
+export async function listInvoicesWithoutLink(): Promise<
+  { ref: string; cleaner_name: string; total_pence: number; payment_link_error: string }[]
+> {
+  return query(
+    `SELECT i.ref, c.name AS cleaner_name, i.total_pence, i.payment_link_error
+       FROM commission_invoices i
+       JOIN cleaners c ON c.id = i.cleaner_id
+      WHERE i.payment_link_error <> ''
+        AND i.status = 'issued'
+      ORDER BY i.issued_at DESC
+      LIMIT 50`
+  );
 }
 
 /** Tell a cleaner their commission invoice has been raised. */
@@ -2092,6 +2571,17 @@ export async function notifyInvoiceRaised(
 ): Promise<void> {
   const cleaner = await getCleaner(invoice.cleanerId);
   if (!cleaner) return;
+
+  // Read back rather than trusting the caller: a reissue builds a RaisedInvoice
+  // by hand and would otherwise send a cleaner to the invoice page when a card
+  // link already exists. With Square off this is always empty, so the message
+  // is byte-for-byte what it was before.
+  const stored = await queryOne<{ payment_url: string }>(
+    `SELECT payment_url FROM commission_invoices WHERE id = $1`,
+    [invoice.id]
+  );
+  const invoicePage = `${siteUrl()}/pro/invoices/${invoice.ref}`;
+  const payLink = stored?.payment_url?.trim() || invoice.paymentUrl?.trim() || "";
 
   // The consequence rides along with the invoice rather than living only in
   // the terms somebody read once at sign-up.
@@ -2103,12 +2593,15 @@ export async function notifyInvoiceRaised(
       `Jobs completed: ${invoice.jobs}\n` +
       `Commission due: ${gbpShort(invoice.totalPence)}\n` +
       `Payable by: ${dueBy} (48 hours from the clean)\n\n` +
-      `View or pay it here:\n${siteUrl()}/pro/invoices/${invoice.ref}\n\n` +
+      (payLink
+        ? `Pay by card here:\n${payLink}\n\n` +
+          `Or view the invoice and bank details:\n${invoicePage}\n\n`
+        : `View or pay it here:\n${invoicePage}\n\n`) +
       `${COMMISSION_ENFORCEMENT}`,
     smsBody:
       `Commission ${invoice.ref}: ${gbpShort(invoice.totalPence)} for ` +
       `${invoice.jobs} job${invoice.jobs === 1 ? "" : "s"} today, due ${dueBy}. ` +
-      `${siteUrl()}/pro/invoices/${invoice.ref}`,
+      `${payLink ? `Pay by card: ${payLink}` : invoicePage}`,
   });
 }
 
@@ -2126,6 +2619,9 @@ export type InvoiceRow = {
   chased_at: string | null;
   days_old: number;
   jobs: number;
+  payment_url: string;
+  square_payment_id: string | null;
+  payment_link_error: string;
 };
 
 export async function listInvoices(cleanerId?: number): Promise<InvoiceRow[]> {
@@ -2137,6 +2633,7 @@ export async function listInvoices(cleanerId?: number): Promise<InvoiceRow[]> {
             to_char(i.issued_at, 'YYYY-MM-DD') AS issued_at,
             to_char(i.paid_at,   'YYYY-MM-DD') AS paid_at,
             to_char(i.chased_at, 'YYYY-MM-DD') AS chased_at,
+            i.payment_url, i.square_payment_id, i.payment_link_error,
             (current_date - i.issued_at::date)::int AS days_old,
             (SELECT count(*)::int FROM commission_invoice_lines l
               WHERE l.invoice_id = i.id) AS jobs
@@ -3679,6 +4176,9 @@ export async function getInvoice(
             i.total_pence, i.status,
             to_char(i.issued_at, 'YYYY-MM-DD') AS issued_at,
             to_char(i.paid_at,   'YYYY-MM-DD') AS paid_at,
+            to_char(i.chased_at, 'YYYY-MM-DD') AS chased_at,
+            i.payment_url, i.square_payment_id, i.payment_link_error,
+            (current_date - i.issued_at::date)::int AS days_old,
             (SELECT count(*)::int FROM commission_invoice_lines l
               WHERE l.invoice_id = i.id) AS jobs
        FROM commission_invoices i

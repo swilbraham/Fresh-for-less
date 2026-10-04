@@ -15,6 +15,7 @@ import {
   completeJob,
   createCleaner,
   declineJob,
+  disputeJobByCleaner,
   findCleanerByEmail,
   removeBlackout,
   setAvailability,
@@ -277,6 +278,29 @@ export async function completeJobAction(data: FormData) {
   revalidatePath("/pro/dashboard");
   if (!result.ok) fail("/pro/dashboard", result.reason ?? "Couldn't complete that job.");
   redirect("/pro/dashboard?completed=1");
+}
+
+/**
+ * "This didn't happen" — the counterweight to a job being completed and
+ * billed on the cleaner's silence. It has to be reachable after the invoice
+ * has gone out, because billing runs the same evening.
+ */
+export async function disputeJobAction(data: FormData) {
+  const cleaner = await requireCleaner();
+  const result = await disputeJobByCleaner({
+    jobId: Number(field(data, "jobId", 12)),
+    cleanerId: cleaner.id,
+    reason: field(data, "reason", 300),
+  });
+
+  revalidatePath("/pro/dashboard");
+  revalidatePath("/pro/invoices");
+  if (!result.ok) {
+    fail("/pro/dashboard", result.reason ?? "Couldn't record that.");
+  }
+  redirect(
+    `/pro/dashboard?disputed=${result.invoiceRef ? encodeURIComponent(result.invoiceRef) : "1"}`
+  );
 }
 
 

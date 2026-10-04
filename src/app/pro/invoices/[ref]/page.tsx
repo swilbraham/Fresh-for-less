@@ -272,9 +272,27 @@ export default async function InvoicePage({
             )}
           </p>
 
+          {invoice.payment_url && invoice.status === "issued" && (
+            <section className="mt-8 rounded-xl border border-accent-300 bg-accent-50 p-5 print:hidden">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-800">
+                Pay by card
+              </h2>
+              <p className="mt-1 text-sm text-accent-900">
+                Pays {gbp(invoice.total_pence)} straight away and marks this
+                invoice settled — no reference to type in.
+              </p>
+              <a
+                href={invoice.payment_url}
+                className="mt-3 inline-block rounded-xl bg-accent-600 px-5 py-2.5 font-semibold text-white transition hover:bg-accent-700"
+              >
+                Pay {gbp(invoice.total_pence)} by card
+              </a>
+            </section>
+          )}
+
           <section className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-5 print:bg-white">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              How to pay
+              How to pay{invoice.payment_url ? " by bank transfer" : ""}
             </h2>
             {hasBankDetails ? (
               <>

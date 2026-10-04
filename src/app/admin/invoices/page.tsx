@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
-import { listInvoices, listUninvoicedCommission } from "@/lib/marketplace/repo";
+import {
+  listCompletionConcerns,
+  listInvoices,
+  listUninvoicedCommission,
+} from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import {
   chaseInvoiceAction,
@@ -41,9 +45,10 @@ export default async function AdminInvoicesPage({
   if (!(await isAdmin())) redirect("/admin");
   const { error, saved, created, chased } = await searchParams;
 
-  const [pending, invoices] = await Promise.all([
+  const [pending, invoices, concerns] = await Promise.all([
     listUninvoicedCommission(),
     listInvoices(),
+    listCompletionConcerns(),
   ]);
   const { start, end } = monthBounds();
 
@@ -66,6 +71,63 @@ export default async function AdminInvoicesPage({
               ? "Nothing to invoice — every completed job is already billed."
               : `Raised ${created} commission invoice${created === "1" ? "" : "s"}.`}
           </Alert>
+        )}
+
+        {concerns.length > 0 && (
+          <Card
+            title={`Jobs someone says didn't happen (${concerns.length})`}
+            description="A customer answered N to the confirmation text, or the cleaner disputed it. Each one is a phone call."
+            className="mb-6 border-red-300 bg-red-50/40"
+          >
+            <ul className="mt-4 space-y-3 text-sm">
+              {concerns.map((job) => (
+                <li
+                  key={job.id}
+                  className="rounded-xl border border-red-200 bg-white p-3"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="font-semibold text-slate-900">
+                      <Link
+                        href={`/admin/jobs/${job.ref}`}
+                        className="text-primary-600 underline"
+                      >
+                        {job.ref}
+                      </Link>{" "}
+                      · {job.slot_date} · {job.postcode}
+                    </p>
+                    <StatusPill status={job.status} />
+                  </div>
+                  <p className="mt-1 text-slate-700">
+                    {job.customer_name} ({job.customer_phone}) ·{" "}
+                    {job.cleaner_name ?? "no cleaner"}
+                  </p>
+                  <ul className="mt-1 space-y-0.5 text-xs text-slate-600">
+                    {job.customer_confirmed === "no" && (
+                      <li className="font-semibold text-red-700">
+                        Customer says nobody came.
+                      </li>
+                    )}
+                    {job.cleaner_disputed_at && (
+                      <li className="font-semibold text-red-700">
+                        Cleaner disputed it {job.cleaner_disputed_at}
+                        {job.cleaner_dispute_reason
+                          ? ` — "${job.cleaner_dispute_reason}"`
+                          : ""}
+                      </li>
+                    )}
+                    {job.completion_assumed && (
+                      <li>Completed automatically, not by the cleaner.</li>
+                    )}
+                    <li>
+                      {job.invoice_ref
+                        ? `Still on invoice ${job.invoice_ref} (${job.invoice_status}).`
+                        : "Not on any invoice."}
+                    </li>
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </Card>
         )}
 
         <div className="mb-6 grid gap-4 sm:grid-cols-2">
@@ -161,7 +223,7 @@ export default async function AdminInvoicesPage({
             </p>
           ) : (
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
+              <table className="w-full min-w-[820px] text-sm">
                 <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="py-2 font-semibold">Invoice</th>
@@ -169,6 +231,7 @@ export default async function AdminInvoicesPage({
                     <th className="py-2 font-semibold">Period</th>
                     <th className="py-2 font-semibold">Jobs</th>
                     <th className="py-2 text-right font-semibold">Amount</th>
+                    <th className="py-2 font-semibold">Card</th>
                     <th className="py-2 font-semibold">Status</th>
                     <th className="py-2 font-semibold" />
                   </tr>
@@ -193,6 +256,29 @@ export default async function AdminInvoicesPage({
                       <td className="py-2 text-slate-600">{invoice.jobs}</td>
                       <td className="py-2 text-right font-semibold tabular-nums">
                         {gbp(invoice.total_pence)}
+                      </td>
+                      <td className="py-2 text-xs">
+                        {invoice.square_payment_id ? (
+                          <span className="font-semibold text-accent-700">
+                            paid by card
+                          </span>
+                        ) : invoice.payment_link_error ? (
+                          <span
+                            title={invoice.payment_link_error}
+                            className="font-semibold text-red-700"
+                          >
+                            no link
+                          </span>
+                        ) : invoice.payment_url ? (
+                          <a
+                            href={invoice.payment_url}
+                            className="font-semibold text-primary-600 underline"
+                          >
+                            link
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="py-2">
                         <StatusPill status={invoice.status} />

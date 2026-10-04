@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
+  parseConfirmationReply,
+  recordCustomerConfirmation,
   recordInboundSms,
   notifyAdmin,
   siteUrl,
@@ -63,6 +65,9 @@ export async function POST(request: Request) {
   const providerId = params.MessageSid ?? "";
   if (!from || !providerId) return twiml();
 
+  // Recorded first and unconditionally. Whatever a customer actually wrote
+  // belongs in the thread whether or not it fits the Y/N parser — a reply the
+  // parser can't read is still the office's to answer.
   const { cleanerId, jobId, duplicate } = await recordInboundSms({
     from,
     body,
@@ -70,20 +75,50 @@ export async function POST(request: Request) {
   });
 
   // Twilio retries on any non-2xx, so a redelivery must not text again.
-  if (!duplicate) {
-    const link = cleanerId
-      ? `${siteUrl()}/admin/messages?cleaner=${cleanerId}`
-      : jobId
-        ? `${siteUrl()}/admin/messages?job=${jobId}`
-        : `${siteUrl()}/admin/messages`;
+  if (duplicate) return twiml();
+
+  // Y/N is only read as an answer about a job when the sender isn't a cleaner:
+  // a cleaner's "no" is a reply in their own thread, not a customer's verdict.
+  const answer = cleanerId ? null : parseConfirmationReply(body);
+  const confirmation = answer
+    ? await recordCustomerConfirmation({ from, answer })
+    : null;
+
+  if (confirmation?.matched && !confirmation.alreadyAnswered && answer === "no") {
+    // Loud, and its own message rather than a line inside the generic one: a
+    // customer saying nobody came is the single worst thing the office can
+    // find out late.
     await notifyAdmin({
-      subject: "Reply received",
+      subject: `NOBODY CAME — ${confirmation.ref}`,
       smsBody:
-        `${from} replied:\n\n${body.slice(0, 300)}\n\n` +
-        (cleanerId || jobId ? link : `Not matched to anyone. ${link}`),
-      jobId: jobId ?? undefined,
+        `CUSTOMER SAYS NO: ${confirmation.ref} (${confirmation.slotDate}) — ` +
+        `${confirmation.cleanerName ?? "cleaner"} did not turn up, per the ` +
+        `customer at ${from}.\n` +
+        (confirmation.invoiceRef
+          ? `Taken off invoice ${confirmation.invoiceRef}.\n`
+          : "Not invoiced.\n") +
+        (confirmation.reopened ? "Put back to accepted.\n" : "") +
+        `Ring them: ${siteUrl()}/admin/messages?job=${confirmation.jobId}`,
+      jobId: confirmation.jobId,
     });
+    return twiml();
   }
+
+  const link = cleanerId
+    ? `${siteUrl()}/admin/messages?cleaner=${cleanerId}`
+    : jobId
+      ? `${siteUrl()}/admin/messages?job=${jobId}`
+      : `${siteUrl()}/admin/messages`;
+  await notifyAdmin({
+    subject: "Reply received",
+    smsBody:
+      `${from} replied:\n\n${body.slice(0, 300)}\n\n` +
+      (confirmation?.matched && answer === "yes"
+        ? `Logged as "cleaner turned up" for ${confirmation.ref}.\n`
+        : "") +
+      (cleanerId || jobId ? link : `Not matched to anyone. ${link}`),
+    jobId: jobId ?? undefined,
+  });
 
   return twiml();
 }

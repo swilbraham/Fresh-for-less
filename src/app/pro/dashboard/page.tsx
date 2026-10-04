@@ -17,6 +17,7 @@ import {
   acceptJobAction,
   completeJobAction,
   declineJobAction,
+  disputeJobAction,
   logoutAction,
   releaseJobAction,
 } from "../actions";
@@ -42,6 +43,16 @@ function slotLabel(job: Pick<Job, "slot_date" | "slot_window">): string {
   return `${date} · ${job.slot_window === "am" ? "Morning 8am–12pm" : "Afternoon 12pm–5pm"}`;
 }
 
+/** How many days ago a slot date was, used to close the dispute window. */
+function daysSince(slotDate: string): number {
+  const then = Date.parse(`${slotDate}T12:00:00Z`);
+  if (Number.isNaN(then)) return Number.MAX_SAFE_INTEGER;
+  return Math.floor((Date.now() - then) / 86_400_000);
+}
+
+/** The window for saying a job never happened, before it becomes a phone call. */
+const DISPUTE_DAYS = 7;
+
 // Has the job's slot been and gone? Windows end at 12pm and 5pm London time.
 function slotOver(job: Pick<Job, "slot_date" | "slot_window">): boolean {
   const london = new Date(
@@ -61,12 +72,13 @@ export default async function DashboardPage({
     accepted?: string;
     completed?: string;
     released?: string;
+    disputed?: string;
   }>;
 }) {
   const cleaner = await currentCleaner();
   if (!cleaner) redirect("/pro?next=/pro/dashboard");
 
-  const { error, accepted, completed, released } = await searchParams;
+  const { error, accepted, completed, released, disputed } = await searchParams;
   const [offers, upcoming, done, areas, invoices] = await Promise.all([
     listOffersForCleaner(cleaner.id),
     listJobsForCleaner(cleaner.id, ["accepted"]),
@@ -76,6 +88,15 @@ export default async function DashboardPage({
   ]);
 
   const earned = done.reduce((sum, job) => sum + job.total_pence, 0);
+
+  // Jobs the evening run completed on their behalf. They never clicked
+  // anything, so this is the only place they get to say it didn't happen.
+  const assumed = done.filter(
+    (job) =>
+      job.completion_assumed &&
+      !job.cleaner_disputed_at &&
+      daysSince(job.slot_date) <= DISPUTE_DAYS
+  );
 
   // Everything earned on completed jobs, less whatever has actually been paid.
   // Counting only issued invoices read as "you owe nothing" in the gap between
@@ -107,6 +128,15 @@ export default async function DashboardPage({
         {released && (
           <Alert tone="info">
             Job handed back and offered to other cleaners. No commission is due.
+          </Alert>
+        )}
+        {disputed && (
+          <Alert tone="info">
+            Thank you — we&apos;ve recorded that this job didn&apos;t happen and
+            the office has been told.{" "}
+            {disputed !== "1"
+              ? `It has been taken off invoice ${disputed}, so there is nothing to pay on it.`
+              : "No commission is due on it."}
           </Alert>
         )}
 
@@ -364,12 +394,103 @@ export default async function DashboardPage({
                         </p>
                       </form>
                     </details>
+
+                    {slotOver(job) && (
+                      <details className="text-sm">
+                        <summary className="cursor-pointer font-semibold text-slate-500 hover:text-red-600">
+                          This didn&apos;t happen
+                        </summary>
+                        <form
+                          action={disputeJobAction}
+                          className="mt-3 flex flex-wrap items-end gap-2"
+                        >
+                          <input type="hidden" name="jobId" value={job.id} />
+                          <input
+                            name="reason"
+                            placeholder="What happened? (optional)"
+                            aria-label="Why this job didn't happen"
+                            className="rounded-xl border border-slate-300 px-3 py-2"
+                          />
+                          <SubmitButton
+                            pendingLabel="Sending…"
+                            className="rounded-xl border border-red-300 px-4 py-2 font-semibold text-red-700 transition hover:bg-red-50"
+                          >
+                            Tell the office
+                          </SubmitButton>
+                          <p className="w-full text-xs text-slate-500">
+                            Use this if the clean never took place — nobody in,
+                            cancelled at the door, anything else. It stops the
+                            job being invoiced, and if it already has been, the
+                            charge comes off.
+                          </p>
+                        </form>
+                      </details>
+                    )}
                   </div>
                 </li>
               ))}
             </ul>
           )}
         </Card>
+
+        {/* Completed without them clicking anything */}
+        {assumed.length > 0 && (
+          <Card
+            title={`Completed for you (${assumed.length})`}
+            description="You didn't mark these complete, so we assumed they went ahead and invoiced them. If any of them didn't happen, say so here."
+            className="mb-6"
+          >
+            <ul className="mt-4 space-y-3">
+              {assumed.map((job) => (
+                <li
+                  key={job.id}
+                  className="rounded-xl border border-amber-300 bg-amber-50/50 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-900">
+                        {job.customer_name} · {job.ref}
+                      </p>
+                      <p className="text-sm text-slate-600">{slotLabel(job)}</p>
+                      <p className="text-sm text-slate-600">{job.postcode}</p>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700 tabular-nums">
+                      {gbp(job.commission_pence)} commission
+                    </p>
+                  </div>
+                  <details className="mt-3 text-sm">
+                    <summary className="cursor-pointer font-semibold text-slate-500 hover:text-red-600">
+                      This didn&apos;t happen
+                    </summary>
+                    <form
+                      action={disputeJobAction}
+                      className="mt-3 flex flex-wrap items-end gap-2"
+                    >
+                      <input type="hidden" name="jobId" value={job.id} />
+                      <input
+                        name="reason"
+                        placeholder="What happened? (optional)"
+                        aria-label={`Why ${job.ref} didn't happen`}
+                        className="rounded-xl border border-slate-300 px-3 py-2"
+                      />
+                      <SubmitButton
+                        pendingLabel="Sending…"
+                        className="rounded-xl border border-red-300 px-4 py-2 font-semibold text-red-700 transition hover:bg-red-50"
+                      >
+                        Tell the office
+                      </SubmitButton>
+                      <p className="w-full text-xs text-slate-500">
+                        The charge comes off your invoice and the office is
+                        told. You have {DISPUTE_DAYS} days from the clean to do
+                        this here — after that, give us a ring.
+                      </p>
+                    </form>
+                  </details>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         {/* History */}
         <Card title={`Completed (${done.length})`} className="mb-6">
@@ -390,7 +511,14 @@ export default async function DashboardPage({
                 <tbody className="divide-y divide-slate-100">
                   {done.map((job) => (
                     <tr key={job.id}>
-                      <td className="py-2 font-medium text-slate-800">{job.ref}</td>
+                      <td className="py-2 font-medium text-slate-800">
+                        {job.ref}
+                        {job.completion_assumed && (
+                          <span className="ml-1 text-xs font-normal text-amber-700">
+                            assumed
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2 text-slate-600">{job.slot_date}</td>
                       <td className="py-2 text-slate-600">{job.postcode}</td>
                       <td className="py-2 text-right tabular-nums">

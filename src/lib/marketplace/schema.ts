@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 38;
+export const SCHEMA_VERSION = 39;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -391,6 +391,49 @@ export const STATEMENTS: string[] = [
    )`,
   `CREATE INDEX IF NOT EXISTS training_enquiries_status
      ON training_enquiries (status, created_at DESC)`,
+
+  // ---- Square card payments ------------------------------------------------
+  // The invoice carries its own payment link so the text and the invoice page
+  // can never disagree about where to pay. The order id is what an incoming
+  // payment is matched on: Square's webhook carries ids, not our reference,
+  // and matching on a string somebody could type into a payment note would
+  // let anyone mark anyone's invoice paid.
+  `ALTER TABLE commission_invoices ADD COLUMN IF NOT EXISTS payment_url text NOT NULL DEFAULT ''`,
+  `ALTER TABLE commission_invoices ADD COLUMN IF NOT EXISTS square_order_id text`,
+  `ALTER TABLE commission_invoices ADD COLUMN IF NOT EXISTS square_payment_id text`,
+  // Why an invoice has no link, kept on the row rather than only in a log, so
+  // the office can see in the morning which cleaners got a bank-transfer-only
+  // message and chase them differently.
+  `ALTER TABLE commission_invoices ADD COLUMN IF NOT EXISTS payment_link_error text NOT NULL DEFAULT ''`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS commission_invoices_square_order
+     ON commission_invoices (square_order_id) WHERE square_order_id IS NOT NULL`,
+
+  // Square retries a webhook until it sees a 2xx, so each event id is recorded
+  // once and a redelivery is dropped before anything is written.
+  `CREATE TABLE IF NOT EXISTS square_events (
+     event_id   text PRIMARY KEY,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+
+  // ---- Assumed completion --------------------------------------------------
+  // A cleaner who never taps "mark complete" used to mean no invoice at all,
+  // so the evening run now assumes an accepted job happened. An assumed
+  // completion has to stay distinguishable from one the cleaner confirmed:
+  // it is the only basis on which a bill can be argued with afterwards.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS completion_assumed boolean NOT NULL DEFAULT false`,
+
+  // ---- Did the cleaner turn up? --------------------------------------------
+  // Asked of the customer on the day. Stamped when asked so a cron retry
+  // can't text twice; the answer is stored as '', 'yes' or 'no' because
+  // "not asked" and "asked and said no" are different facts.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS confirm_asked_at timestamptz`,
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS customer_confirmed text NOT NULL DEFAULT ''`,
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS customer_confirmed_at timestamptz`,
+
+  // A cleaner saying a job never happened. Blocks assumed completion, and
+  // after same-evening billing it can also arrive once the invoice has gone.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cleaner_disputed_at timestamptz`,
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cleaner_dispute_reason text NOT NULL DEFAULT ''`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------

@@ -119,6 +119,13 @@ export type Job = {
   cancelled_by: string;
   late_cancellation: boolean;
   rescheduled_count: number;
+  /** True when the evening run completed this rather than the cleaner. */
+  completion_assumed: boolean;
+  /** '' until the customer is asked; then 'yes' or 'no'. */
+  customer_confirmed: string;
+  /** Set when the cleaner says the job never happened. */
+  cleaner_disputed_at: string | null;
+  cleaner_dispute_reason: string;
   /** Hours until the slot opens; negative once it has passed. */
   hours_until_slot: string | number;
 };

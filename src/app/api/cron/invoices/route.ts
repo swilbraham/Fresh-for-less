@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import {
+  autoCompleteDueJobs,
   generateCommissionInvoices,
   getSettings,
   notify,
+  notifyAdmin,
   notifyInvoiceRaised,
+  siteUrl,
 } from "@/lib/marketplace/repo";
 import { gbpShort } from "@/lib/marketplace/money";
 import { commissionDueBy } from "@/lib/marketplace/terms";
@@ -51,7 +54,37 @@ export async function GET(request: Request) {
   const today = new Date();
   const dueBy = commissionDueBy(today);
 
+  // Before billing, not after: a cleaner who finished the job but never tapped
+  // "mark complete" should be invoiced tonight like everyone else. Anything a
+  // customer or the cleaner has said didn't happen is left out by the query.
+  // A failure here must not cost the run its real invoices.
+  let autoCompleted: Awaited<ReturnType<typeof autoCompleteDueJobs>> = [];
+  try {
+    autoCompleted = await autoCompleteDueJobs();
+  } catch (error) {
+    console.error("auto-completion failed", error);
+  }
+
   const raised = await generateCommissionInvoices(iso(today), iso(today));
+
+  // A cleaner whose invoice has no card link got bank details only, so the
+  // office needs to know tonight rather than wonder in two days why they
+  // haven't paid.
+  const unlinked = raised.filter((invoice) => invoice.linkError);
+  if (unlinked.length > 0) {
+    await notifyAdmin({
+      subject: `${unlinked.length} commission invoice${unlinked.length === 1 ? "" : "s"} with no payment link`,
+      smsBody:
+        `NO CARD LINK — ${unlinked.length} invoice${unlinked.length === 1 ? "" : "s"} ` +
+        `raised tonight without one:\n` +
+        unlinked
+          .slice(0, 5)
+          .map((invoice) => `${invoice.ref} ${gbpShort(invoice.totalPence)}`)
+          .join("\n") +
+        `\nFirst error: ${(unlinked[0].linkError ?? "").slice(0, 120)}\n` +
+        `${siteUrl()}/admin/invoices`,
+    });
+  }
 
   for (const invoice of raised) {
     await notifyInvoiceRaised(invoice, longDate(dueBy));
@@ -68,14 +101,25 @@ export async function GET(request: Request) {
         raised
           .map((i) => `${i.ref} — ${gbpShort(i.totalPence)} (${i.jobs} job${i.jobs === 1 ? "" : "s"})`)
           .join("\n") +
-        `\n\nTotal: ${gbpShort(total)}, payable by ${longDate(dueBy)}.`,
+        `\n\nTotal: ${gbpShort(total)}, payable by ${longDate(dueBy)}.` +
+        (autoCompleted.length > 0
+          ? `\n\nCompleted automatically (the cleaner never marked them done):\n` +
+            autoCompleted
+              .map((job) => `${job.ref} ${job.postcode} — ${job.cleaner_name ?? "unassigned"}`)
+              .join("\n")
+          : "") +
+        (unlinked.length > 0
+          ? `\n\nNo card payment link: ${unlinked.map((i) => i.ref).join(", ")}.`
+          : ""),
     });
   }
 
   return NextResponse.json({
     ok: true,
     period: { from: iso(today), to: iso(today) },
+    autoCompleted: autoCompleted.length,
     invoicesRaised: raised.length,
+    withoutPaymentLink: unlinked.length,
     totalPence: raised.reduce((sum, i) => sum + i.totalPence, 0),
   });
 }
