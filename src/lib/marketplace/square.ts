@@ -128,7 +128,14 @@ export async function createPaymentLink(input: {
 
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`Square ${response.status}: ${text.slice(0, 300)}`);
+    // Name the Square we actually called. A 401 reads identically whether the
+    // token is wrong or whether a live token was sent to sandbox, and that
+    // distinction is the whole difference between a bad secret and a missing
+    // SQUARE_ENV.
+    const host = new URL(config.baseUrl).host;
+    throw new Error(
+      `Square ${response.status} at ${host}: ${text.slice(0, 260)}`
+    );
   }
 
   let parsed: {
