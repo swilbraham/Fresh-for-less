@@ -3002,13 +3002,29 @@ export async function listInboundSms(limit = 50): Promise<
 }
 
 /** Public base URL, used to build tappable links inside SMS. */
+const CANONICAL_URL = "https://www.freshforlesscarpetcleaning.co.uk";
+
+/**
+ * The base every outgoing link and the Square webhook check is built from.
+ *
+ * VERCEL_URL is deliberately only consulted off production. It is set on every
+ * Vercel deployment, including production, where it holds the one-off
+ * deployment hostname rather than the custom domain — so preferring it would
+ * quietly build links on a *.vercel.app address and, worse, make the Square
+ * webhook hash a URL that cannot match the one registered with Square. Every
+ * payment would then fail verification, silently, with the money already
+ * taken.
+ *
+ * So production uses the canonical domain unless MARKETPLACE_BASE_URL
+ * overrides it, and only a preview build falls back to its own hostname —
+ * which is what previews need, or testers would be sent to the live site.
+ */
 export function siteUrl(): string {
   const explicit = process.env.MARKETPLACE_BASE_URL;
   if (explicit) return explicit.replace(/\/$/, "");
-  // On a Vercel preview build there's no custom domain, so links must point at
-  // the deployment itself or they'd send testers to the live site.
+  if (process.env.VERCEL_ENV === "production") return CANONICAL_URL;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "https://www.freshforlesscarpetcleaning.co.uk";
+  return CANONICAL_URL;
 }
 
 /**
