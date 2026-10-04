@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 40;
+export const SCHEMA_VERSION = 41;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -432,6 +432,12 @@ export const STATEMENTS: string[] = [
 
   // A cleaner saying a job never happened. Blocks assumed completion, and
   // after same-evening billing it can also arrive once the invoice has gone.
+  // ---- Terms acceptance ----------------------------------------------------
+  // When the customer ticked, not merely that they did. If a cancellation is
+  // ever disputed, the question is which version of the terms was in force on
+  // that date, and only a timestamp answers it.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz`,
+
   // ---- Manual invoices -----------------------------------------------------
   // An invoice raised by hand has no job lines, so without a stated reason it
   // would reach a cleaner as a bare amount with nothing explaining it. The

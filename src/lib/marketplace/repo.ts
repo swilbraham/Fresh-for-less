@@ -526,6 +526,12 @@ export type BookingInput = {
   parking: string;
   protection?: boolean;
   /**
+   * Whether the customer ticked to accept the terms. Optional on the type
+   * because an office booking taken over the phone is not a distance contract
+   * concluded on the website, and the tick would be a fiction there.
+   */
+  termsAccepted?: boolean;
+  /**
    * Skip the broadcast — the job is going straight to this cleaner. Used when
    * it was agreed on the phone: offering it to everyone covering the postcode
    * texts cleaners about work that is already spoken for.
@@ -591,8 +597,9 @@ export async function createBooking(
            (ref, customer_name, customer_email, customer_phone, address_line, town,
             postcode, outward, slot_date, slot_window, items, notes, parking,
             subtotal_pence, total_pence, list_total_pence,
-            commission_pct, commission_pence, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19)
+            commission_pct, commission_pence, status, terms_accepted_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,
+                 CASE WHEN $20 THEN now() ELSE NULL END)
          RETURNING id, ref`,
         [
           makeRef("FFL"),
@@ -614,6 +621,7 @@ export async function createBooking(
           quote.commission_pct,
           commissionPence,
           initialStatus,
+          input.termsAccepted ?? false,
         ]
       );
     } catch (error) {

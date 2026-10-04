@@ -77,6 +77,7 @@ export default function BookingFlow({
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [waitlist, setWaitlist] = useState({ name: "", email: "", phone: "" });
   const [joining, setJoining] = useState(false);
   const [waitlisted, setWaitlisted] = useState(false);
@@ -235,6 +236,7 @@ export default function BookingFlow({
           slotWindow,
           basket,
           protection: protection && protectionEnabled,
+          termsAccepted,
         }),
       });
       const data = await response.json();
@@ -860,6 +862,36 @@ export default function BookingFlow({
             .
           </p>
 
+          {/*
+            Required, unticked by default, and its own deliberate action. A
+            pre-ticked box is not agreement under the Consumer Rights Act, and
+            the same tick is what asks us to start inside the 14-day
+            cancellation period — so it has to be the customer who makes it.
+          */}
+          <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              required
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 accent-primary-600"
+            />
+            <span>
+              I agree to the{" "}
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-primary-600 underline"
+              >
+                terms and conditions
+              </a>
+              , and I&apos;d like my clean to go ahead on the date I&apos;ve
+              chosen even though that&apos;s inside the 14-day cancellation
+              period.
+            </span>
+          </label>
+
           <div className="flex gap-3">
             <button
               type="button"
@@ -870,7 +902,7 @@ export default function BookingFlow({
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !termsAccepted}
               className="flex-1 rounded-xl bg-accent-600 px-6 py-3 font-semibold text-white transition hover:bg-accent-700 disabled:opacity-40"
             >
               {submitting

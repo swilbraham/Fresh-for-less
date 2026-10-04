@@ -37,6 +37,17 @@ export async function POST(request: Request) {
   const notes = text(payload.notes, 600);
   const parking = text(payload.parking, 200);
 
+  // Checked here as well as in the browser. The checkbox is the record that
+  // the customer accepted the terms and asked us to start inside the 14-day
+  // cancellation period, and a crafted POST would otherwise create a booking
+  // with no such record at all.
+  if (payload.termsAccepted !== true) {
+    return NextResponse.json(
+      { ok: false, error: "Please tick to accept the terms and conditions." },
+      { status: 400 }
+    );
+  }
+
   const problems: string[] = [];
   if (customerName.length < 2) problems.push("your name");
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(customerEmail)) problems.push("a valid email");
@@ -113,6 +124,9 @@ export async function POST(request: Request) {
       notes,
       parking,
       protection: payload.protection === true,
+      // Already verified above; recorded here so the job carries the moment
+      // the customer agreed, not just the fact that they did.
+      termsAccepted: true,
     });
 
     return NextResponse.json({
