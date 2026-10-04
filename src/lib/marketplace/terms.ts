@@ -50,3 +50,22 @@ export function formatCommissionDueBy(completedAt: Date = new Date()): string {
     month: "long",
   });
 }
+
+/**
+ * The deadline printed on an invoice. The run goes out at 8pm on the evening
+ * the job was completed, so the 48 hours are counted from that evening — not
+ * from a credit period stored in settings, which is how an invoice ended up
+ * promising a week while the terms promised two days.
+ */
+export function invoiceDueBy(issuedDay: string): Date {
+  return commissionDueBy(new Date(`${issuedDay}T20:00:00`));
+}
+
+export function formatInvoiceDueBy(issuedDay: string): string {
+  return invoiceDueBy(issuedDay).toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}

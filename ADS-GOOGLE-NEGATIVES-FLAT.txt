@@ -1,0 +1,115 @@
+machine
+machines
+"machine hire"
+"carpet cleaner hire"
+"hire a carpet cleaner"
+"carpet cleaner rental"
+"machine rental"
+rent
+"rent a carpet cleaner"
+diy
+"do it yourself"
+buy
+"for sale"
+"price of machine"
+bissell
+vax
+"rug doctor"
+karcher
+shark
+hoover
+dyson
+numatic
+prochem
+amazon
+argos
+homebase
+screwfix
+b&q
+wickes
+tesco
+asda
+currys
+ebay
+gumtree
+"facebook marketplace"
+"how to clean"
+"how to remove"
+"how do you clean"
+"how do i clean"
+tutorial
+youtube
+video
+videos
+diagram
+training
+course
+courses
+qualification
+certification
+nvq
+apprenticeship
+career
+careers
+salary
+salaries
+wages
+"how much do carpet cleaners earn"
+jobs
+job
+vacancy
+vacancies
+recruitment
+hiring
+franchise
+"start a carpet cleaning business"
+"business for sale"
+wholesale
+wholesaler
+supplier
+suppliers
+distributor
+chemicals
+detergent
+"shampoo to buy"
+"cleaning solution"
+"cleaning solutions"
+powder
+"carpet cleaning spray"
+"spray to buy"
+foam
+homemade
+recipe
+"baking soda"
+vinegar
+freebie
+"for free"
+"cheapest machine"
+"best machine"
+"machine reviews"
+"which machine"
+"carpet fitting"
+"carpet fitters"
+"carpet shop"
+"new carpet"
+"buy carpet"
+"carpet remnants"
+"carpet repair"
+"carpet stretching"
+"carpet installation"
+"flooring shop"
+"oven cleaning"
+"window cleaning"
+"gutter cleaning"
+"driveway cleaning"
+"jet washing"
+"chimney sweep"
+"man and van"
+"house clearance"
+"ironing service"
+"end of tenancy cleaning company"
+essay
+wikipedia
+definition
+meaning
+"what is"

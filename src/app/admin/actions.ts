@@ -8,6 +8,7 @@ import {
   isAdmin,
   startAdminSession,
 } from "@/lib/marketplace/auth";
+import { formatInvoiceDueBy } from "@/lib/marketplace/terms";
 import {
   createManualInvoice,
   ensurePaymentLink,
@@ -36,7 +37,6 @@ import {
   removeInvoiceLine,
   getInvoice,
   notifyInvoiceRaised,
-  getSettings,
   updateSettings,
   upsertBundle,
   upsertPriceItem,
@@ -814,9 +814,6 @@ export async function reissueInvoiceAction(data: FormData) {
   // actually more useful than the original rather than identical to it.
   await ensurePaymentLink(found!.invoice.id);
 
-  const settings = await getSettings();
-  const due = new Date(`${found!.invoice.issued_at}T12:00:00`);
-  due.setDate(due.getDate() + settings.payment_terms_days);
 
   await notifyInvoiceRaised(
     {
@@ -826,12 +823,7 @@ export async function reissueInvoiceAction(data: FormData) {
       totalPence: found!.invoice.total_pence,
       jobs: found!.lines.length,
     },
-    due.toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    })
+    formatInvoiceDueBy(found!.invoice.issued_at)
   );
 
   revalidatePath(back);

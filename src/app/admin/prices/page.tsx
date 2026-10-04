@@ -12,6 +12,7 @@ import {
 } from "../actions";
 import { Alert, Card } from "@/components/marketplace/shell";
 import ConfirmButton from "@/components/marketplace/ConfirmButton";
+import { COMMISSION_DUE_HOURS } from "@/lib/marketplace/terms";
 
 export const dynamic = "force-dynamic";
 
@@ -400,19 +401,24 @@ export default async function AdminPricesPage({
             </div>
 
             <div>
-              <label htmlFor="paymentTermsDays" className="block text-sm font-semibold text-slate-700">
-                Payment terms (days)
-              </label>
+              <span className="block text-sm font-semibold text-slate-700">
+                Payment terms
+              </span>
+              {/* Not editable: the deadline is fixed by the commission terms
+                  the cleaners signed up to, and an editable copy here is how
+                  an invoice came to promise a week while /pro promised two
+                  days. Kept as a hidden field only so saving prices doesn't
+                  overwrite the stored column. */}
               <input
-                id="paymentTermsDays"
+                type="hidden"
                 name="paymentTermsDays"
                 form="prices-form"
-                type="number"
-                min="0"
-                max="90"
-                defaultValue={settings.payment_terms_days}
-                className="mt-1 w-32 rounded-xl border border-slate-300 px-4 py-2.5"
+                value={settings.payment_terms_days}
               />
+              <p className="mt-1 text-sm text-slate-600">
+                {COMMISSION_DUE_HOURS} hours from completion — invoiced at 8pm
+                on the day of the clean.
+              </p>
             </div>
           </div>
           <p className="mt-3 text-xs text-slate-500">

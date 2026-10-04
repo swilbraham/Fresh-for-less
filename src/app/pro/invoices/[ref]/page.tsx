@@ -9,6 +9,7 @@ import {
   voidInvoiceAction,
 } from "@/app/admin/actions";
 import { COMPANY_DISCLOSURE } from "@/lib/company";
+import { formatInvoiceDueBy } from "@/lib/marketplace/terms";
 
 export const dynamic = "force-dynamic";
 
@@ -19,17 +20,6 @@ export const metadata = {
 
 function longDate(day: string): string {
   return new Date(`${day}T12:00:00`).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function dueDate(issued: string, days: number): string {
-  const date = new Date(`${issued}T12:00:00`);
-  date.setDate(date.getDate() + days);
-  return date.toLocaleDateString("en-GB", {
-    weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -61,7 +51,7 @@ export default async function InvoicePage({
     getSettings(),
     getCleaner(invoice.cleaner_id),
   ]);
-  const due = dueDate(invoice.issued_at, settings.payment_terms_days);
+  const due = formatInvoiceDueBy(invoice.issued_at);
   const hasBankDetails = Boolean(settings.payee_account && settings.payee_sort_code);
 
   const { error, amended, reissued } = await searchParams;
