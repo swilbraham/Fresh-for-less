@@ -84,6 +84,17 @@ export default function BookingFlow({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  /**
+   * Identifies this visitor's quote so changes update one row rather than
+   * writing a new one on every tick. Generated in the browser and never
+   * persisted anywhere else: it is a basket id, not a tracking cookie.
+   */
+  const quoteKey = useRef<string>(
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `q-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
   const [waitlist, setWaitlist] = useState({ name: "", email: "", phone: "" });
   const [joining, setJoining] = useState(false);
   const [waitlisted, setWaitlisted] = useState(false);
@@ -217,6 +228,38 @@ export default function BookingFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * Log the priced basket, including the ones that never become bookings —
+   * which is the whole point, since a quote nobody follows through on is the
+   * only visible trace of what the form loses.
+   *
+   * Debounced: somebody adding three rooms fires this once at the end, not four
+   * times on the way. Failures are swallowed on purpose; nothing the customer
+   * is doing depends on it.
+   */
+  useEffect(() => {
+    if (!coverage) return;
+    if (quote.total_pence <= 0) return;
+
+    const timer = setTimeout(() => {
+      void fetch("/api/marketplace/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionKey: quoteKey.current,
+          postcode,
+          covered: Boolean(coverage.covered),
+          items: quote.lines,
+          subtotalPence: quote.subtotal_pence,
+          totalPence: quote.total_pence,
+          source,
+        }),
+      }).catch(() => {});
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [coverage, postcode, quote, source]);
+
   /** No cleaner here yet — keep the lead rather than losing the customer. */
   async function joinWaitlist() {
     setError("");
@@ -261,6 +304,7 @@ export default function BookingFlow({
           protection: protection && protectionEnabled,
           termsAccepted,
           source,
+          quoteKey: quoteKey.current,
         }),
       });
       const data = await response.json();

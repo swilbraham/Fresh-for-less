@@ -176,6 +176,7 @@ export function AdminNav() {
     { href: "/admin/leads", label: "Enquiries" },
     { href: "/admin/training", label: "Training" },
     { href: "/admin/messages", label: "Messages" },
+    { href: "/admin/quotes", label: "Quotes" },
     { href: "/admin/invoices", label: "Commission invoices" },
     { href: "/admin/finances", label: "Finances" },
     { href: "/admin/square", label: "Square" },

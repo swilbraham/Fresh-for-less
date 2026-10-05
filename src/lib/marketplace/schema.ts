@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 42;
+export const SCHEMA_VERSION = 43;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -315,6 +315,28 @@ export const STATEMENTS: string[] = [
   // Source is captured because nothing else records it: with ads paused these
   // are organic, but the next time that question comes up it should be
   // answerable from the row rather than by inference.
+  // ---- Quotes (priced, not necessarily booked) ----------------------------
+  // Most people who price a job do not book it that minute. Without this the
+  // only trace of them is a gap in the figures, so every basket that reaches a
+  // price is kept: what they picked, what it came to, and whether anyone covers
+  // them. One row per visitor session, updated as they change their mind,
+  // rather than a row per click.
+  `CREATE TABLE IF NOT EXISTS quotes (
+     id             serial PRIMARY KEY,
+     session_key    text NOT NULL UNIQUE,
+     postcode       text NOT NULL DEFAULT '',
+     outward        text NOT NULL DEFAULT '',
+     covered        boolean NOT NULL DEFAULT false,
+     items          jsonb NOT NULL DEFAULT '[]'::jsonb,
+     subtotal_pence int NOT NULL DEFAULT 0,
+     total_pence    int NOT NULL DEFAULT 0,
+     source         text NOT NULL DEFAULT '',
+     booked_ref     text NOT NULL DEFAULT '',
+     created_at     timestamptz NOT NULL DEFAULT now(),
+     updated_at     timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS quotes_updated ON quotes (updated_at DESC)`,
+
   `CREATE TABLE IF NOT EXISTS leads (
      id           serial PRIMARY KEY,
      ref          text NOT NULL UNIQUE,

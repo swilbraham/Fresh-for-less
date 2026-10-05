@@ -19,6 +19,8 @@ import type {
   PriceBundle,
   PriceItem,
   Quote,
+  QuoteLine,
+  QuoteRecord,
   Settings,
   SlotWindow,
 } from "./types";
@@ -4767,4 +4769,109 @@ export async function listUncoveredDemand(): Promise<
       )
       ORDER BY d.outward`
   );
+}
+
+
+// ---------------------------------------------------------------------------
+// Quotes
+//
+// A record of everyone who got as far as a price. The point is the ones who
+// did not book: they are the only evidence of what the form loses, and without
+// them a quiet week is indistinguishable from a broken booking button.
+// ---------------------------------------------------------------------------
+
+/**
+ * Store or update one visitor's priced basket.
+ *
+ * Keyed on a session key the browser generates, so changing the basket updates
+ * the same row instead of filling the table with every intermediate state. A
+ * quote that has already converted is left alone — the booking is the fact that
+ * matters, and a late keystroke must not overwrite it.
+ */
+export async function recordQuote(input: {
+  sessionKey: string;
+  postcode: string;
+  outward: string;
+  covered: boolean;
+  items: QuoteLine[];
+  subtotalPence: number;
+  totalPence: number;
+  source: string;
+}): Promise<void> {
+  await query(
+    `INSERT INTO quotes
+       (session_key, postcode, outward, covered, items,
+        subtotal_pence, total_pence, source)
+     VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8)
+     ON CONFLICT (session_key) DO UPDATE SET
+       postcode       = EXCLUDED.postcode,
+       outward        = EXCLUDED.outward,
+       covered        = EXCLUDED.covered,
+       items          = EXCLUDED.items,
+       subtotal_pence = EXCLUDED.subtotal_pence,
+       total_pence    = EXCLUDED.total_pence,
+       source         = CASE WHEN quotes.source = '' THEN EXCLUDED.source ELSE quotes.source END,
+       updated_at     = now()
+     WHERE quotes.booked_ref = ''`,
+    [
+      input.sessionKey,
+      input.postcode,
+      input.outward,
+      input.covered,
+      JSON.stringify(input.items),
+      input.subtotalPence,
+      input.totalPence,
+      input.source,
+    ]
+  );
+}
+
+/** Mark the quote that became this booking, so the list can show conversion. */
+export async function markQuoteBooked(
+  sessionKey: string,
+  ref: string
+): Promise<void> {
+  if (!sessionKey) return;
+  await query(
+    `UPDATE quotes SET booked_ref = $2, updated_at = now()
+      WHERE session_key = $1 AND booked_ref = ''`,
+    [sessionKey, ref]
+  );
+}
+
+export async function listQuotes(limit = 100): Promise<QuoteRecord[]> {
+  return query<QuoteRecord>(
+    `SELECT id, session_key, postcode, outward, covered, items,
+            subtotal_pence, total_pence, source, booked_ref,
+            to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
+       FROM quotes
+      ORDER BY updated_at DESC
+      LIMIT $1`,
+    [Math.min(Math.max(limit, 1), 500)]
+  );
+}
+
+/** Headline figures for the last `days` days. */
+export async function quoteStats(days = 7): Promise<{
+  quotes: number;
+  booked: number;
+  quoted_pence: number;
+  booked_pence: number;
+}> {
+  const row = await queryOne<{
+    quotes: number;
+    booked: number;
+    quoted_pence: number;
+    booked_pence: number;
+  }>(
+    `SELECT count(*)::int                                            AS quotes,
+            count(*) FILTER (WHERE booked_ref <> '')::int            AS booked,
+            coalesce(sum(total_pence), 0)::int                       AS quoted_pence,
+            coalesce(sum(total_pence) FILTER (WHERE booked_ref <> ''), 0)::int AS booked_pence
+       FROM quotes
+      WHERE updated_at > now() - ($1 || ' days')::interval`,
+    [String(Math.min(Math.max(days, 1), 365))]
+  );
+  return row ?? { quotes: 0, booked: 0, quoted_pence: 0, booked_pence: 0 };
 }

@@ -131,3 +131,20 @@ export type Job = {
   /** The site that sent this customer, '' when they came here directly. */
   source: string;
 };
+
+/** A priced basket, whether or not it turned into a booking. */
+export type QuoteRecord = {
+  id: number;
+  session_key: string;
+  postcode: string;
+  outward: string;
+  covered: boolean;
+  items: QuoteLine[];
+  subtotal_pence: number;
+  total_pence: number;
+  source: string;
+  /** The job reference, once this quote became a booking. */
+  booked_ref: string;
+  created_at: string;
+  updated_at: string;
+};

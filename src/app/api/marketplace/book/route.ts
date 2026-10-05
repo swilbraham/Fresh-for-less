@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createBooking, findRecentDuplicate } from "@/lib/marketplace/repo";
+import {
+  createBooking,
+  findRecentDuplicate,
+  markQuoteBooked,
+} from "@/lib/marketplace/repo";
 import { normalisePostcode } from "@/lib/marketplace/postcode";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 
@@ -129,6 +133,13 @@ export async function POST(request: Request) {
       termsAccepted: true,
       source: text(payload.source, 40),
     });
+
+    // The quote this booking came from, so the list separates the ones that
+
+    // converted from the ones that walked away.
+
+    await markQuoteBooked(text(payload.quoteKey, 60), job.ref);
+
 
     return NextResponse.json({
       ok: true,
