@@ -19,7 +19,15 @@ export const metadata: Metadata = {
   alternates: { canonical: "/book" },
 };
 
-export default async function BookPage() {
+export default async function BookPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ postcode?: string; from?: string }>;
+}) {
+  // Handed over from another Fresh For Less site: the postcode saves the
+  // customer retyping it, and `from` is how that site's referrals can be
+  // counted here rather than guessed at.
+  const { postcode = "", from = "" } = await searchParams;
   const [items, bundles, settings] = await Promise.all([
     getPriceItems(true),
     getBundles(true),
@@ -32,6 +40,8 @@ export default async function BookPage() {
       <main className="min-h-screen bg-slate-50">
       <div>
         <BookingFlow
+          initialPostcode={postcode.slice(0, 9)}
+          source={from.slice(0, 40)}
           items={items}
           bundles={bundles}
           minimumChargePence={settings.minimum_charge_pence}

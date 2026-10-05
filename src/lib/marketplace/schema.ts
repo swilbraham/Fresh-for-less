@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 41;
+export const SCHEMA_VERSION = 42;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -437,6 +437,8 @@ export const STATEMENTS: string[] = [
   // ever disputed, the question is which version of the terms was in force on
   // that date, and only a timestamp answers it.
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz`,
+  // Which site sent the customer here, when another one did.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT ''`,
 
   // ---- Manual invoices -----------------------------------------------------
   // An invoice raised by hand has no job lines, so without a stated reason it

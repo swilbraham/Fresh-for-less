@@ -198,6 +198,9 @@ export default async function AdminJobPage({
               <Row label="When" value={`${longDate(job.slot_date)} · ${job.slot_window === "am" ? "Morning 8am–12pm" : "Afternoon 12pm–5pm"}`} />
               <Row label="Where" value={`${job.address_line}${job.town ? `, ${job.town}` : ""}, ${job.postcode}`} />
               <Row label="Booked" value={job.created_at} />
+              {job.source && (
+                <Row label="Came from" value={job.source} />
+              )}
             </dl>
 
             <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">

@@ -38,6 +38,7 @@ const JOB_COLUMNS = `
   j.status, j.cleaner_id,
   j.cancelled_by, j.late_cancellation, j.rescheduled_count,
   j.completion_assumed, j.customer_confirmed, j.cleaner_dispute_reason,
+  j.source,
   to_char(j.cleaner_disputed_at, 'YYYY-MM-DD HH24:MI') AS cleaner_disputed_at,
   to_char(j.created_at,   'YYYY-MM-DD HH24:MI') AS created_at,
   to_char(j.accepted_at,  'YYYY-MM-DD HH24:MI') AS accepted_at,
@@ -531,6 +532,8 @@ export type BookingInput = {
    * concluded on the website, and the tick would be a fiction there.
    */
   termsAccepted?: boolean;
+  /** Referring site, e.g. the Fresh For Less Cleaning Services front door. */
+  source?: string;
   /**
    * Skip the broadcast — the job is going straight to this cleaner. Used when
    * it was agreed on the phone: offering it to everyone covering the postcode
@@ -597,9 +600,9 @@ export async function createBooking(
            (ref, customer_name, customer_email, customer_phone, address_line, town,
             postcode, outward, slot_date, slot_window, items, notes, parking,
             subtotal_pence, total_pence, list_total_pence,
-            commission_pct, commission_pence, status, terms_accepted_at)
+            commission_pct, commission_pence, status, terms_accepted_at, source)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,
-                 CASE WHEN $20 THEN now() ELSE NULL END)
+                 CASE WHEN $20 THEN now() ELSE NULL END, $21)
          RETURNING id, ref`,
         [
           makeRef("FFL"),
@@ -622,6 +625,7 @@ export async function createBooking(
           commissionPence,
           initialStatus,
           input.termsAccepted ?? false,
+          input.source ?? "",
         ]
       );
     } catch (error) {

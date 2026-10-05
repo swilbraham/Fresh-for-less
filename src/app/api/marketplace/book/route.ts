@@ -127,6 +127,7 @@ export async function POST(request: Request) {
       // Already verified above; recorded here so the job carries the moment
       // the customer agreed, not just the fact that they did.
       termsAccepted: true,
+      source: text(payload.source, 40),
     });
 
     return NextResponse.json({

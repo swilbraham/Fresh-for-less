@@ -128,4 +128,6 @@ export type Job = {
   cleaner_dispute_reason: string;
   /** Hours until the slot opens; negative once it has passed. */
   hours_until_slot: string | number;
+  /** The site that sent this customer, '' when they came here directly. */
+  source: string;
 };

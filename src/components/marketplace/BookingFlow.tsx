@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { buildQuote, type Basket } from "@/lib/marketplace/pricing";
 import { gbp, gbpShort } from "@/lib/marketplace/money";
@@ -34,6 +34,8 @@ export default function BookingFlow({
   protectionEnabled,
   landing,
   hero,
+  initialPostcode = "",
+  source = "",
 }: {
   items: PriceItem[];
   bundles: PriceBundle[];
@@ -50,10 +52,14 @@ export default function BookingFlow({
    * them scroll a screen and a half past their own decision on every step.
    */
   hero?: ReactNode;
+  /** A postcode handed over from another site, checked on arrival. */
+  initialPostcode?: string;
+  /** Where this visitor came from, recorded with the booking. */
+  source?: string;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("postcode");
-  const [postcode, setPostcode] = useState("");
+  const [postcode, setPostcode] = useState(initialPostcode.toUpperCase());
   const [checking, setChecking] = useState(false);
   const [coverage, setCoverage] = useState<
     {
@@ -173,11 +179,15 @@ export default function BookingFlow({
 
   async function checkPostcode(event: React.FormEvent) {
     event.preventDefault();
+    await runPostcodeCheck(postcode);
+  }
+
+  async function runPostcodeCheck(code: string) {
     setError("");
     setChecking(true);
     try {
       const response = await fetch(
-        `/api/marketplace/slots?postcode=${encodeURIComponent(postcode)}`
+        `/api/marketplace/slots?postcode=${encodeURIComponent(code)}`
       );
       const data = await response.json();
       if (!data.ok) {
@@ -193,6 +203,19 @@ export default function BookingFlow({
       setChecking(false);
     }
   }
+
+  // A postcode handed over from another Fresh For Less site is checked straight
+  // away, so the customer lands on the price list rather than on a box already
+  // holding what they typed a moment ago. A ref rather than a dependency list:
+  // this has to happen exactly once, whatever re-renders follow.
+  const autoChecked = useRef(false);
+  useEffect(() => {
+    if (autoChecked.current) return;
+    if (initialPostcode.trim().length < 5) return;
+    autoChecked.current = true;
+    void runPostcodeCheck(initialPostcode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** No cleaner here yet — keep the lead rather than losing the customer. */
   async function joinWaitlist() {
@@ -237,6 +260,7 @@ export default function BookingFlow({
           basket,
           protection: protection && protectionEnabled,
           termsAccepted,
+          source,
         }),
       });
       const data = await response.json();
