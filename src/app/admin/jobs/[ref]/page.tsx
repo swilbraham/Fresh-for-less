@@ -30,6 +30,7 @@ import {
   updateJobDetailsAction,
   reassignJobAction,
   rebroadcastJobAction,
+  requestReferralsAction,
   reinstateJobAction,
 } from "../../actions";
 
@@ -60,13 +61,23 @@ export default async function AdminJobPage({
     sent?: string;
     details?: string;
     reinstated?: string;
+    referrals?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
 
   const { ref } = await params;
-  const { error, waived, commission, moved, repriced, sent, details, reinstated } =
-    await searchParams;
+  const {
+    error,
+    waived,
+    commission,
+    moved,
+    repriced,
+    sent,
+    details,
+    reinstated,
+    referrals,
+  } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
@@ -157,6 +168,7 @@ export default async function AdminJobPage({
         {sent && (
           <Alert tone="success">Message sent.</Alert>
         )}
+        {referrals && <Alert tone="success">{referrals}</Alert>}
         {moved && (
           <Alert tone={moved === "unfilled" ? "error" : "success"}>
             {moved === "kept" && "Moved. The cleaner was free, so the job is still theirs and they've been texted."}
@@ -395,6 +407,19 @@ export default async function AdminJobPage({
                       <button type="submit" className="font-semibold text-primary-600 underline">
                         Re-broadcast
                       </button>
+                    </form>
+                  )}
+                  {["provisional", "unfilled"].includes(job.status) && (
+                    <form action={requestReferralsAction}>
+                      <input type="hidden" name="ref" value={job.ref} />
+                      {/* Texts the whole network, so it asks first. */}
+                      <ConfirmButton
+                        action={requestReferralsAction}
+                        confirmText={`Text every approved cleaner about this ${job.outward} job and ask if they know anyone covering it?`}
+                        className="font-semibold text-primary-600 underline"
+                      >
+                        Ask the network for a referral
+                      </ConfirmButton>
                     </form>
                   )}
                   <form action={cancelJobAction}>

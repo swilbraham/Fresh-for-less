@@ -4875,3 +4875,69 @@ export async function quoteStats(days = 7): Promise<{
   );
   return row ?? { quotes: 0, booked: 0, quoted_pence: 0, booked_pence: 0 };
 }
+
+
+/**
+ * Ask the whole network whether they know anyone covering an area we don't.
+ *
+ * A provisional job is a customer with a date, an address and a price that
+ * nobody can work — the strongest recruiting argument there is, and it goes
+ * stale the day the slot passes. This sends it to every approved cleaner,
+ * including the ones nowhere near it: a carpet cleaner in Leeds doesn't want
+ * the job, but they know who does.
+ *
+ * The real figures go in deliberately. "Do you know anyone in CH43" gets
+ * shrugged at; "there's £99 sitting in CH43 on Tuesday, £79 of it theirs" gets
+ * forwarded.
+ */
+export async function requestReferrals(
+  jobId: number
+): Promise<{ sent: number; total: number; unreachable: string[] }> {
+  const job = await getJob(jobId);
+  if (!job) return { sent: 0, total: 0, unreachable: [] };
+
+  const items = job.items.map((line) => `${line.qty}x ${line.label}`).join(", ");
+  const youKeep = gbpShort(job.total_pence - job.commission_pence);
+  const join = `${siteUrl()}/pro`;
+
+  const everyone = await listCleaners("approved");
+  const unreachable: string[] = [];
+  let sent = 0;
+
+  for (const cleaner of everyone) {
+    // Someone with texts off and email off would be counted as messaged while
+    // nothing left the building, so decide reachability before sending.
+    const reachableBySms =
+      cleaner.notify_sms && isMobile(cleaner.phone) && Boolean(toE164(cleaner.phone));
+    const reachable = reachableBySms || (cleaner.notify_email && Boolean(cleaner.email));
+    if (!reachable) {
+      unreachable.push(cleaner.name);
+      continue;
+    }
+
+    await notifyCleaner(cleaner, {
+      subject: `Know anyone in ${job.outward}? There's a ${gbpShort(job.total_pence)} job waiting`,
+      body:
+        `${cleaner.name}, we've taken a booking in ${job.outward} and nobody ` +
+        `covers it yet, so the customer is waiting.\n\n` +
+        `Area: ${job.outward}\n` +
+        `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
+        `Job: ${items}\n` +
+        `Job value: ${gbpShort(job.total_pence)} — the cleaner keeps ${youKeep}\n\n` +
+        `If you know a carpet cleaner working that area, send them to ${join}. ` +
+        `Approved before the slot and the job is theirs — and so is everything ` +
+        `else we take there.\n\n` +
+        `If you can cover it yourself, add the area in your dashboard and it ` +
+        `will come straight to you.`,
+      smsBody:
+        `${gbpShort(job.total_pence)} job in ${job.outward} on ${job.slot_date} ` +
+        `(${job.slot_window.toUpperCase()}) and nobody covers it. ` +
+        `Know a carpet cleaner there? Send them ${join} — approved before the ` +
+        `slot and it's theirs.`,
+    });
+
+    sent += 1;
+  }
+
+  return { sent, total: everyone.length, unreachable };
+}

@@ -36,6 +36,8 @@ import {
   deleteTrainingEnquiry,
   removeInvoiceLine,
   getInvoice,
+  getJobByRef,
+  requestReferrals,
   notifyInvoiceRaised,
   updateSettings,
   upsertBundle,
@@ -920,6 +922,31 @@ export async function rebroadcastJobAction(data: FormData) {
   const offered = await rebroadcastJob(Number(field(data, "id", 12)));
   revalidatePath("/admin/jobs");
   redirect(`/admin/jobs?offered=${offered}`);
+}
+
+/**
+ * Ask every approved cleaner whether they know anyone covering a provisional
+ * job's area. Sent from the job itself so the real date and price go with it.
+ */
+export async function requestReferralsAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const back = `/admin/jobs/${ref}`;
+
+  const job = await getJobByRef(ref.toUpperCase());
+  if (!job) {
+    redirect(`${back}?error=${encodeURIComponent("That job no longer exists.")}`);
+  }
+
+  const result = await requestReferrals(job!.id);
+  const summary =
+    `Asked ${result.sent} of ${result.total} cleaners about ${job!.outward}` +
+    (result.unreachable.length > 0
+      ? ` — couldn't reach ${result.unreachable.join(", ")}`
+      : "");
+
+  revalidatePath(back);
+  redirect(`${back}?referrals=${encodeURIComponent(summary)}`);
 }
 
 // -------------------------------------------------------------- invoicing --
