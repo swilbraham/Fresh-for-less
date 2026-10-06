@@ -84,6 +84,8 @@ export type Cleaner = {
   vat_number: string;
   admin_notes: string;
   notify_sms: boolean;
+  /** Set while the cleaner is paused: no offers, no texts. */
+  paused_at: string | null;
   notify_email: boolean;
   created_at: string;
   reviewed_at: string | null;

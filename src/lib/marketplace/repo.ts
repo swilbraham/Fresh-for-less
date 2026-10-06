@@ -80,6 +80,7 @@ const CLEANER_COLUMNS = `
   c.years_experience, c.equipment, c.dbs_checked, c.admin_notes,
   c.vat_registered, c.vat_number,
   c.notify_sms, c.notify_email,
+  to_char(c.paused_at, 'YYYY-MM-DD HH24:MI') AS paused_at,
   to_char(c.created_at,  'YYYY-MM-DD HH24:MI') AS created_at,
   to_char(c.reviewed_at, 'YYYY-MM-DD HH24:MI') AS reviewed_at
 `;
@@ -477,6 +478,7 @@ export async function findMatchingCleaners(
         AND av.weekday = EXTRACT(DOW FROM $2::date)
         AND ((av.am AND $3 = 'am') OR (av.pm AND $3 = 'pm'))
       WHERE c.status = 'approved'
+        AND c.paused_at IS NULL
         AND NOT EXISTS (
           SELECT 1 FROM cleaner_blackouts b
            WHERE b.cleaner_id = c.id AND b.day = $2::date
@@ -1576,16 +1578,31 @@ export async function acceptJob(
   jobId: number,
   cleanerId: number
 ): Promise<{ ok: boolean; reason?: string }> {
-  const offer = await queryOne<{ id: number }>(
-    `SELECT id FROM job_offers WHERE job_id = $1 AND cleaner_id = $2`,
+  // A job claimed from the open board was never offered to this cleaner, so an
+  // offer row is recorded rather than demanded. The guard that matters is the
+  // one below: unassigned, and still in a state anyone can take.
+  const cleaner = await getCleaner(cleanerId);
+  if (!cleaner || cleaner.status !== "approved") {
+    return { ok: false, reason: "Your account can't accept jobs at the moment." };
+  }
+  if (cleaner.paused_at) {
+    return {
+      ok: false,
+      reason: "Your account is paused. Ask the office to switch you back on.",
+    };
+  }
+
+  await query(
+    `INSERT INTO job_offers (job_id, cleaner_id) VALUES ($1,$2)
+     ON CONFLICT (job_id, cleaner_id) DO NOTHING`,
     [jobId, cleanerId]
   );
-  if (!offer) return { ok: false, reason: "This job wasn't offered to you." };
 
   const won = await query<{ id: number }>(
     `UPDATE jobs
         SET status = 'accepted', cleaner_id = $2, accepted_at = now()
-      WHERE id = $1 AND status = 'offered' AND cleaner_id IS NULL
+      WHERE id = $1 AND cleaner_id IS NULL
+        AND status IN ('offered', 'unfilled', 'provisional')
       RETURNING id`,
     [jobId, cleanerId]
   );
@@ -1613,8 +1630,7 @@ export async function acceptJob(
   );
 
   const job = await getJob(jobId);
-  const cleaner = await getCleaner(cleanerId);
-  if (job && cleaner) await confirmCleanerToCustomer(job, cleaner);
+  if (job) await confirmCleanerToCustomer(job, cleaner);
 
   return { ok: true };
 }
@@ -4900,7 +4916,7 @@ export async function requestReferrals(
   const youKeep = gbpShort(job.total_pence - job.commission_pence);
   const join = `${siteUrl()}/pro`;
 
-  const everyone = await listCleaners("approved");
+  const everyone = (await listCleaners("approved")).filter((c) => !c.paused_at);
   const unreachable: string[] = [];
   let sent = 0;
 
@@ -4940,4 +4956,45 @@ export async function requestReferrals(
   }
 
   return { sent, total: everyone.length, unreachable };
+}
+
+
+/**
+ * Pause or resume a cleaner.
+ *
+ * Deliberately not a status change: suspending somebody for a fortnight's
+ * holiday loses their place in every list and reads, to them, like a sanction.
+ * A pause stops offers and the texts that carry them, and leaves the account,
+ * the areas and the history exactly as they are. Work they have already
+ * accepted is untouched — a pause must never abandon a customer on Thursday.
+ */
+export async function setCleanerPaused(
+  id: number,
+  paused: boolean
+): Promise<void> {
+  await query(
+    `UPDATE cleaners SET paused_at = ${paused ? "now()" : "NULL"} WHERE id = $1`,
+    [id]
+  );
+}
+
+/**
+ * Every unassigned job, for the board on the cleaner dashboard.
+ *
+ * A text can be missed, deleted or arrive while someone is up a ladder, and a
+ * job nobody sees goes unfilled while cleaners sit idle. This deliberately
+ * ignores registered areas: a cleaner who would travel for a £200 job is a
+ * better outcome than an empty slot, and they can see the area before deciding.
+ * Provisional jobs are included — those are the ones with nobody at all.
+ */
+export async function listOpenJobs(): Promise<Job[]> {
+  return query<Job>(
+    `SELECT ${JOB_COLUMNS}
+       FROM jobs j
+      WHERE j.cleaner_id IS NULL
+        AND j.status IN ('offered', 'unfilled', 'provisional')
+        AND j.slot_date >= CURRENT_DATE
+      ORDER BY j.slot_date, j.slot_window
+      LIMIT 50`
+  );
 }

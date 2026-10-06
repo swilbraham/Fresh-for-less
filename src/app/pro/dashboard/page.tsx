@@ -6,6 +6,7 @@ import {
   listInvoices,
   listJobsForCleaner,
   listOffersForCleaner,
+  listOpenJobs,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import {
@@ -79,13 +80,23 @@ export default async function DashboardPage({
   if (!cleaner) redirect("/pro?next=/pro/dashboard");
 
   const { error, accepted, completed, released, disputed } = await searchParams;
-  const [offers, upcoming, done, areas, invoices] = await Promise.all([
+  const [offers, openJobs, upcoming, done, areas, invoices] = await Promise.all([
     listOffersForCleaner(cleaner.id),
+    listOpenJobs(),
     listJobsForCleaner(cleaner.id, ["accepted"]),
     listJobsForCleaner(cleaner.id, ["completed"]),
     getCleanerAreas(cleaner.id),
     listInvoices(cleaner.id),
   ]);
+
+  // The board is everything unclaimed that is not already sitting in their own
+  // offers above — including areas they never registered. A cleaner who would
+  // travel for a big job beats an empty slot, and they can see where it is
+  // before deciding.
+  const offeredIds = new Set(offers.map((job) => job.id));
+  const board = cleaner.paused_at
+    ? []
+    : openJobs.filter((job) => !offeredIds.has(job.id));
 
   const earned = done.reduce((sum, job) => sum + job.total_pence, 0);
 
@@ -270,6 +281,80 @@ export default async function DashboardPage({
                     {gbp(job.total_pence)} from the customer on the day, and you
                     keep {gbp(job.total_pence - job.commission_pence)}.{" "}
                     {COMMISSION_TERMS_SHORT}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        {/* Everything unclaimed, wherever it is */}
+        <Card
+          title={`Open jobs anywhere (${board.length})`}
+          description="Unclaimed work across the whole network, including areas you haven't registered. First to accept keeps it."
+          className="mb-6"
+        >
+          {cleaner.paused_at ? (
+            <p className="mt-4 text-sm text-slate-500">
+              Your account is paused, so you aren&apos;t being offered work at
+              the moment. Give the office a ring when you want switching back
+              on.
+            </p>
+          ) : board.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">
+              Nothing unclaimed right now. Anything that comes in and isn&apos;t
+              taken will appear here, even if you missed the text.
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {board.map((job) => (
+                <li
+                  key={job.id}
+                  className="rounded-xl border border-slate-200 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-900">
+                        {job.outward}
+                        {job.town ? ` · ${job.town}` : ""}
+                      </p>
+                      <p className="text-sm text-slate-600">{slotLabel(job)}</p>
+                      <ul className="mt-2 flex flex-wrap gap-2 text-xs">
+                        {job.items.map((line) => (
+                          <li
+                            key={line.code}
+                            className="rounded-full bg-slate-50 px-2.5 py-1 font-medium text-slate-700 ring-1 ring-slate-200"
+                          >
+                            {line.qty} × {line.label}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        You keep
+                      </p>
+                      <p className="text-2xl font-bold text-accent-700 tabular-nums">
+                        {gbp(job.total_pence - job.commission_pence)}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        Collect {gbp(job.total_pence)} on the day
+                      </p>
+                    </div>
+                  </div>
+
+                  <form action={acceptJobAction} className="mt-4">
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <SubmitButton
+                      pendingLabel="Accepting…"
+                      className="w-full rounded-xl bg-slate-900 px-5 py-2.5 font-semibold text-white transition hover:bg-slate-800 sm:w-auto"
+                    >
+                      Accept this job
+                    </SubmitButton>
+                  </form>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Only take it if you can genuinely get there — the customer
+                    is told you&apos;re coming the moment you accept.
                   </p>
                 </li>
               ))}

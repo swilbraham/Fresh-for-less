@@ -27,6 +27,7 @@ import {
   getPriceItems,
   rebroadcastJob,
   reinstateJob,
+  setCleanerPaused,
   setCleanerStatus,
   setInvoiceStatus,
   setLeadStatus,
@@ -601,7 +602,8 @@ export async function textAllCleanersAction(data: FormData) {
       to(`error=${encodeURIComponent("Type SEND in the confirm box to text every cleaner.")}`)
     );
 
-  const everyone = await listCleaners("approved");
+  // Paused cleaners are paused for everything, not just job offers.
+  const everyone = (await listCleaners("approved")).filter((c) => !c.paused_at);
   if (everyone.length === 0)
     redirect(to(`error=${encodeURIComponent("There are no approved cleaners to text.")}`));
 
@@ -922,6 +924,17 @@ export async function rebroadcastJobAction(data: FormData) {
   const offered = await rebroadcastJob(Number(field(data, "id", 12)));
   revalidatePath("/admin/jobs");
   redirect(`/admin/jobs?offered=${offered}`);
+}
+
+/** Take a cleaner off the rota for a while, or put them back on it. */
+export async function setCleanerPausedAction(data: FormData) {
+  await requireAdmin("/admin/cleaners");
+  const id = Number(field(data, "id", 12));
+  const paused = field(data, "paused", 5) === "1";
+  await setCleanerPaused(id, paused);
+  revalidatePath(`/admin/cleaners/${id}`);
+  revalidatePath("/admin/cleaners");
+  redirect(`/admin/cleaners/${id}?paused=${paused ? "1" : "0"}`);
 }
 
 /**

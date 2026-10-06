@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 43;
+export const SCHEMA_VERSION = 44;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -461,6 +461,9 @@ export const STATEMENTS: string[] = [
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz`,
   // Which site sent the customer here, when another one did.
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT ''`,
+  // Set while a cleaner is on holiday or otherwise off the rota: no offers,
+  // no texts, account and areas untouched.
+  `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS paused_at timestamptz`,
 
   // ---- Manual invoices -----------------------------------------------------
   // An invoice raised by hand has no job lines, so without a stated reason it

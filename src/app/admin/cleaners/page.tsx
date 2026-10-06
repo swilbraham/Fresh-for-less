@@ -12,6 +12,7 @@ import {
 import {
   createCleanerAction,
   issueResetLinkAction,
+  setCleanerPausedAction,
   setCleanerStatusAction,
   updateCleanerAction,
   updateCleanerCoverageAction,
@@ -36,6 +37,7 @@ export default async function AdminCleanersPage({
 }: {
   searchParams: Promise<{
     error?: string;
+    paused?: string;
     saved?: string;
     reset?: string;
     q?: string;
@@ -44,7 +46,7 @@ export default async function AdminCleanersPage({
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, reset, q, sort, status } = await searchParams;
+  const { error, saved, reset, q, sort, status, paused } = await searchParams;
 
   const [all, areasByCleaner] = await Promise.all([
     listCleaners(),
@@ -121,6 +123,14 @@ export default async function AdminCleanersPage({
       <div className="mx-auto max-w-5xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Cleaner updated.</Alert>}
+        {paused === "1" && (
+          <Alert tone="info">
+            Paused — they&apos;ll get no offers or texts until you resume them.
+          </Alert>
+        )}
+        {paused === "0" && (
+          <Alert tone="success">Back on — offers and texts resume now.</Alert>
+        )}
         {reset && (
           <Alert tone="info">
             <strong>One-time reset link — text this to them.</strong> It works
@@ -328,6 +338,11 @@ export default async function AdminCleanersPage({
                         {cleaner.business_name || cleaner.name}
                       </h2>
                       <StatusPill status={cleaner.status} />
+                      {cleaner.paused_at && (
+                        <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                          Paused since {cleaner.paused_at.slice(0, 10)}
+                        </span>
+                      )}
                       {underReview && (
                         <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
                           Review — {record?.recent_late_drops} late drops
@@ -566,6 +581,28 @@ export default async function AdminCleanersPage({
                     Save
                   </button>
                 </form>
+
+                {cleaner.status === "approved" && (
+                  <form action={setCleanerPausedAction} className="mt-4">
+                    <input type="hidden" name="id" value={cleaner.id} />
+                    <input
+                      type="hidden"
+                      name="paused"
+                      value={cleaner.paused_at ? "0" : "1"}
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      {cleaner.paused_at ? "Resume offers & texts" : "Pause offers & texts"}
+                    </button>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {cleaner.paused_at
+                        ? "They're getting nothing at the moment — no job offers, no texts. Jobs they already accepted are unaffected."
+                        : "Holiday, van off the road, or just too busy. Stops job offers and the texts that carry them; their account, areas and history stay exactly as they are, and work they've already accepted still goes ahead."}
+                    </p>
+                  </form>
+                )}
               </li>
             );
           })}
