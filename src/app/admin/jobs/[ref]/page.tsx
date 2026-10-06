@@ -12,11 +12,13 @@ import {
   netOfVatPence,
   getJobOffers,
   listCleaners,
+  nearestCleaners,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { toE164 } from "@/lib/marketplace/phone";
 import { Alert, Card, Field, StatusPill } from "@/components/marketplace/shell";
 import ConfirmButton from "@/components/marketplace/ConfirmButton";
+import { describeTravel } from "@/lib/marketplace/geo";
 import {
   assignJobAction,
   cancelJobAction,
@@ -82,12 +84,17 @@ export default async function AdminJobPage({
   const job = await getJobByRef(ref.toUpperCase());
   if (!job) notFound();
 
-  const [offers, drops, cleaners, messages, invoiceRef] = await Promise.all([
+  const unassigned =
+    !job.cleaner_id &&
+    ["provisional", "unfilled", "offered"].includes(job.status);
+
+  const [offers, drops, cleaners, messages, invoiceRef, nearby] = await Promise.all([
     getJobOffers(job.id),
     getJobDrops(job.id),
     listCleaners("approved"),
     getJobMessages(job.id),
     getJobInvoiceRef(job.id),
+    unassigned ? nearestCleaners(job.outward) : Promise.resolve([]),
   ]);
 
   // Who to offer a message box for, and what's already been said on this job.
@@ -354,6 +361,74 @@ export default async function AdminJobPage({
                       Reinstate booking (tells nobody)
                     </button>
                   </form>
+                </div>
+              )}
+
+              {unassigned && nearby.length > 0 && (
+                <div className="mt-5 border-t border-slate-100 pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Closest cleaners to {job.outward}
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Measured from the nearest area each cleaner covers, as the
+                    crow flies plus a bit for roads. A guide for who to ring, not
+                    a route.
+                  </p>
+                  <ul className="mt-3 space-y-2">
+                    {nearby.map((candidate) => (
+                      <li
+                        key={candidate.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                      >
+                        <div className="min-w-[200px]">
+                          <p className="font-semibold text-slate-900">
+                            {candidate.business_name || candidate.name}
+                            {candidate.covers && (
+                              <span className="ml-2 rounded-full bg-accent-100 px-2 py-0.5 text-xs font-semibold text-accent-800">
+                                covers {job.outward}
+                              </span>
+                            )}
+                            {candidate.paused && (
+                              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                                paused
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            <a
+                              href={`tel:${candidate.phone}`}
+                              className="font-semibold text-primary-600 underline"
+                            >
+                              {candidate.phone}
+                            </a>
+                            {candidate.miles !== null && (
+                              <>
+                                {" · "}
+                                {describeTravel(candidate.miles)}
+                                {candidate.nearest_outward &&
+                                  ` from ${candidate.nearest_outward}`}
+                              </>
+                            )}
+                            {candidate.miles === null && " · distance unknown"}
+                          </p>
+                        </div>
+                        <form action={assignJobAction}>
+                          <input type="hidden" name="id" value={job.id} />
+                          <input
+                            type="hidden"
+                            name="cleanerId"
+                            value={candidate.id}
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                          >
+                            Give them this job
+                          </button>
+                        </form>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 

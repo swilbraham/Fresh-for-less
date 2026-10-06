@@ -13,6 +13,7 @@ import {
 import { firstName } from "./names";
 import { createPaymentLink, squareEnabled } from "./square";
 import { summariseEnquiry } from "./summarise";
+import { distanceMiles, outcodeCoords } from "./geo";
 import type {
   Cleaner,
   Job,
@@ -4997,4 +4998,95 @@ export async function listOpenJobs(): Promise<Job[]> {
       ORDER BY j.slot_date, j.slot_window
       LIMIT 50`
   );
+}
+
+
+export type NearbyCleaner = {
+  id: number;
+  name: string;
+  business_name: string;
+  phone: string;
+  email: string;
+  paused: boolean;
+  /** True when the job's own area is already on their coverage list. */
+  covers: boolean;
+  /** The area of theirs the distance was measured from. */
+  nearest_outward: string;
+  miles: number | null;
+};
+
+/**
+ * Who is nearest to a job, for the office deciding who to ring.
+ *
+ * Distance is measured from the closest area a cleaner has registered, because
+ * that is the only location we hold — nobody is asked for a home address when
+ * they sign up, and a yard or a van's overnight parking is a better proxy for
+ * where they start anyway.
+ *
+ * Cleaners who already cover the job's own area come first whatever the
+ * arithmetic says: they have told us they work there, which beats a
+ * calculation. Anyone we cannot place sorts last rather than disappearing.
+ */
+export async function nearestCleaners(
+  jobOutward: string,
+  limit = 8
+): Promise<NearbyCleaner[]> {
+  const cleaners = await listCleaners("approved");
+  if (cleaners.length === 0) return [];
+
+  const areaRows = await query<{ cleaner_id: number; outward: string }>(
+    `SELECT cleaner_id, outward FROM cleaner_areas`
+  );
+  const byCleaner = new Map<number, string[]>();
+  for (const row of areaRows) {
+    byCleaner.set(row.cleaner_id, [...(byCleaner.get(row.cleaner_id) ?? []), row.outward]);
+  }
+
+  const coords = await outcodeCoords([
+    jobOutward,
+    ...areaRows.map((row) => row.outward),
+  ]);
+  const origin = coords.get(jobOutward.trim().toUpperCase()) ?? null;
+
+  const ranked: NearbyCleaner[] = cleaners.map((cleaner) => {
+    const areas = byCleaner.get(cleaner.id) ?? [];
+    let miles: number | null = null;
+    let nearest = "";
+
+    if (origin) {
+      for (const outward of areas) {
+        const point = coords.get(outward.toUpperCase());
+        if (!point) continue;
+        const distance = distanceMiles(origin, point);
+        if (miles === null || distance < miles) {
+          miles = distance;
+          nearest = outward;
+        }
+      }
+    }
+
+    return {
+      id: cleaner.id,
+      name: cleaner.name,
+      business_name: cleaner.business_name,
+      phone: cleaner.phone,
+      email: cleaner.email,
+      paused: Boolean(cleaner.paused_at),
+      covers: areas.some(
+        (outward) => outward.toUpperCase() === jobOutward.trim().toUpperCase()
+      ),
+      nearest_outward: nearest,
+      miles,
+    };
+  });
+
+  ranked.sort((a, b) => {
+    if (a.covers !== b.covers) return a.covers ? -1 : 1;
+    if (a.paused !== b.paused) return a.paused ? 1 : -1;
+    if (a.miles === null) return 1;
+    if (b.miles === null) return -1;
+    return a.miles - b.miles;
+  });
+
+  return ranked.slice(0, limit);
 }

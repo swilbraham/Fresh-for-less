@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 44;
+export const SCHEMA_VERSION = 45;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -464,6 +464,16 @@ export const STATEMENTS: string[] = [
   // Set while a cleaner is on holiday or otherwise off the rota: no offers,
   // no texts, account and areas untouched.
   `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS paused_at timestamptz`,
+
+  // Outward-code coordinates, cached from postcodes.io. Outcodes do not move,
+  // so this is fetched once per area and then read from here forever: the
+  // admin page must not depend on a third party being up to rank cleaners.
+  `CREATE TABLE IF NOT EXISTS outcode_geo (
+     outward    text PRIMARY KEY,
+     lat        double precision NOT NULL,
+     lng        double precision NOT NULL,
+     fetched_at timestamptz NOT NULL DEFAULT now()
+   )`,
 
   // ---- Manual invoices -----------------------------------------------------
   // An invoice raised by hand has no job lines, so without a stated reason it
