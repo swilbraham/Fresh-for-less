@@ -33,6 +33,7 @@ import {
   reassignJobAction,
   offerJobToCleanersAction,
   rebroadcastJobAction,
+  transferJobAction,
   requestReferralsAction,
   reinstateJobAction,
 } from "../../actions";
@@ -66,6 +67,7 @@ export default async function AdminJobPage({
     reinstated?: string;
     referrals?: string;
     offered?: string;
+    transferred?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
@@ -82,6 +84,7 @@ export default async function AdminJobPage({
     reinstated,
     referrals,
     offered,
+    transferred,
   } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
@@ -180,6 +183,7 @@ export default async function AdminJobPage({
         )}
         {referrals && <Alert tone="success">{referrals}</Alert>}
         {offered && <Alert tone="success">{offered}</Alert>}
+        {transferred && <Alert tone="success">{transferred}</Alert>}
         {moved && (
           <Alert tone={moved === "unfilled" ? "error" : "success"}>
             {moved === "kept" && "Moved. The cleaner was free, so the job is still theirs and they've been texted."}
@@ -504,6 +508,41 @@ export default async function AdminJobPage({
                       <button type="submit" className="font-semibold text-primary-600 underline">
                         Take off this cleaner &amp; re-offer
                       </button>
+                    </form>
+                  )}
+                  {job.cleaner_id && job.status === "accepted" && (
+                    <form
+                      action={transferJobAction}
+                      className="flex w-full flex-wrap items-center gap-2"
+                    >
+                      <input type="hidden" name="ref" value={job.ref} />
+                      <select
+                        name="cleanerId"
+                        defaultValue=""
+                        aria-label="Move this job to another cleaner"
+                        className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="">Move quietly to…</option>
+                        {cleaners
+                          .filter((candidate) => candidate.id !== job.cleaner_id)
+                          .map((candidate) => (
+                            <option key={candidate.id} value={candidate.id}>
+                              {candidate.name}
+                              {candidate.business_name ? ` — ${candidate.business_name}` : ""}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="submit"
+                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Move
+                      </button>
+                      <span className="w-full text-xs text-slate-500">
+                        Only the cleaner picking it up is told. The current
+                        cleaner and the customer hear nothing — message them
+                        yourself below.
+                      </span>
                     </form>
                   )}
                   {["provisional", "unfilled", "offered"].includes(job.status) && (

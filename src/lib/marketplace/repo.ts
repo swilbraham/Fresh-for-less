@@ -1891,8 +1891,10 @@ export async function waiveCommission(
 export async function assignJob(
   jobId: number,
   cleanerId: number,
-  waive = false
+  waive = false,
+  options: { notifyTheCustomer?: boolean } = {}
 ): Promise<{ ok: boolean; reason?: string }> {
+  const { notifyTheCustomer = true } = options;
   const job = await getJob(jobId);
   const cleaner = await getCleaner(cleanerId);
   if (!job) return { ok: false, reason: "Job not found." };
@@ -1929,7 +1931,7 @@ export async function assignJob(
   if (waive) await waiveCommission(jobId);
 
   const assigned = (await getJob(jobId))!;
-  await confirmCleanerToCustomer(assigned, cleaner);
+  if (notifyTheCustomer) await confirmCleanerToCustomer(assigned, cleaner);
 
   await notifyCleaner(cleaner, {
     subject: `Job assigned to you — ${job.ref} on ${job.slot_date}`,
@@ -4240,6 +4242,12 @@ export async function releaseJob(input: {
   by: "cleaner" | "admin";
   reason: string;
   expectCleanerId?: number;
+  /**
+   * Take the job off the cleaner without telling anybody and without offering
+   * it back out. For a transfer the office is handling by hand: the texts that
+   * normally go out would contradict the conversation they are about to have.
+   */
+  quiet?: boolean;
 }): Promise<ReleaseResult> {
   const job = await getJob(input.jobId);
   if (!job || job.cleaner_id === null) {
@@ -4269,12 +4277,20 @@ export async function releaseJob(input: {
   );
   await query(`DELETE FROM job_offers WHERE job_id = $1`, [input.jobId]);
 
-  const offered = await broadcastJob(
-    input.jobId,
-    job.outward,
-    job.slot_date,
-    job.slot_window
-  );
+  const offered = input.quiet
+    ? 0
+    : await broadcastJob(
+        input.jobId,
+        job.outward,
+        job.slot_date,
+        job.slot_window
+      );
+
+  if (input.quiet) {
+    // The drop is still recorded above: history has to be true even when
+    // nobody is told. Only the messages are suppressed.
+    return { ok: true, offered: 0, late };
+  }
 
   const when = `${job.slot_date} (${job.slot_window.toUpperCase()})`;
 
@@ -5201,4 +5217,56 @@ export async function listBookedByDay(days = 30): Promise<BookedDay[]> {
       ORDER BY 1 DESC`,
     [String(Math.min(Math.max(days, 1), 365))]
   );
+}
+
+
+/**
+ * Move a job from the cleaner holding it to another one, quietly.
+ *
+ * Only the cleaner picking it up hears from the system. The one losing it and
+ * the customer are left to the office, because a transfer is usually the
+ * tail end of a phone call and an automatic "your cleaner can no longer make
+ * it" text arriving mid-conversation makes the office look like it does not
+ * know what its own system is doing.
+ *
+ * The drop is still recorded against the outgoing cleaner: reliability history
+ * has to stay true whether or not anyone was texted about it.
+ */
+export async function transferJob(
+  jobId: number,
+  toCleanerId: number,
+  reason = "Transferred by the office"
+): Promise<{ ok: boolean; reason?: string; from?: string }> {
+  const job = await getJob(jobId);
+  if (!job) return { ok: false, reason: "Job not found." };
+  if (!job.cleaner_id) {
+    return { ok: false, reason: "Nobody is holding that job — just assign it." };
+  }
+  if (job.cleaner_id === toCleanerId) {
+    return { ok: false, reason: "That cleaner already has this job." };
+  }
+
+  const outgoing = await getCleaner(job.cleaner_id);
+
+  const released = await releaseJob({
+    jobId,
+    by: "admin",
+    reason,
+    quiet: true,
+  });
+  if (!released.ok) return { ok: false, reason: released.reason };
+
+  const assigned = await assignJob(jobId, toCleanerId, false, {
+    notifyTheCustomer: false,
+  });
+  if (!assigned.ok) {
+    // The job is sitting unassigned rather than back with the original
+    // cleaner, which the office needs to know about plainly.
+    return {
+      ok: false,
+      reason: `${assigned.reason ?? "Couldn't assign it."} The job is now unassigned — assign it to somebody before leaving this page.`,
+    };
+  }
+
+  return { ok: true, from: outgoing?.name };
 }

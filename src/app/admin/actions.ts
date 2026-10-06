@@ -39,6 +39,7 @@ import {
   getInvoice,
   getJobByRef,
   offerJobToCleaners,
+  transferJob,
   requestReferrals,
   notifyInvoiceRaised,
   updateSettings,
@@ -925,6 +926,38 @@ export async function rebroadcastJobAction(data: FormData) {
   const offered = await rebroadcastJob(Number(field(data, "id", 12)));
   revalidatePath("/admin/jobs");
   redirect(`/admin/jobs?offered=${offered}`);
+}
+
+/**
+ * Hand a job from one cleaner to another without the system saying a word to
+ * either the outgoing cleaner or the customer.
+ */
+export async function transferJobAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const back = `/admin/jobs/${ref}`;
+  const cleanerId = Number(field(data, "cleanerId", 12));
+
+  if (!cleanerId) {
+    redirect(`${back}?error=${encodeURIComponent("Pick the cleaner taking it over.")}`);
+  }
+
+  const job = await getJobByRef(ref.toUpperCase());
+  if (!job) {
+    redirect(`${back}?error=${encodeURIComponent("That job no longer exists.")}`);
+  }
+
+  const result = await transferJob(job!.id, cleanerId);
+  if (!result.ok) {
+    redirect(`${back}?error=${encodeURIComponent(result.reason ?? "Couldn't transfer that job.")}`);
+  }
+
+  revalidatePath(back);
+  redirect(
+    `${back}?transferred=${encodeURIComponent(
+      `Moved${result.from ? ` from ${result.from}` : ""}. Only the new cleaner was told — the customer and the previous cleaner are yours to message.`
+    )}`
+  );
 }
 
 /** Offer a job to cleaners picked from the closest list on the job page. */
