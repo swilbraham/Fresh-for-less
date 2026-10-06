@@ -200,7 +200,7 @@ export const STATEMENTS: string[] = [
   // statements that lived next to them.
 
   // Stain guard, priced as a percentage of the clean.
-  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_pct numeric(5,2) NOT NULL DEFAULT 40.00`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_pct numeric(5,2) NOT NULL DEFAULT 35.00`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_enabled boolean NOT NULL DEFAULT true`,
 
   // Commission payment details, entered through /admin/prices. Blank by
