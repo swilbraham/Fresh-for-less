@@ -95,9 +95,6 @@ export default function BookingFlow({
       ? crypto.randomUUID()
       : `q-${Date.now()}-${Math.random().toString(36).slice(2)}`
   );
-  const [waitlist, setWaitlist] = useState({ name: "", email: "", phone: "" });
-  const [joining, setJoining] = useState(false);
-  const [waitlisted, setWaitlisted] = useState(false);
   const [protection, setProtection] = useState(false);
 
   // The same pricing engine the server uses, so the figure on screen is the
@@ -206,7 +203,6 @@ export default function BookingFlow({
         return;
       }
       setCoverage(data);
-      setWaitlisted(false);
       if (data.slots.length > 0) setStep("items");
     } catch {
       setError("We couldn't check that postcode. Please try again.");
@@ -259,33 +255,6 @@ export default function BookingFlow({
 
     return () => clearTimeout(timer);
   }, [coverage, postcode, quote, source]);
-
-  /** No cleaner here yet — keep the lead rather than losing the customer. */
-  async function joinWaitlist() {
-    setError("");
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(waitlist.email)) {
-      setError("Please enter a valid email so we can get back to you.");
-      return;
-    }
-    setJoining(true);
-    try {
-      const response = await fetch("/api/marketplace/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...waitlist, postcode }),
-      });
-      const data = await response.json();
-      if (!data.ok) {
-        setError(data.error ?? "We couldn't save your details.");
-        return;
-      }
-      setWaitlisted(true);
-    } catch {
-      setError("We couldn't save your details. Please call 0330 043 4811.");
-    } finally {
-      setJoining(false);
-    }
-  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -394,15 +363,6 @@ export default function BookingFlow({
         ))}
       </ol>
 
-      {step !== "postcode" && coverage?.provisional && (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <strong>We don&apos;t have a cleaner in {coverage.outward} yet.</strong>{" "}
-          Carry on and we&apos;ll treat this as a request — we&apos;ll confirm
-          within 24 hours or call you to sort something out. Nothing to pay
-          either way.
-        </div>
-      )}
-
       {error && (
         <p className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -436,68 +396,6 @@ export default function BookingFlow({
             </button>
           </div>
 
-          {coverage && !coverage.covered && coverage.slots.length === 0 && !waitlisted && (
-            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              <p className="font-semibold">
-                No cleaner is covering {coverage.outward} online just yet.
-              </p>
-              <p className="mt-1">
-                We&apos;re signing cleaners up across the UK every week. Leave
-                your details and we&apos;ll get you booked in — or call{" "}
-                <a href="tel:03300434811" className="font-semibold underline">
-                  0330 043 4811
-                </a>{" "}
-                right now.
-              </p>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <input
-                  value={waitlist.name}
-                  onChange={(e) => setWaitlist({ ...waitlist, name: e.target.value })}
-                  placeholder="Your name"
-                  aria-label="Your name"
-                  autoComplete="name"
-                  className="rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-slate-800 outline-none focus:border-primary-500"
-                />
-                <input
-                  value={waitlist.email}
-                  onChange={(e) => setWaitlist({ ...waitlist, email: e.target.value })}
-                  placeholder="Email"
-                  aria-label="Email"
-                  type="email"
-                  autoComplete="email"
-                  className="rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-slate-800 outline-none focus:border-primary-500"
-                />
-                <input
-                  value={waitlist.phone}
-                  onChange={(e) => setWaitlist({ ...waitlist, phone: e.target.value })}
-                  placeholder="Phone"
-                  aria-label="Phone"
-                  type="tel"
-                  autoComplete="tel"
-                  className="rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-slate-800 outline-none focus:border-primary-500"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={joinWaitlist}
-                disabled={joining}
-                className="mt-3 w-full rounded-xl bg-amber-600 px-6 py-2.5 font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50 sm:w-auto"
-              >
-                {joining ? "Sending…" : "Get me booked in"}
-              </button>
-            </div>
-          )}
-
-          {waitlisted && (
-            <div className="mt-5 rounded-xl border border-accent-200 bg-accent-50 p-4 text-sm text-accent-900">
-              <p className="font-semibold">Thanks — we&apos;ve got your details.</p>
-              <p className="mt-1">
-                We&apos;ll be in touch to arrange your clean in {coverage?.outward}.
-                If it&apos;s urgent, call 0330 043 4811.
-              </p>
-            </div>
-          )}
 
           {coverage?.covered && coverage.slots.length === 0 && (
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -706,9 +604,8 @@ export default function BookingFlow({
               When suits you?
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              {coverage?.provisional
-                ? `Tell us when suits and we'll try to cover ${coverage.outward}.`
-                : `Only dates with a cleaner free in ${coverage?.outward} are shown.`}
+              Pick the date and half-day that suits you — we&apos;ll confirm
+              your cleaner by text.
             </p>
 
             {/* Sooner than the notice period is still bookable — by phone,
@@ -914,9 +811,7 @@ export default function BookingFlow({
               )}
             </dl>
             <p className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
-              {coverage?.provisional
-                ? `If we can cover ${coverage.outward}, you'll pay your cleaner ${gbp(quote.total_pence)} on the day. Nothing to pay unless we confirm.`
-                : `Pay your cleaner ${gbp(quote.total_pence)} when the job is finished — cash or card. Nothing to pay now.`}
+              {`Pay your cleaner ${gbp(quote.total_pence)} when the job is finished — cash or card. Nothing to pay now.`}
             </p>
           </section>
 
@@ -975,9 +870,7 @@ export default function BookingFlow({
             >
               {submitting
                 ? "Sending…"
-                : coverage?.provisional
-                  ? `Request this booking — ${gbp(quote.total_pence)}`
-                  : `Confirm booking — ${gbp(quote.total_pence)}`}
+                : `Confirm booking — ${gbp(quote.total_pence)}`}
             </button>
           </div>
         </form>
