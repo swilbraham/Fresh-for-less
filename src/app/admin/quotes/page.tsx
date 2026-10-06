@@ -87,8 +87,7 @@ export default async function QuotesPage({
             />
             <input
               name="postcode"
-              required
-              placeholder="Postcode"
+              placeholder="Postcode (optional)"
               aria-label="Postcode"
               className="rounded-xl border border-slate-300 px-4 py-2.5 uppercase"
             />

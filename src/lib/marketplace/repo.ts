@@ -5292,9 +5292,13 @@ export async function createOfficeQuote(input: {
   basket: Basket;
   protection?: boolean;
 }): Promise<{ token: string; quote: Quote; outward: string } | { error: string }> {
-  const postcode = normalisePostcode(input.postcode);
-  if (!postcode) return { error: "That postcode doesn't look right." };
-  const outward = outwardOf(postcode)!;
+  // Optional: a price does not depend on where the job is, and on a call you
+  // often have a name and a number long before a postcode. Without one, the
+  // customer simply gives it on the booking page.
+  const typed = input.postcode.trim();
+  const postcode = typed ? normalisePostcode(typed) : "";
+  if (typed && !postcode) return { error: "That postcode doesn't look right." };
+  const outward = postcode ? outwardOf(postcode) ?? "" : "";
 
   const [items, bundles, settings] = await Promise.all([
     getPriceItems(true),
@@ -5311,7 +5315,7 @@ export async function createOfficeQuote(input: {
   if (quote.total_pence <= 0) return { error: "Add at least one item to quote." };
 
   const token = makeRef("Q").toLowerCase().replace("-", "");
-  const covered = await hasCoverage(outward);
+  const covered = outward ? await hasCoverage(outward) : false;
 
   await query(
     `INSERT INTO quotes

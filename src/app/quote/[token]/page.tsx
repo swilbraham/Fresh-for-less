@@ -49,8 +49,8 @@ export default async function QuotePage({
                 : "Here's your price"}
             </h1>
             <p className="mt-2 text-slate-600">
-              For {quote.postcode}, as we discussed on the phone. Nothing to pay
-              now — you pay your cleaner on the day.
+              {quote.postcode ? `For ${quote.postcode}, as` : "As"} we discussed
+              on the phone. Nothing to pay now — you pay your cleaner on the day.
             </p>
 
             <ul className="mt-6 divide-y divide-slate-100 border-y border-slate-100">
@@ -96,8 +96,9 @@ export default async function QuotePage({
                   Accept &amp; pick a date
                 </Link>
                 <p className="mt-3 text-center text-sm text-slate-500">
-                  Your name, number and postcode are already filled in — you
-                  just choose a day.
+                  {quote.postcode
+                    ? "Your name, number and postcode are already filled in — you just choose a day."
+                    : "Your name and number are already filled in — just add your postcode and pick a day."}
                 </p>
               </>
             )}
