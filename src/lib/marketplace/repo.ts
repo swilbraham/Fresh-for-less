@@ -5399,3 +5399,147 @@ export async function sendQuoteLink(token: string): Promise<{ ok: boolean; reaso
 
   return { ok: true };
 }
+
+
+/** The basket behind a stored quote, ready to re-price or book. */
+export function basketFromQuote(quote: QuoteRecord): {
+  basket: Basket;
+  protection: boolean;
+} {
+  const basket: Basket = {};
+  let protection = false;
+  for (const line of quote.items) {
+    if (line.code === "protection") {
+      protection = true;
+      continue;
+    }
+    basket[line.code] = line.qty;
+  }
+  return { basket, protection };
+}
+
+/**
+ * Re-price a quote the office is amending.
+ *
+ * The token survives, so a link already texted now shows the new price rather
+ * than a dead page — which is what the customer expects after a call that
+ * changed the job. A quote that has already been booked is left alone: the job
+ * carries the price, and rewriting the quote behind it would make the two
+ * disagree.
+ */
+export async function updateOfficeQuote(
+  token: string,
+  input: {
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    postcode: string;
+    basket: Basket;
+    protection?: boolean;
+  }
+): Promise<{ ok: boolean; reason?: string }> {
+  const existing = await getQuoteByToken(token);
+  if (!existing) return { ok: false, reason: "That quote no longer exists." };
+  if (existing.booked_ref) {
+    return { ok: false, reason: "That quote is already booked — change the job instead." };
+  }
+
+  const typed = input.postcode.trim();
+  const postcode = typed ? normalisePostcode(typed) : "";
+  if (typed && !postcode) return { ok: false, reason: "That postcode doesn't look right." };
+  const outward = postcode ? outwardOf(postcode) ?? "" : "";
+
+  const [items, bundles, settings] = await Promise.all([
+    getPriceItems(true),
+    getBundles(true),
+    getSettings(),
+  ]);
+  const quote = buildQuote(input.basket, items, bundles, {
+    minimumChargePence: settings.minimum_charge_pence,
+    commissionPct: Number(settings.commission_pct),
+    protectionPct: Number(settings.protection_pct),
+    protection: input.protection === true && settings.protection_enabled,
+  });
+  if (quote.total_pence <= 0) return { ok: false, reason: "Add at least one item." };
+
+  await query(
+    `UPDATE quotes
+        SET postcode = $2, outward = $3, covered = $4, items = $5::jsonb,
+            subtotal_pence = $6, total_pence = $7,
+            customer_name = $8, customer_phone = $9, customer_email = $10,
+            updated_at = now()
+      WHERE token = $1 AND booked_ref = ''`,
+    [
+      token,
+      postcode,
+      outward,
+      outward ? await hasCoverage(outward) : false,
+      JSON.stringify(quote.lines),
+      quote.subtotal_pence,
+      quote.total_pence,
+      input.customerName,
+      input.customerPhone,
+      input.customerEmail,
+    ]
+  );
+
+  return { ok: true };
+}
+
+/**
+ * Book a quote for the customer, from the office.
+ *
+ * The same path as a web booking — the job goes out to cleaners, the customer
+ * gets their confirmation and manage link — so nothing downstream has to know
+ * it was taken on the phone. termsAccepted is not set: a tick the customer
+ * never made is a fiction, and the office agreeing the terms verbally is
+ * recorded in the note instead.
+ */
+export async function bookQuote(
+  token: string,
+  input: {
+    addressLine: string;
+    town: string;
+    postcode: string;
+    slotDate: string;
+    slotWindow: SlotWindow;
+    parking: string;
+    notes: string;
+  }
+): Promise<{ ok: boolean; reason?: string; ref?: string }> {
+  const quote = await getQuoteByToken(token);
+  if (!quote) return { ok: false, reason: "That quote no longer exists." };
+  if (quote.booked_ref) {
+    return { ok: false, reason: `Already booked as ${quote.booked_ref}.` };
+  }
+
+  const { basket, protection } = basketFromQuote(quote);
+
+  try {
+    const { job } = await createBooking({
+      basket,
+      customerName: quote.customer_name,
+      customerEmail: quote.customer_email,
+      customerPhone: quote.customer_phone,
+      addressLine: input.addressLine,
+      town: input.town,
+      postcode: input.postcode || quote.postcode,
+      slotDate: input.slotDate,
+      slotWindow: input.slotWindow,
+      notes: [input.notes, "Booked by the office over the phone."]
+        .filter(Boolean)
+        .join(" — "),
+      parking: input.parking,
+      protection,
+      source: "phone-quote",
+    });
+
+    await markQuoteBooked(token, job.ref);
+    return { ok: true, ref: job.ref };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: String((error as Error)?.message ?? "Couldn't take that booking."),
+    };
+  }
+}

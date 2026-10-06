@@ -190,7 +190,17 @@ export default async function QuotesPage({
                       {quote.postcode}
                       {quote.customer_name && (
                         <span className="block text-xs font-normal text-slate-500">
-                          {quote.customer_name} · {quote.customer_phone}
+                          {quote.token ? (
+                            <Link
+                              href={`/admin/quotes/${quote.token}`}
+                              className="font-semibold text-primary-600 underline"
+                            >
+                              {quote.customer_name}
+                            </Link>
+                          ) : (
+                            quote.customer_name
+                          )}{" "}
+                          · {quote.customer_phone}
                         </span>
                       )}
                       {!quote.covered && (

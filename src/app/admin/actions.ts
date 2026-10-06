@@ -12,6 +12,8 @@ import { formatInvoiceDueBy } from "@/lib/marketplace/terms";
 import {
   createManualInvoice,
   createOfficeQuote,
+  updateOfficeQuote,
+  bookQuote,
   sendQuoteLink,
   ensurePaymentLink,
   listCleaners,
@@ -1029,6 +1031,73 @@ export async function createOfficeQuoteAction(data: FormData) {
 
   revalidatePath("/admin/quotes");
   redirect(to(`quoted=${encodeURIComponent(summary)}`));
+}
+
+/** Re-price a quote the office has amended, keeping the link it already sent. */
+export async function updateQuoteAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const token = field(data, "token", 40);
+  const back = `/admin/quotes/${token}`;
+
+  const basket: Record<string, number> = {};
+  for (const [key, value] of data.entries()) {
+    if (!key.startsWith("qty_")) continue;
+    const qty = Math.floor(Number(String(value)));
+    if (Number.isFinite(qty) && qty > 0) basket[key.slice(4)] = qty;
+  }
+
+  const result = await updateOfficeQuote(token, {
+    customerName: field(data, "customerName", 80),
+    customerPhone: field(data, "customerPhone", 30),
+    customerEmail: field(data, "customerEmail", 120),
+    postcode: field(data, "postcode", 12),
+    basket,
+    protection: data.get("protection") === "on",
+  });
+
+  if (!result.ok) {
+    redirect(`${back}?error=${encodeURIComponent(result.reason ?? "Couldn't save that.")}`);
+  }
+  revalidatePath(back);
+  redirect(`${back}?saved=1`);
+}
+
+/** Text the quote link again — after amending it, or when they lost the first. */
+export async function resendQuoteAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const token = field(data, "token", 40);
+  const back = `/admin/quotes/${token}`;
+  const sent = await sendQuoteLink(token);
+  if (!sent.ok) {
+    redirect(`${back}?error=${encodeURIComponent(sent.reason ?? "Couldn't send it.")}`);
+  }
+  redirect(`${back}?sent=1`);
+}
+
+/** Book the quote on the customer's behalf, from the phone. */
+export async function bookQuoteAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const token = field(data, "token", 40);
+  const back = `/admin/quotes/${token}`;
+
+  if (data.get("agreed") !== "on") {
+    redirect(`${back}?error=${encodeURIComponent("Confirm the customer agreed to the terms on the call.")}`);
+  }
+
+  const result = await bookQuote(token, {
+    addressLine: field(data, "addressLine", 160),
+    town: field(data, "town", 80),
+    postcode: field(data, "postcode", 12),
+    slotDate: field(data, "slotDate", 10),
+    slotWindow: field(data, "slotWindow", 2) === "pm" ? "pm" : "am",
+    parking: field(data, "parking", 120),
+    notes: field(data, "notes", 400),
+  });
+
+  if (!result.ok) {
+    redirect(`${back}?error=${encodeURIComponent(result.reason ?? "Couldn't book it.")}`);
+  }
+  redirect(`/admin/jobs/${result.ref}?booked=1`);
 }
 
 /** Take a cleaner off the rota for a while, or put them back on it. */
