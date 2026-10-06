@@ -147,6 +147,12 @@ export type QuoteRecord = {
   source: string;
   /** The job reference, once this quote became a booking. */
   booked_ref: string;
+  /** Set on quotes the office built and sent as a link. */
+  token: string | null;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -11,6 +11,8 @@ import {
 import { formatInvoiceDueBy } from "@/lib/marketplace/terms";
 import {
   createManualInvoice,
+  createOfficeQuote,
+  sendQuoteLink,
   ensurePaymentLink,
   listCleaners,
   approvedCleanersCovering,
@@ -987,6 +989,46 @@ export async function offerJobToCleanersAction(data: FormData) {
 
   revalidatePath(back);
   redirect(`${back}?offered=${encodeURIComponent(summary)}`);
+}
+
+/**
+ * Price a job over the phone and text the customer the link.
+ *
+ * Item quantities arrive as qty_<code> fields, so the form can be generated
+ * straight from the live price list and a new service needs no change here.
+ */
+export async function createOfficeQuoteAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const to = (param: string) => `/admin/quotes?${param}`;
+
+  const basket: Record<string, number> = {};
+  for (const [key, value] of data.entries()) {
+    if (!key.startsWith("qty_")) continue;
+    const qty = Math.floor(Number(String(value)));
+    if (Number.isFinite(qty) && qty > 0) basket[key.slice(4)] = qty;
+  }
+
+  const result = await createOfficeQuote({
+    customerName: field(data, "customerName", 80),
+    customerPhone: field(data, "customerPhone", 30),
+    customerEmail: field(data, "customerEmail", 120),
+    postcode: field(data, "postcode", 12),
+    basket,
+    protection: data.get("protection") === "on",
+  });
+
+  if ("error" in result) {
+    redirect(to(`error=${encodeURIComponent(result.error)}`));
+  }
+
+  const sent = await sendQuoteLink(result.token);
+  const link = `${siteUrl()}/quote/${result.token}`;
+  const summary = sent.ok
+    ? `Quote texted — ${link}`
+    : `Quote saved but not texted (${sent.reason ?? "no mobile"}) — send it yourself: ${link}`;
+
+  revalidatePath("/admin/quotes");
+  redirect(to(`quoted=${encodeURIComponent(summary)}`));
 }
 
 /** Take a cleaner off the rota for a while, or put them back on it. */

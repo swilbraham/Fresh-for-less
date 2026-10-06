@@ -4900,6 +4900,8 @@ export async function listQuotes(limit = 100): Promise<QuoteRecord[]> {
   return query<QuoteRecord>(
     `SELECT id, session_key, postcode, outward, covered, items,
             subtotal_pence, total_pence, source, booked_ref,
+            token, customer_name, customer_phone, customer_email,
+            to_char(expires_at, 'YYYY-MM-DD') AS expires_at,
             to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
             to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
        FROM quotes
@@ -5269,4 +5271,127 @@ export async function transferJob(
   }
 
   return { ok: true, from: outgoing?.name };
+}
+
+
+/** How long a phoned-through quote holds its price. */
+export const QUOTE_VALID_DAYS = 14;
+
+/**
+ * Price a job over the phone and keep it, ready to send as a link.
+ *
+ * Priced here rather than in the browser for the same reason a booking is: the
+ * figure the customer is shown has to be one the booking form will honour when
+ * they click through, or the call was a waste of everybody's time.
+ */
+export async function createOfficeQuote(input: {
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  postcode: string;
+  basket: Basket;
+  protection?: boolean;
+}): Promise<{ token: string; quote: Quote; outward: string } | { error: string }> {
+  const postcode = normalisePostcode(input.postcode);
+  if (!postcode) return { error: "That postcode doesn't look right." };
+  const outward = outwardOf(postcode)!;
+
+  const [items, bundles, settings] = await Promise.all([
+    getPriceItems(true),
+    getBundles(true),
+    getSettings(),
+  ]);
+
+  const quote = buildQuote(input.basket, items, bundles, {
+    minimumChargePence: settings.minimum_charge_pence,
+    commissionPct: Number(settings.commission_pct),
+    protectionPct: Number(settings.protection_pct),
+    protection: input.protection === true && settings.protection_enabled,
+  });
+  if (quote.total_pence <= 0) return { error: "Add at least one item to quote." };
+
+  const token = makeRef("Q").toLowerCase().replace("-", "");
+  const covered = await hasCoverage(outward);
+
+  await query(
+    `INSERT INTO quotes
+       (session_key, token, postcode, outward, covered, items,
+        subtotal_pence, total_pence, source,
+        customer_name, customer_phone, customer_email, expires_at)
+     VALUES ($1,$1,$2,$3,$4,$5::jsonb,$6,$7,'office',$8,$9,$10,
+             now() + ($11 || ' days')::interval)`,
+    [
+      token,
+      postcode,
+      outward,
+      covered,
+      JSON.stringify(quote.lines),
+      quote.subtotal_pence,
+      quote.total_pence,
+      input.customerName,
+      input.customerPhone,
+      input.customerEmail,
+      String(QUOTE_VALID_DAYS),
+    ]
+  );
+
+  return { token, quote, outward };
+}
+
+export async function getQuoteByToken(
+  token: string
+): Promise<QuoteRecord | null> {
+  return queryOne<QuoteRecord>(
+    `SELECT id, session_key, postcode, outward, covered, items,
+            subtotal_pence, total_pence, source, booked_ref,
+            token, customer_name, customer_phone, customer_email,
+            to_char(expires_at, 'YYYY-MM-DD') AS expires_at,
+            to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
+       FROM quotes
+      WHERE token = $1`,
+    [token.trim().toLowerCase()]
+  );
+}
+
+/** Text the customer their quote link. Email too when we have an address. */
+export async function sendQuoteLink(token: string): Promise<{ ok: boolean; reason?: string }> {
+  const quote = await getQuoteByToken(token);
+  if (!quote) return { ok: false, reason: "That quote no longer exists." };
+
+  const link = `${siteUrl()}/quote/${quote.token}`;
+  const summary = quote.items
+    .map((line) => `${line.qty}x ${line.label}`)
+    .join(", ");
+
+  const mobile = toE164(quote.customer_phone);
+  if (mobile && isMobile(quote.customer_phone)) {
+    await notify({
+      channel: "sms",
+      recipient: mobile,
+      subject: `Quote for ${quote.customer_name}`,
+      body:
+        `${firstName(quote.customer_name)}, your quote from Fresh For Less: ` +
+        `${summary} — ${gbpShort(quote.total_pence)} fixed. ` +
+        `Pick a date and book it here: ${link}`,
+    });
+  } else {
+    return { ok: false, reason: "That isn't a mobile number, so it can't be texted." };
+  }
+
+  if (quote.customer_email) {
+    await notify({
+      channel: "email",
+      recipient: quote.customer_email,
+      subject: `Your quote — ${gbpShort(quote.total_pence)}`,
+      body:
+        `${firstName(quote.customer_name)}, here's the quote we talked about.\n\n` +
+        `${summary}\n` +
+        `Fixed price: ${gbpShort(quote.total_pence)}, payable to your cleaner on the day.\n\n` +
+        `Pick a date and confirm it here: ${link}\n\n` +
+        `The price holds for ${QUOTE_VALID_DAYS} days.`,
+    });
+  }
+
+  return { ok: true };
 }

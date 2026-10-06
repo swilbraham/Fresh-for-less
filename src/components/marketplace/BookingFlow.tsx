@@ -35,6 +35,9 @@ export default function BookingFlow({
   landing,
   hero,
   initialPostcode = "",
+  initialBasket,
+  initialDetails,
+  quoteToken = "",
   source = "",
 }: {
   items: PriceItem[];
@@ -54,6 +57,16 @@ export default function BookingFlow({
   hero?: ReactNode;
   /** A postcode handed over from another site, checked on arrival. */
   initialPostcode?: string;
+  /** A basket priced by the office and accepted from a quote link. */
+  initialBasket?: Basket;
+  /** What the office already took down on the phone. */
+  initialDetails?: {
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+  };
+  /** The quote this booking came from, marked as converted on success. */
+  quoteToken?: string;
   /** Where this visitor came from, recorded with the booking. */
   source?: string;
 }) {
@@ -69,13 +82,13 @@ export default function BookingFlow({
       slots: Slot[];
     } | null
   >(null);
-  const [basket, setBasket] = useState<Basket>({});
+  const [basket, setBasket] = useState<Basket>(initialBasket ?? {});
   const [slotDate, setSlotDate] = useState("");
   const [slotWindow, setSlotWindow] = useState<"am" | "pm">("am");
   const [details, setDetails] = useState({
-    customerName: "",
-    customerEmail: "",
-    customerPhone: "",
+    customerName: initialDetails?.customerName ?? "",
+    customerEmail: initialDetails?.customerEmail ?? "",
+    customerPhone: initialDetails?.customerPhone ?? "",
     addressLine: "",
     town: "",
     notes: "",
@@ -273,7 +286,7 @@ export default function BookingFlow({
           protection: protection && protectionEnabled,
           termsAccepted,
           source,
-          quoteKey: quoteKey.current,
+          quoteKey: quoteToken || quoteKey.current,
         }),
       });
       const data = await response.json();

@@ -5,6 +5,7 @@ import BookingFlow from "@/components/marketplace/BookingFlow";
 import BookingLanding from "@/components/marketplace/BookingLanding";
 import { gbp } from "@/lib/marketplace/money";
 import {
+  getQuoteByToken,
   getBundles,
   getPriceItems,
   getSettings,
@@ -22,12 +23,24 @@ export const metadata: Metadata = {
 export default async function BookPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postcode?: string; from?: string }>;
+  searchParams: Promise<{ postcode?: string; from?: string; quote?: string }>;
 }) {
   // Handed over from another Fresh For Less site: the postcode saves the
   // customer retyping it, and `from` is how that site's referrals can be
   // counted here rather than guessed at.
-  const { postcode = "", from = "" } = await searchParams;
+  const { postcode = "", from = "", quote = "" } = await searchParams;
+
+  // A quote the office priced over the phone. Everything the customer already
+  // told us travels with the link, so all that is left is picking a day.
+  const sent = quote ? await getQuoteByToken(quote) : null;
+  const usable =
+    sent && !sent.booked_ref &&
+    (!sent.expires_at || new Date(`${sent.expires_at}T23:59:59`) >= new Date())
+      ? sent
+      : null;
+  const quoteBasket = usable
+    ? Object.fromEntries(usable.items.map((line) => [line.code, line.qty]))
+    : undefined;
   const [items, bundles, settings] = await Promise.all([
     getPriceItems(true),
     getBundles(true),
@@ -40,8 +53,19 @@ export default async function BookPage({
       <main className="min-h-screen bg-slate-50">
       <div>
         <BookingFlow
-          initialPostcode={postcode.slice(0, 9)}
-          source={from.slice(0, 40)}
+          initialPostcode={(usable?.postcode ?? postcode).slice(0, 9)}
+          initialBasket={quoteBasket}
+          initialDetails={
+            usable
+              ? {
+                  customerName: usable.customer_name,
+                  customerPhone: usable.customer_phone,
+                  customerEmail: usable.customer_email,
+                }
+              : undefined
+          }
+          quoteToken={usable?.token ?? ""}
+          source={usable ? "phone-quote" : from.slice(0, 40)}
           items={items}
           bundles={bundles}
           minimumChargePence={settings.minimum_charge_pence}
