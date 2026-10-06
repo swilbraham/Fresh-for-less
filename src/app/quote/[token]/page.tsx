@@ -30,6 +30,12 @@ export default async function QuotePage({
   const quote = await getQuoteByToken(token);
   if (!quote || !quote.token) notFound();
 
+  const lineTotal = quote.items.reduce(
+    (sum, line) => sum + line.amount_pence,
+    0
+  );
+  const topUp = Math.max(0, quote.total_pence - lineTotal);
+
   const expired = Boolean(
     quote.expires_at && new Date(`${quote.expires_at}T23:59:59`) < new Date()
   );
@@ -59,12 +65,34 @@ export default async function QuotePage({
                   <span className="text-slate-700">
                     {line.qty > 1 ? `${line.qty} × ` : ""}
                     {line.label}
+                    {line.note && (
+                      <span className="block text-xs text-accent-700">
+                        {line.note}
+                      </span>
+                    )}
                   </span>
                   <span className="font-semibold tabular-nums text-slate-900">
                     {gbp(line.amount_pence)}
                   </span>
                 </li>
               ))}
+
+              {/* When the minimum charge lifts the total, say so. Lines that
+                  add up to less than the price underneath look like a mistake,
+                  and a customer who spots it on the day is right to ask. */}
+              {topUp > 0 && (
+                <li className="flex justify-between gap-4 py-3">
+                  <span className="text-slate-700">
+                    Minimum charge for a visit
+                    <span className="block text-xs text-slate-500">
+                      It costs the same to send a van out for one room
+                    </span>
+                  </span>
+                  <span className="font-semibold tabular-nums text-slate-900">
+                    {gbp(topUp)}
+                  </span>
+                </li>
+              )}
             </ul>
 
             <div className="mt-4 flex items-baseline justify-between">
