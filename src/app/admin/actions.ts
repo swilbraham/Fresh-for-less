@@ -38,6 +38,7 @@ import {
   removeInvoiceLine,
   getInvoice,
   getJobByRef,
+  offerJobToCleaners,
   requestReferrals,
   notifyInvoiceRaised,
   updateSettings,
@@ -924,6 +925,35 @@ export async function rebroadcastJobAction(data: FormData) {
   const offered = await rebroadcastJob(Number(field(data, "id", 12)));
   revalidatePath("/admin/jobs");
   redirect(`/admin/jobs?offered=${offered}`);
+}
+
+/** Offer a job to cleaners picked from the closest list on the job page. */
+export async function offerJobToCleanersAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const back = `/admin/jobs/${ref}`;
+
+  const ids = data
+    .getAll("cleanerIds")
+    .map((value) => Number(String(value)))
+    .filter((id) => Number.isFinite(id) && id > 0);
+
+  if (ids.length === 0) {
+    redirect(`${back}?error=${encodeURIComponent("Tick at least one cleaner to offer it to.")}`);
+  }
+
+  const job = await getJobByRef(ref.toUpperCase());
+  if (!job) {
+    redirect(`${back}?error=${encodeURIComponent("That job no longer exists.")}`);
+  }
+
+  const result = await offerJobToCleaners(job!.id, ids);
+  const summary =
+    `Offered to ${result.sent} cleaner${result.sent === 1 ? "" : "s"} — first to accept keeps it` +
+    (result.skipped.length > 0 ? `. Skipped ${result.skipped.join(", ")}` : "");
+
+  revalidatePath(back);
+  redirect(`${back}?offered=${encodeURIComponent(summary)}`);
 }
 
 /** Take a cleaner off the rota for a while, or put them back on it. */

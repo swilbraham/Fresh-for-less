@@ -1521,6 +1521,42 @@ async function updateLeadSummary(leadId: number, notes: string): Promise<void> {
   }
 }
 
+/**
+ * One job offer to one cleaner: the offer row and the text that carries it.
+ *
+ * Shared so a hand-picked offer from the office is word for word the automatic
+ * one. A cleaner who can tell the difference starts wondering what else is
+ * different about the jobs they are sent by hand.
+ */
+async function sendJobOffer(job: Job, cleaner: Cleaner): Promise<void> {
+  await query(
+    `INSERT INTO job_offers (job_id, cleaner_id) VALUES ($1,$2)
+     ON CONFLICT (job_id, cleaner_id) DO NOTHING`,
+    [job.id, cleaner.id]
+  );
+
+  const items = job.items.map((line) => `${line.qty}x ${line.label}`).join(", ");
+  const youKeep = gbpShort(job.total_pence - job.commission_pence);
+
+  await notifyCleaner(cleaner, {
+    subject: `New job available — ${job.postcode} on ${job.slot_date} (${gbpShort(job.total_pence)})`,
+    body:
+      `${cleaner.name}, a new job is up for grabs in ${job.outward}.\n\n` +
+      `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
+      `Job: ${items}\n` +
+      `Job value: ${gbpShort(job.total_pence)}\n` +
+      `Commission: ${gbpShort(job.commission_pence)} — you keep ${youKeep}\n` +
+      `${COMMISSION_TERMS_SHORT}\n\n` +
+      `First to accept gets it — open your dashboard at ${siteUrl()}/pro/dashboard.`,
+    // Kept short and front-loaded: it has to be readable in a lock-screen preview.
+    smsBody:
+      `New job ${job.outward}, ${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
+      `${gbpShort(job.total_pence)}, you keep ${youKeep}. ` +
+      `First to accept wins: ${siteUrl()}/pro/dashboard`,
+    jobId: job.id,
+  });
+}
+
 /** Offer the job to every matching cleaner at once — first to accept wins. */
 export async function broadcastJob(
   jobId: number,
@@ -1533,31 +1569,7 @@ export async function broadcastJob(
   if (!job) return 0;
 
   for (const cleaner of matches) {
-    await query(
-      `INSERT INTO job_offers (job_id, cleaner_id) VALUES ($1,$2)
-       ON CONFLICT (job_id, cleaner_id) DO NOTHING`,
-      [jobId, cleaner.id]
-    );
-    const items = job.items.map((line) => `${line.qty}x ${line.label}`).join(", ");
-    const youKeep = gbpShort(job.total_pence - job.commission_pence);
-
-    await notifyCleaner(cleaner, {
-      subject: `New job available — ${job.postcode} on ${job.slot_date} (${gbpShort(job.total_pence)})`,
-      body:
-        `${cleaner.name}, a new job is up for grabs in ${job.outward}.\n\n` +
-        `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
-        `Job: ${items}\n` +
-        `Job value: ${gbpShort(job.total_pence)}\n` +
-        `Commission: ${gbpShort(job.commission_pence)} — you keep ${youKeep}\n` +
-        `${COMMISSION_TERMS_SHORT}\n\n` +
-        `First to accept gets it — open your dashboard at ${siteUrl()}/pro/dashboard.`,
-      // Kept short and front-loaded: it has to be readable in a lock-screen preview.
-      smsBody:
-        `New job ${job.outward}, ${job.slot_date} ${job.slot_window.toUpperCase()}. ` +
-        `${gbpShort(job.total_pence)}, you keep ${youKeep}. ` +
-        `First to accept wins: ${siteUrl()}/pro/dashboard`,
-      jobId,
-    });
+    await sendJobOffer(job, cleaner);
   }
 
   if (matches.length === 0) {
@@ -1629,6 +1641,18 @@ export async function acceptJob(
       WHERE job_id = $1 AND cleaner_id = $2`,
     [jobId, cleanerId]
   );
+
+  // Taking a job in an area they had not registered says more than the list
+  // does, so the area joins their coverage and the next booking there reaches
+  // them automatically. They can take it off again in their own dashboard.
+  const accepted = await getJob(jobId);
+  if (accepted?.outward) {
+    await query(
+      `INSERT INTO cleaner_areas (cleaner_id, outward) VALUES ($1,$2)
+       ON CONFLICT DO NOTHING`,
+      [cleanerId, accepted.outward]
+    );
+  }
 
   const job = await getJob(jobId);
   if (job) await confirmCleanerToCustomer(job, cleaner);
@@ -5089,4 +5113,53 @@ export async function nearestCleaners(
   });
 
   return ranked.slice(0, limit);
+}
+
+
+/**
+ * Offer a job by hand to cleaners the office has picked.
+ *
+ * Exactly the same text and the same first-to-accept race as the automatic
+ * broadcast — the only difference is who it goes to. Used on jobs in areas
+ * nobody has registered, where the automatic match finds nobody at all.
+ *
+ * The job moves to 'offered' so the dashboard, the unfilled chaser and the
+ * accept path all treat it as live work rather than something still waiting on
+ * the office.
+ */
+export async function offerJobToCleaners(
+  jobId: number,
+  cleanerIds: number[]
+): Promise<{ sent: number; skipped: string[] }> {
+  const job = await getJob(jobId);
+  if (!job || job.cleaner_id) return { sent: 0, skipped: [] };
+
+  const skipped: string[] = [];
+  let sent = 0;
+
+  for (const cleanerId of cleanerIds) {
+    const cleaner = await getCleaner(cleanerId);
+    if (!cleaner) continue;
+    if (cleaner.status !== "approved") {
+      skipped.push(`${cleaner.name} (not approved)`);
+      continue;
+    }
+    if (cleaner.paused_at) {
+      skipped.push(`${cleaner.name} (paused)`);
+      continue;
+    }
+    await sendJobOffer(job, cleaner);
+    sent += 1;
+  }
+
+  if (sent > 0) {
+    await query(
+      `UPDATE jobs SET status = 'offered'
+        WHERE id = $1 AND cleaner_id IS NULL
+          AND status IN ('provisional', 'unfilled')`,
+      [jobId]
+    );
+  }
+
+  return { sent, skipped };
 }

@@ -31,6 +31,7 @@ import {
   rescheduleJobAction,
   updateJobDetailsAction,
   reassignJobAction,
+  offerJobToCleanersAction,
   rebroadcastJobAction,
   requestReferralsAction,
   reinstateJobAction,
@@ -64,6 +65,7 @@ export default async function AdminJobPage({
     details?: string;
     reinstated?: string;
     referrals?: string;
+    offered?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
@@ -79,6 +81,7 @@ export default async function AdminJobPage({
     details,
     reinstated,
     referrals,
+    offered,
   } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
@@ -176,6 +179,7 @@ export default async function AdminJobPage({
           <Alert tone="success">Message sent.</Alert>
         )}
         {referrals && <Alert tone="success">{referrals}</Alert>}
+        {offered && <Alert tone="success">{offered}</Alert>}
         {moved && (
           <Alert tone={moved === "unfilled" ? "error" : "success"}>
             {moved === "kept" && "Moved. The cleaner was free, so the job is still theirs and they've been texted."}
@@ -374,13 +378,27 @@ export default async function AdminJobPage({
                     crow flies plus a bit for roads. A guide for who to ring, not
                     a route.
                   </p>
-                  <ul className="mt-3 space-y-2">
+                  {/* One form around the list: tick several and they all get
+                      the same offer, first to accept keeps it — the automatic
+                      broadcast, aimed by hand. */}
+                  <form action={offerJobToCleanersAction} className="mt-3">
+                    <input type="hidden" name="ref" value={job.ref} />
+                  <ul className="space-y-2">
                     {nearby.map((candidate) => (
                       <li
                         key={candidate.id}
                         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm"
                       >
-                        <div className="min-w-[200px]">
+                        <div className="flex min-w-[200px] items-start gap-3">
+                          <input
+                            type="checkbox"
+                            name="cleanerIds"
+                            value={candidate.id}
+                            disabled={candidate.paused}
+                            aria-label={`Offer this job to ${candidate.name}`}
+                            className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 accent-primary-600 disabled:opacity-40"
+                          />
+                        <div>
                           <p className="font-semibold text-slate-900">
                             {candidate.business_name || candidate.name}
                             {candidate.covers && (
@@ -412,23 +430,35 @@ export default async function AdminJobPage({
                             {candidate.miles === null && " · distance unknown"}
                           </p>
                         </div>
-                        <form action={assignJobAction}>
-                          <input type="hidden" name="id" value={job.id} />
-                          <input
-                            type="hidden"
-                            name="cleanerId"
-                            value={candidate.id}
-                          />
-                          <button
-                            type="submit"
-                            className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-                          >
-                            Give them this job
-                          </button>
-                        </form>
+                        </div>
+                        <button
+                          type="submit"
+                          formAction={assignJobAction}
+                          name="cleanerId"
+                          value={candidate.id}
+                          className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                        >
+                          Give it to them
+                        </button>
                       </li>
                     ))}
                   </ul>
+
+                  <input type="hidden" name="id" value={job.id} />
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700"
+                    >
+                      Offer to the ticked cleaners
+                    </button>
+                    <p className="text-xs text-slate-500">
+                      They get the same text as an automatic job offer. First to
+                      accept keeps it, and the area joins their coverage so the
+                      next booking there reaches them without you.
+                    </p>
+                  </div>
+                  </form>
                 </div>
               )}
 
