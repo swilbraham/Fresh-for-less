@@ -1,7 +1,14 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAdmin } from "@/lib/marketplace/auth";
-import { getPriceItems, listQuotes, quoteStats } from "@/lib/marketplace/repo";
+import {
+  getBundles,
+  getPriceItems,
+  getSettings,
+  listQuotes,
+  quoteStats,
+} from "@/lib/marketplace/repo";
+import QuoteBuilder from "@/components/marketplace/QuoteBuilder";
 import { createOfficeQuoteAction } from "@/app/admin/actions";
 import { gbpShort } from "@/lib/marketplace/money";
 import { gbp } from "@/lib/marketplace/money";
@@ -29,10 +36,12 @@ export default async function QuotesPage({
   if (!(await isAdmin())) redirect("/admin");
 
   const { error, quoted } = await searchParams;
-  const [quotes, week, items] = await Promise.all([
+  const [quotes, week, items, bundles, settings] = await Promise.all([
     listQuotes(150),
     quoteStats(7),
     getPriceItems(true),
+    getBundles(true),
+    getSettings(),
   ]);
   const rate = week.quotes > 0 ? Math.round((week.booked / week.quotes) * 100) : 0;
 
@@ -61,7 +70,16 @@ export default async function QuotesPage({
         title="Quote someone over the phone"
         description="Take their name, number and postcode, tick what needs doing, and they get a text with the price and a button that books it — already filled in."
       >
-        <form action={createOfficeQuoteAction} className="mt-4 space-y-4">
+        <QuoteBuilder
+          action={createOfficeQuoteAction}
+          items={items}
+          bundles={bundles}
+          minimumChargePence={settings.minimum_charge_pence}
+          commissionPct={Number(settings.commission_pct)}
+          protectionPct={Number(settings.protection_pct)}
+          protectionEnabled={settings.protection_enabled}
+          submitLabel="Price it & text the link"
+        >
           <div className="grid gap-3 sm:grid-cols-4">
             <input
               name="customerName"
@@ -92,53 +110,7 @@ export default async function QuotesPage({
               className="rounded-xl border border-slate-300 px-4 py-2.5 uppercase"
             />
           </div>
-
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
-              <label
-                key={item.code}
-                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              >
-                <span className="text-slate-700">
-                  {item.label}{" "}
-                  <span className="text-slate-400">
-                    {gbpShort(item.unit_price_pence)}
-                  </span>
-                </span>
-                <input
-                  type="number"
-                  name={`qty_${item.code}`}
-                  min="0"
-                  max={item.max_qty || 20}
-                  defaultValue={0}
-                  aria-label={`How many ${item.label}`}
-                  className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-right"
-                />
-              </label>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4">
-            <button
-              type="submit"
-              className="rounded-xl bg-accent-600 px-6 py-3 font-semibold text-white transition hover:bg-accent-700"
-            >
-              Price it &amp; text the link
-            </button>
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                name="protection"
-                className="h-4 w-4 rounded border-slate-300 accent-accent-600"
-              />
-              Include stain protection
-            </label>
-            <p className="text-xs text-slate-500">
-              The price is worked out here, not in their browser, so the figure
-              they are shown is the one the booking form will charge.
-            </p>
-          </div>
-        </form>
+        </QuoteBuilder>
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-4">

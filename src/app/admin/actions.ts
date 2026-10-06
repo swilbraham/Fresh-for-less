@@ -1010,6 +1010,8 @@ export async function createOfficeQuoteAction(data: FormData) {
     if (Number.isFinite(qty) && qty > 0) basket[key.slice(4)] = qty;
   }
 
+  const agreed = penceFromInput(field(data, "agreedPrice", 12));
+
   const result = await createOfficeQuote({
     customerName: field(data, "customerName", 80),
     customerPhone: field(data, "customerPhone", 30),
@@ -1017,6 +1019,7 @@ export async function createOfficeQuoteAction(data: FormData) {
     postcode: field(data, "postcode", 12),
     basket,
     protection: data.get("protection") === "on",
+    overridePence: agreed ?? 0,
   });
 
   if ("error" in result) {
@@ -1046,6 +1049,8 @@ export async function updateQuoteAction(data: FormData) {
     if (Number.isFinite(qty) && qty > 0) basket[key.slice(4)] = qty;
   }
 
+  const agreedUpdate = penceFromInput(field(data, "agreedPrice", 12));
+
   const result = await updateOfficeQuote(token, {
     customerName: field(data, "customerName", 80),
     customerPhone: field(data, "customerPhone", 30),
@@ -1053,6 +1058,7 @@ export async function updateQuoteAction(data: FormData) {
     postcode: field(data, "postcode", 12),
     basket,
     protection: data.get("protection") === "on",
+    overridePence: agreedUpdate ?? 0,
   });
 
   if (!result.ok) {

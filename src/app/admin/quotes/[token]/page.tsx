@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import {
   basketFromQuote,
+  getBundles,
   getPriceItems,
   getQuoteByToken,
   getSettings,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/marketplace/repo";
 import { gbp, gbpShort } from "@/lib/marketplace/money";
 import { Alert, Card } from "@/components/marketplace/shell";
+import QuoteBuilder from "@/components/marketplace/QuoteBuilder";
 import {
   bookQuoteAction,
   resendQuoteAction,
@@ -42,7 +44,11 @@ export default async function AdminQuotePage({
   const quote = await getQuoteByToken(token);
   if (!quote || !quote.token) notFound();
 
-  const [items, settings] = await Promise.all([getPriceItems(true), getSettings()]);
+  const [items, bundles, settings] = await Promise.all([
+    getPriceItems(true),
+    getBundles(true),
+    getSettings(),
+  ]);
   const { basket, protection } = basketFromQuote(quote);
   const lineTotal = quote.items.reduce((sum, line) => sum + line.amount_pence, 0);
   const topUp = Math.max(0, quote.total_pence - lineTotal);
@@ -102,6 +108,11 @@ export default async function AdminQuotePage({
             </li>
           )}
         </ul>
+        {quote.override_pence > 0 && (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Agreed on the call rather than the list price.
+          </p>
+        )}
         <div className="mt-3 flex items-baseline justify-between">
           <span className="font-bold text-slate-900">Fixed price</span>
           <span className="text-2xl font-bold tabular-nums text-accent-700">
@@ -127,7 +138,19 @@ export default async function AdminQuotePage({
           title="Amend it"
           description="Re-prices against today's price list and keeps the same link, so the text they already have shows the new figure."
         >
-          <form action={updateQuoteAction} className="mt-4 space-y-4">
+          <QuoteBuilder
+            action={updateQuoteAction}
+            items={items}
+            bundles={bundles}
+            minimumChargePence={settings.minimum_charge_pence}
+            commissionPct={Number(settings.commission_pct)}
+            protectionPct={Number(settings.protection_pct)}
+            protectionEnabled={settings.protection_enabled}
+            initialBasket={basket}
+            initialProtection={protection}
+            initialOverridePence={quote.override_pence}
+            submitLabel="Save & re-price"
+          >
             <input type="hidden" name="token" value={quote.token} />
             <div className="grid gap-3 sm:grid-cols-4">
               <input name="customerName" required defaultValue={quote.customer_name} placeholder="Name" aria-label="Name" className="rounded-xl border border-slate-300 px-4 py-2.5" />
@@ -135,40 +158,11 @@ export default async function AdminQuotePage({
               <input name="customerEmail" defaultValue={quote.customer_email} placeholder="Email (optional)" aria-label="Email" className="rounded-xl border border-slate-300 px-4 py-2.5" />
               <input name="postcode" defaultValue={quote.postcode} placeholder="Postcode (optional)" aria-label="Postcode" className="rounded-xl border border-slate-300 px-4 py-2.5 uppercase" />
             </div>
-
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((item) => (
-                <label key={item.code} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                  <span className="text-slate-700">
-                    {item.label}{" "}
-                    <span className="text-slate-400">{gbpShort(item.unit_price_pence)}</span>
-                  </span>
-                  <input
-                    type="number"
-                    name={`qty_${item.code}`}
-                    min="0"
-                    max={item.max_qty || 20}
-                    defaultValue={basket[item.code] ?? 0}
-                    aria-label={`How many ${item.label}`}
-                    className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-right"
-                  />
-                </label>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4">
-              <button type="submit" className="rounded-xl bg-slate-900 px-5 py-2.5 font-semibold text-white">
-                Save &amp; re-price
-              </button>
-              <label className="flex items-center gap-2 text-sm text-slate-600">
-                <input type="checkbox" name="protection" defaultChecked={protection} className="h-4 w-4 rounded border-slate-300 accent-accent-600" />
-                Stain protection
-              </label>
-              <span className="text-xs text-slate-500">
-                Saving doesn&apos;t text them — use the button above when you want them to see it.
-              </span>
-            </div>
-          </form>
+            <p className="text-xs text-slate-500">
+              Saving doesn&apos;t text them — use &ldquo;Text them the link
+              again&rdquo; above when you want them to see the new figure.
+            </p>
+          </QuoteBuilder>
         </Card>
       )}
 

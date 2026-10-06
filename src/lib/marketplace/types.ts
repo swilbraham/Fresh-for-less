@@ -153,6 +153,8 @@ export type QuoteRecord = {
   customer_phone: string;
   customer_email: string;
   expires_at: string | null;
+  /** An agreed price that overrides the list total; 0 when there isn't one. */
+  override_pence: number;
   created_at: string;
   updated_at: string;
 };

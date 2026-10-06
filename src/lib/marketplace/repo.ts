@@ -4900,7 +4900,7 @@ export async function listQuotes(limit = 100): Promise<QuoteRecord[]> {
   return query<QuoteRecord>(
     `SELECT id, session_key, postcode, outward, covered, items,
             subtotal_pence, total_pence, source, booked_ref,
-            token, customer_name, customer_phone, customer_email,
+            token, customer_name, customer_phone, customer_email, override_pence,
             to_char(expires_at, 'YYYY-MM-DD') AS expires_at,
             to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
             to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
@@ -5291,6 +5291,8 @@ export async function createOfficeQuote(input: {
   postcode: string;
   basket: Basket;
   protection?: boolean;
+  /** A figure agreed on the call instead of the list price. */
+  overridePence?: number;
 }): Promise<{ token: string; quote: Quote; outward: string } | { error: string }> {
   // Optional: a price does not depend on where the job is, and on a call you
   // often have a name and a number long before a postcode. Without one, the
@@ -5317,13 +5319,16 @@ export async function createOfficeQuote(input: {
   const token = makeRef("Q").toLowerCase().replace("-", "");
   const covered = outward ? await hasCoverage(outward) : false;
 
+  const override = Math.max(0, Math.floor(input.overridePence ?? 0));
+  const charged = override > 0 ? override : quote.total_pence;
+
   await query(
     `INSERT INTO quotes
        (session_key, token, postcode, outward, covered, items,
-        subtotal_pence, total_pence, source,
+        subtotal_pence, total_pence, override_pence, source,
         customer_name, customer_phone, customer_email, expires_at)
-     VALUES ($1,$1,$2,$3,$4,$5::jsonb,$6,$7,'office',$8,$9,$10,
-             now() + ($11 || ' days')::interval)`,
+     VALUES ($1,$1,$2,$3,$4,$5::jsonb,$6,$7,$8,'office',$9,$10,$11,
+             now() + ($12 || ' days')::interval)`,
     [
       token,
       postcode,
@@ -5331,7 +5336,8 @@ export async function createOfficeQuote(input: {
       covered,
       JSON.stringify(quote.lines),
       quote.subtotal_pence,
-      quote.total_pence,
+      charged,
+      override,
       input.customerName,
       input.customerPhone,
       input.customerEmail,
@@ -5339,7 +5345,7 @@ export async function createOfficeQuote(input: {
     ]
   );
 
-  return { token, quote, outward };
+  return { token, quote: { ...quote, total_pence: charged }, outward };
 }
 
 export async function getQuoteByToken(
@@ -5348,7 +5354,7 @@ export async function getQuoteByToken(
   return queryOne<QuoteRecord>(
     `SELECT id, session_key, postcode, outward, covered, items,
             subtotal_pence, total_pence, source, booked_ref,
-            token, customer_name, customer_phone, customer_email,
+            token, customer_name, customer_phone, customer_email, override_pence,
             to_char(expires_at, 'YYYY-MM-DD') AS expires_at,
             to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
             to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
@@ -5436,6 +5442,7 @@ export async function updateOfficeQuote(
     postcode: string;
     basket: Basket;
     protection?: boolean;
+    overridePence?: number;
   }
 ): Promise<{ ok: boolean; reason?: string }> {
   const existing = await getQuoteByToken(token);
@@ -5462,10 +5469,12 @@ export async function updateOfficeQuote(
   });
   if (quote.total_pence <= 0) return { ok: false, reason: "Add at least one item." };
 
+  const override = Math.max(0, Math.floor(input.overridePence ?? 0));
+
   await query(
     `UPDATE quotes
         SET postcode = $2, outward = $3, covered = $4, items = $5::jsonb,
-            subtotal_pence = $6, total_pence = $7,
+            subtotal_pence = $6, total_pence = $7, override_pence = $11,
             customer_name = $8, customer_phone = $9, customer_email = $10,
             updated_at = now()
       WHERE token = $1 AND booked_ref = ''`,
@@ -5476,10 +5485,11 @@ export async function updateOfficeQuote(
       outward ? await hasCoverage(outward) : false,
       JSON.stringify(quote.lines),
       quote.subtotal_pence,
-      quote.total_pence,
+      override > 0 ? override : quote.total_pence,
       input.customerName,
       input.customerPhone,
       input.customerEmail,
+      override,
     ]
   );
 
@@ -5533,6 +5543,13 @@ export async function bookQuote(
       protection,
       source: "phone-quote",
     });
+
+    // The customer agreed a figure, not a price list, so the job has to carry
+    // it — a booking that silently reverts to the list price is the argument
+    // this whole flow exists to avoid.
+    if (quote.override_pence > 0 && quote.override_pence !== job.total_pence) {
+      await setAgreedPrice(job.id, quote.override_pence);
+    }
 
     await markQuoteBooked(token, job.ref);
     return { ok: true, ref: job.ref };

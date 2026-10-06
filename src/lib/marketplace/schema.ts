@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 46;
+export const SCHEMA_VERSION = 47;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -346,6 +346,8 @@ export const STATEMENTS: string[] = [
   `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS customer_email text NOT NULL DEFAULT ''`,
   `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS expires_at timestamptz`,
   `CREATE UNIQUE INDEX IF NOT EXISTS quotes_token ON quotes (token) WHERE token IS NOT NULL`,
+  // A price agreed on the call that is not the list price. 0 means 'the list'.
+  `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS override_pence int NOT NULL DEFAULT 0`,
 
   `CREATE TABLE IF NOT EXISTS leads (
      id           serial PRIMARY KEY,
