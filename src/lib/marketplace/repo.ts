@@ -5163,3 +5163,42 @@ export async function offerJobToCleaners(
 
   return { sent, skipped };
 }
+
+
+export type BookedDay = {
+  day: string;
+  jobs: number;
+  value_pence: number;
+  commission_pence: number;
+  cancelled_jobs: number;
+  cancelled_pence: number;
+};
+
+/**
+ * What was booked each day — by the day the booking was taken, not the day of
+ * the clean.
+ *
+ * This is the number that answers "is the website working this week", and it
+ * has to be separate from the completed-work figures further down the page:
+ * a busy Tuesday for bookings is a busy Thursday for cleaning, and mixing them
+ * hides both.
+ *
+ * Cancellations are counted beside the day they were booked rather than
+ * deducted, so a day that took £400 and lost one booking still shows the £400
+ * the site earned and the loss next to it.
+ */
+export async function listBookedByDay(days = 30): Promise<BookedDay[]> {
+  return query<BookedDay>(
+    `SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'Europe/London'), 'YYYY-MM-DD') AS day,
+            count(*) FILTER (WHERE status <> 'cancelled')::int                             AS jobs,
+            COALESCE(sum(total_pence) FILTER (WHERE status <> 'cancelled'), 0)::int        AS value_pence,
+            COALESCE(sum(commission_pence) FILTER (WHERE status <> 'cancelled'), 0)::int   AS commission_pence,
+            count(*) FILTER (WHERE status = 'cancelled')::int                              AS cancelled_jobs,
+            COALESCE(sum(total_pence) FILTER (WHERE status = 'cancelled'), 0)::int         AS cancelled_pence
+       FROM jobs
+      WHERE created_at > now() - ($1 || ' days')::interval
+      GROUP BY 1
+      ORDER BY 1 DESC`,
+    [String(Math.min(Math.max(days, 1), 365))]
+  );
+}

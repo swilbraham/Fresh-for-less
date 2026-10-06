@@ -7,6 +7,7 @@ import {
   listCleanerFinance,
   listMonthlyFinance,
   listUpcomingWeeks,
+  listBookedByDay,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { Card } from "@/components/marketplace/shell";
@@ -66,13 +67,26 @@ function change(now: number, before: number): string | null {
 export default async function AdminFinancesPage() {
   if (!(await isAdmin())) redirect("/admin");
 
-  const [money, months, cleaners, weeks, settings] = await Promise.all([
+  const [money, months, cleaners, weeks, settings, bookedDays] = await Promise.all([
     getFinanceSummary(),
     listMonthlyFinance(18),
     listCleanerFinance(),
     listUpcomingWeeks(12),
     getSettings(),
+    listBookedByDay(30),
   ]);
+
+  // The last seven days against the seven before them: one number on its own
+  // says nothing, and "£620 this week against £410 last" is the whole point.
+  const weekValue = bookedDays
+    .slice(0, 7)
+    .reduce((sum, day) => sum + day.value_pence, 0);
+  const priorWeekValue = bookedDays
+    .slice(7, 14)
+    .reduce((sum, day) => sum + day.value_pence, 0);
+  const todayIso = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Europe/London",
+  });
 
   const owed = money.accrued_pence + money.invoiced_unpaid_pence;
   const bucketed =
@@ -128,6 +142,79 @@ export default async function AdminFinancesPage() {
             }
           />
         </div>
+
+        {/* ---------------------------------------------- booked --------- */}
+        <Card
+          title="Booked in per day"
+          description="By the day the booking was taken, not the day of the clean — this is the number that says whether the website is working. Cancellations sit beside the day they were booked rather than being deducted."
+          className="mt-8"
+        >
+          <p className="mt-3 text-sm text-slate-600">
+            <strong className="text-slate-900">{gbp(weekValue)}</strong> booked
+            in the last seven days
+            {priorWeekValue > 0 && (
+              <>
+                {" "}
+                · {gbp(priorWeekValue)} the seven before
+              </>
+            )}
+            .
+          </p>
+
+          {bookedDays.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">
+              Nothing booked in the last 30 days.
+            </p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="py-2 font-semibold">Day</th>
+                    <th className="py-2 text-right font-semibold">Bookings</th>
+                    <th className="py-2 text-right font-semibold">Booked value</th>
+                    <th className="py-2 text-right font-semibold">Your commission</th>
+                    <th className="py-2 text-right font-semibold">Cancelled</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 tabular-nums">
+                  {bookedDays.map((day) => (
+                    <tr
+                      key={day.day}
+                      className={day.day === todayIso ? "font-semibold text-slate-900" : ""}
+                    >
+                      <td className="py-2">
+                        {new Date(`${day.day}T12:00:00`).toLocaleDateString("en-GB", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                        })}
+                        {day.day === todayIso && (
+                          <span className="ml-2 rounded-full bg-accent-100 px-2 py-0.5 text-xs font-semibold text-accent-800">
+                            today
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-right">{day.jobs}</td>
+                      <td className="py-2 text-right">{gbp(day.value_pence)}</td>
+                      <td className="py-2 text-right text-slate-600">
+                        {gbp(day.commission_pence)}
+                      </td>
+                      <td className="py-2 text-right text-slate-500">
+                        {day.cancelled_jobs > 0
+                          ? `${day.cancelled_jobs} · ${gbp(day.cancelled_pence)}`
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-slate-500">
+            Days with no bookings are left out rather than shown as zero rows.
+          </p>
+        </Card>
 
         {/* ---------------------------------------------- pipeline ------- */}
         <Card
