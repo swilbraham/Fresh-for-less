@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { buildQuote, type Basket } from "@/lib/marketplace/pricing";
 import { gbp, gbpShort } from "@/lib/marketplace/money";
 import type { PriceBundle, PriceItem } from "@/lib/marketplace/types";
+import CustomerReview from "@/components/marketplace/CustomerReview";
 
 type Slot = { day: string; am: boolean; pm: boolean };
 type Step = "postcode" | "items" | "slot" | "details";
@@ -838,6 +839,8 @@ export default function BookingFlow({
             .
           </p>
 
+          <CustomerReview variant="compact" />
+
           {/*
             Required, unticked by default, and its own deliberate action. A
             pre-ticked box is not agreement under the Consumer Rights Act, and
@@ -889,6 +892,9 @@ export default function BookingFlow({
         </form>
       )}
 
+      {step === "postcode" && (
+        <CustomerReview variant="compact" className="mt-6" />
+      )}
       {step === "postcode" && landing}
       </div>
 
