@@ -145,6 +145,33 @@ export default function BookingLanding({
         </p>
       </section>
 
+      {/* What a customer said. One real recommendation, quoted as written and
+          credited, beats a wall of anonymous five-star blurbs: the detail —
+          a family of four, the usual wear and tear — is what makes it read as
+          a person rather than marketing. */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+        <figure className="mx-auto max-w-2xl text-center">
+          <div
+            className="text-xl tracking-[0.2em] text-amber-500"
+            aria-label="Five out of five"
+          >
+            ★★★★★
+          </div>
+          <blockquote className="mt-4 text-lg leading-relaxed text-slate-700">
+            &ldquo;Just had my living room, stairs and landing done with Simon.
+            Really chatty and professional. Carpets smell really fresh and they
+            look so much better from the usual wear and tear of a family of 4!
+            Would recommend!&rdquo;
+          </blockquote>
+          <figcaption className="mt-4 text-sm text-slate-500">
+            <span className="font-semibold text-slate-900">
+              Kayleigh Louise Rowlands
+            </span>{" "}
+            · recommended us on Facebook, September 2026
+          </figcaption>
+        </figure>
+      </section>
+
       {/* Why */}
       <section>
         <h2 className="text-center text-2xl font-bold text-slate-900 sm:text-3xl">
