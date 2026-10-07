@@ -132,6 +132,7 @@ export async function POST(request: Request) {
       // the customer agreed, not just the fact that they did.
       termsAccepted: true,
       source: text(payload.source, 40),
+      discountCode: text(payload.discountCode, 20),
     });
 
     // The quote this booking came from, so the list separates the ones that

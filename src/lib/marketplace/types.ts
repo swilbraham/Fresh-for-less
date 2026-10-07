@@ -132,6 +132,8 @@ export type Job = {
   hours_until_slot: string | number;
   /** The site that sent this customer, '' when they came here directly. */
   source: string;
+  /** Taken off the list price by a discount code; 0 for most jobs. */
+  discount_pence: number;
 };
 
 /** A priced basket, whether or not it turned into a booking. */

@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 47;
+export const SCHEMA_VERSION = 48;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -348,6 +348,24 @@ export const STATEMENTS: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS quotes_token ON quotes (token) WHERE token IS NOT NULL`,
   // A price agreed on the call that is not the list price. 0 means 'the list'.
   `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS override_pence int NOT NULL DEFAULT 0`,
+
+  // One-time discount codes, issued to somebody about to leave with a price on
+  // screen. Tied to the basket that was showing, so a code cannot be passed
+  // around or reused on a bigger job than the one it was offered for.
+  `CREATE TABLE IF NOT EXISTS discount_codes (
+     code        text PRIMARY KEY,
+     session_key text NOT NULL DEFAULT '',
+     pct         int  NOT NULL,
+     issued_at   timestamptz NOT NULL DEFAULT now(),
+     expires_at  timestamptz NOT NULL,
+     used_at     timestamptz,
+     job_id      int REFERENCES jobs(id) ON DELETE SET NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS discount_codes_session ON discount_codes (session_key)`,
+
+  // What came off the job, kept separately so the books show discounting
+  // rather than quietly lower prices.
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS discount_pence int NOT NULL DEFAULT 0`,
 
   `CREATE TABLE IF NOT EXISTS leads (
      id           serial PRIMARY KEY,

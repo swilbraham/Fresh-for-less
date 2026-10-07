@@ -6,6 +6,7 @@ import { buildQuote, type Basket } from "@/lib/marketplace/pricing";
 import { gbp, gbpShort } from "@/lib/marketplace/money";
 import type { PriceBundle, PriceItem } from "@/lib/marketplace/types";
 import CustomerReview from "@/components/marketplace/CustomerReview";
+import ExitOffer from "@/components/marketplace/ExitOffer";
 
 type Slot = { day: string; am: boolean; pm: boolean };
 type Step = "postcode" | "items" | "slot" | "details";
@@ -98,6 +99,11 @@ export default function BookingFlow({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [discount, setDiscount] = useState<{
+    code: string;
+    pct: number;
+    expiresAt: string;
+  } | null>(null);
 
   /**
    * Identifies this visitor's quote so changes update one row rather than
@@ -132,6 +138,12 @@ export default function BookingFlow({
       protection,
     ]
   );
+
+  const discountPence = discount
+    ? Math.round((quote.total_pence * discount.pct) / 100)
+    : 0;
+  const payable = quote.total_pence - discountPence;
+
 
   const grouped = useMemo(() => {
     const map = new Map<string, PriceItem[]>();
@@ -288,6 +300,7 @@ export default function BookingFlow({
           termsAccepted,
           source,
           quoteKey: quoteToken || quoteKey.current,
+          discountCode: discount?.code ?? "",
         }),
       });
       const data = await response.json();
@@ -321,6 +334,11 @@ export default function BookingFlow({
 
   return (
     <div className="w-full pb-40">
+      <ExitOffer
+        sessionKey={quoteKey.current}
+        armed={quote.total_pence > 0 && step !== "details"}
+        onAccept={setDiscount}
+      />
       {step === "postcode" ? (
         hero
       ) : (
@@ -825,7 +843,9 @@ export default function BookingFlow({
               )}
             </dl>
             <p className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
-              {`Pay your cleaner ${gbp(quote.total_pence)} when the job is finished — cash or card. Nothing to pay now.`}
+              {discountPence > 0
+                ? `Pay your cleaner ${gbp(payable)} when the job is finished — ${gbp(quote.total_pence)} less your ${discount?.pct}% code. Cash or card, nothing to pay now.`
+                : `Pay your cleaner ${gbp(quote.total_pence)} when the job is finished — cash or card. Nothing to pay now.`}
             </p>
           </section>
 
@@ -886,7 +906,7 @@ export default function BookingFlow({
             >
               {submitting
                 ? "Sending…"
-                : `Confirm booking — ${gbp(quote.total_pence)}`}
+                : `Confirm booking — ${gbp(payable)}`}
             </button>
           </div>
         </form>
@@ -907,8 +927,18 @@ export default function BookingFlow({
                 Your fixed price
               </p>
               <p className="text-2xl font-bold text-slate-900 tabular-nums">
-                {gbp(quote.total_pence)}
+                {discountPence > 0 && (
+                  <span className="mr-2 text-base font-normal text-slate-400 line-through">
+                    {gbp(quote.total_pence)}
+                  </span>
+                )}
+                {gbp(payable)}
               </p>
+              {discountPence > 0 && (
+                <p className="text-xs font-semibold text-accent-700">
+                  {discount?.code} applied — {discount?.pct}% off
+                </p>
+              )}
             </div>
             <div className="text-right text-xs text-slate-500">
               {quote.savings_pence > 0 && (

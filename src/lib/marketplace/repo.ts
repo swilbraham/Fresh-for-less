@@ -14,6 +14,7 @@ import { firstName } from "./names";
 import { createPaymentLink, squareEnabled } from "./square";
 import { summariseEnquiry } from "./summarise";
 import { distanceMiles, outcodeCoords } from "./geo";
+import { EXIT_DISCOUNT_HOURS, EXIT_DISCOUNT_PCT } from "./offers";
 import type {
   Cleaner,
   Job,
@@ -41,7 +42,7 @@ const JOB_COLUMNS = `
   j.status, j.cleaner_id,
   j.cancelled_by, j.late_cancellation, j.rescheduled_count,
   j.completion_assumed, j.customer_confirmed, j.cleaner_dispute_reason,
-  j.source,
+  j.source, j.discount_pence,
   to_char(j.cleaner_disputed_at, 'YYYY-MM-DD HH24:MI') AS cleaner_disputed_at,
   to_char(j.created_at,   'YYYY-MM-DD HH24:MI') AS created_at,
   to_char(j.accepted_at,  'YYYY-MM-DD HH24:MI') AS accepted_at,
@@ -539,6 +540,8 @@ export type BookingInput = {
   termsAccepted?: boolean;
   /** Referring site, e.g. the Fresh For Less Cleaning Services front door. */
   source?: string;
+  /** A leaving-the-page discount code the customer is redeeming. */
+  discountCode?: string;
   /**
    * Skip the broadcast — the job is going straight to this cleaner. Used when
    * it was agreed on the phone: offering it to everyone covering the postcode
@@ -646,6 +649,12 @@ export async function createBooking(
     covered && !input.skipBroadcast
       ? await broadcastJob(job.id, outward, input.slotDate, input.slotWindow)
       : 0;
+  // Before any notification goes out: every message below quotes a price, and
+  // they all have to quote the discounted one.
+  if (input.discountCode) {
+    await redeemDiscountCode(input.discountCode, job.id);
+  }
+
   const saved = (await getJob(job.id))!;
 
   if (!covered) {
@@ -5559,4 +5568,106 @@ export async function bookQuote(
       reason: String((error as Error)?.message ?? "Couldn't take that booking."),
     };
   }
+}
+
+
+// ---------------------------------------------------------------------------
+// Discount codes
+// ---------------------------------------------------------------------------
+
+export type DiscountOffer = {
+  code: string;
+  pct: number;
+  expiresAt: string;
+};
+
+/**
+ * Issue a one-time code to somebody leaving with a price on screen.
+ *
+ * Tied to the basket session, so the code cannot be forwarded or kept for a
+ * bigger job later, and one per session: a visitor who closes and reopens the
+ * tab gets the same code back rather than a fresh 24 hours each time, which
+ * would make the deadline meaningless.
+ */
+export async function issueDiscountCode(
+  sessionKey: string
+): Promise<DiscountOffer | null> {
+  if (sessionKey.trim().length < 8) return null;
+
+  const existing = await queryOne<{
+    code: string;
+    pct: number;
+    expires_at: string;
+  }>(
+    `SELECT code, pct, to_char(expires_at, 'YYYY-MM-DD"T"HH24:MI:SSOF') AS expires_at
+       FROM discount_codes
+      WHERE session_key = $1 AND used_at IS NULL AND expires_at > now()
+      ORDER BY issued_at DESC
+      LIMIT 1`,
+    [sessionKey]
+  );
+  if (existing) {
+    return { code: existing.code, pct: existing.pct, expiresAt: existing.expires_at };
+  }
+
+  const code = `FFL${makeRef("").replace("-", "").slice(0, 5)}`;
+  const row = await queryOne<{ expires_at: string }>(
+    `INSERT INTO discount_codes (code, session_key, pct, expires_at)
+     VALUES ($1, $2, $3, now() + ($4 || ' hours')::interval)
+     RETURNING to_char(expires_at, 'YYYY-MM-DD"T"HH24:MI:SSOF') AS expires_at`,
+    [code, sessionKey, EXIT_DISCOUNT_PCT, String(EXIT_DISCOUNT_HOURS)]
+  );
+
+  return { code, pct: EXIT_DISCOUNT_PCT, expiresAt: row!.expires_at };
+}
+
+/** A code's percentage if it is still good, otherwise null. */
+export async function checkDiscountCode(code: string): Promise<number | null> {
+  const row = await queryOne<{ pct: number }>(
+    `SELECT pct FROM discount_codes
+      WHERE code = $1 AND used_at IS NULL AND expires_at > now()`,
+    [code.trim().toUpperCase()]
+  );
+  return row?.pct ?? null;
+}
+
+/**
+ * Take the discount off a booked job.
+ *
+ * The cleaner's share is untouched: the whole discount comes out of commission,
+ * because the cleaner did the same work either way and a quietly smaller
+ * payment is how you lose people. Which also means the office can see exactly
+ * what discounting costs — it is the commission line, not the price list.
+ */
+export async function redeemDiscountCode(
+  code: string,
+  jobId: number
+): Promise<{ ok: boolean; discountPence?: number }> {
+  const pct = await checkDiscountCode(code);
+  if (pct === null) return { ok: false };
+
+  const job = await getJob(jobId);
+  if (!job) return { ok: false };
+
+  const discount = Math.round((job.total_pence * pct) / 100);
+  if (discount <= 0) return { ok: false };
+
+  const claimed = await query<{ code: string }>(
+    `UPDATE discount_codes SET used_at = now(), job_id = $2
+      WHERE code = $1 AND used_at IS NULL AND expires_at > now()
+      RETURNING code`,
+    [code.trim().toUpperCase(), jobId]
+  );
+  if (claimed.length === 0) return { ok: false };
+
+  await query(
+    `UPDATE jobs
+        SET total_pence = total_pence - $2,
+            discount_pence = $2,
+            commission_pence = GREATEST(0, commission_pence - $2)
+      WHERE id = $1`,
+    [jobId, discount]
+  );
+
+  return { ok: true, discountPence: discount };
 }
