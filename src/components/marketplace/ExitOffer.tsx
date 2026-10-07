@@ -86,7 +86,7 @@ export default function ExitOffer({
       if (idle) clearTimeout(idle);
       // Short enough to catch a phone put down mid-decision. Scrolling counts
       // as activity, so this only fires on genuine stillness.
-      idle = setTimeout(() => void reveal(), 20_000);
+      idle = setTimeout(() => void reveal(), 30_000);
     }
 
     document.addEventListener("mouseout", onMouseOut);
