@@ -99,6 +99,8 @@ export default function BookingFlow({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [codeEntry, setCodeEntry] = useState("");
+  const [codeError, setCodeError] = useState("");
   const [discount, setDiscount] = useState<{
     code: string;
     pct: number;
@@ -281,6 +283,29 @@ export default function BookingFlow({
 
     return () => clearTimeout(timer);
   }, [coverage, postcode, quote, source]);
+
+  /** Apply a code they were given earlier — or yesterday, in another tab. */
+  async function applyCode() {
+    const code = codeEntry.trim().toUpperCase();
+    if (!code) return;
+    setCodeError("");
+    try {
+      const response = await fetch("/api/marketplace/discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json();
+      if (!data.ok) {
+        setCodeError(data.error ?? "We couldn't apply that code.");
+        return;
+      }
+      setDiscount({ code: data.code, pct: data.pct, expiresAt: data.expiresAt });
+      setCodeEntry("");
+    } catch {
+      setCodeError("We couldn't check that code just now.");
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -858,6 +883,44 @@ export default function BookingFlow({
             </a>
             .
           </p>
+
+          {/* The code from the leaving-the-page offer, for anyone who closed
+              the modal or came back the next day. Applied here rather than
+              earlier so it is the last thing they see before the total. */}
+          {discount ? (
+            <p className="rounded-xl border border-accent-200 bg-accent-50 px-4 py-3 text-sm font-semibold text-accent-900">
+              {discount.code} applied — {discount.pct}% off, you pay{" "}
+              {gbp(payable)} instead of {gbp(quote.total_pence)}.
+            </p>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <label
+                htmlFor="discount-code"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Got a discount code?
+              </label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  id="discount-code"
+                  value={codeEntry}
+                  onChange={(e) => setCodeEntry(e.target.value.toUpperCase())}
+                  placeholder="e.g. FFL7K2M9"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 tracking-widest uppercase outline-none focus:border-primary-500"
+                />
+                <button
+                  type="button"
+                  onClick={applyCode}
+                  className="rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100"
+                >
+                  Apply
+                </button>
+              </div>
+              {codeError && (
+                <p className="mt-2 text-sm text-red-600">{codeError}</p>
+              )}
+            </div>
+          )}
 
           <CustomerReview variant="compact" />
 
