@@ -5,10 +5,12 @@ import { useEffect, useRef, useState } from "react";
 /**
  * The offer somebody gets on their way out, not on their way in.
  *
- * Three triggers, because "closing the page" is only detectable on a desktop:
- * the mouse leaving towards the browser chrome, the back button on a phone
- * (caught with a pushed history entry), and otherwise a stretch of doing
- * nothing with a price on screen — which is the same customer.
+ * A phone gives no "closing the tab" signal at all, so this watches for the
+ * things it does give: the back button (caught with a pushed history entry),
+ * the tab being hidden — switching apps, locking the screen, opening a rival's
+ * site — with the offer waiting when they come back, and a stretch of stillness
+ * with a price on screen. On a desktop the mouse heading for the browser chrome
+ * is still the cleanest signal of all.
  *
  * Shown once per visit. A modal that reappears is an argument, not an offer.
  */
@@ -29,6 +31,8 @@ export default function ExitOffer({
   } | null>(null);
   const [open, setOpen] = useState(false);
   const shown = useRef(false);
+  /** True once the tab has been hidden, so returning counts as coming back. */
+  const left = useRef(false);
 
   useEffect(() => {
     if (!armed) return;
@@ -64,14 +68,32 @@ export default function ExitOffer({
       history.pushState(null, "", location.href);
     }
 
+    /**
+     * They left the tab. Nothing can be shown while it is hidden, so the offer
+     * is fetched now and displayed the moment they come back — which is also
+     * the honest moment for it, since they went to think about it or to look
+     * at somebody else's prices.
+     */
+    function onVisibility() {
+      if (document.visibilityState === "visible" && left.current) {
+        void reveal();
+        return;
+      }
+      if (document.visibilityState === "hidden") left.current = true;
+    }
+
     function resetIdle() {
       if (idle) clearTimeout(idle);
-      idle = setTimeout(() => void reveal(), 90_000);
+      // Short enough to catch a phone put down mid-decision. Scrolling counts
+      // as activity, so this only fires on genuine stillness.
+      idle = setTimeout(() => void reveal(), 40_000);
     }
 
     document.addEventListener("mouseout", onMouseOut);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onVisibility);
     window.addEventListener("popstate", onPopState);
-    ["scroll", "click", "keydown", "touchstart"].forEach((event) =>
+    ["scroll", "click", "keydown", "touchstart", "touchmove"].forEach((event) =>
       window.addEventListener(event, resetIdle, { passive: true })
     );
     history.pushState(null, "", location.href);
@@ -79,8 +101,10 @@ export default function ExitOffer({
 
     return () => {
       document.removeEventListener("mouseout", onMouseOut);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onVisibility);
       window.removeEventListener("popstate", onPopState);
-      ["scroll", "click", "keydown", "touchstart"].forEach((event) =>
+      ["scroll", "click", "keydown", "touchstart", "touchmove"].forEach((event) =>
         window.removeEventListener(event, resetIdle)
       );
       if (idle) clearTimeout(idle);
