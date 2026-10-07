@@ -2,7 +2,10 @@
 
 import { motion } from "framer-motion";
 
-export default function Hero({ onQuoteClick }: { onQuoteClick: () => void }) {
+export default function Hero(_props: { onQuoteClick?: () => void }) {
+  // The quote modal is no longer opened from the hero: the postcode box below
+  // is the shorter path to the same answer. The prop stays so the page and the
+  // other sections that still use the modal keep working unchanged.
   return (
     <section className="relative min-h-[100dvh] overflow-hidden bg-slate-950">
       {/* Background Image + Gradient Layers */}
@@ -86,22 +89,45 @@ export default function Hero({ onQuoteClick }: { onQuoteClick: () => void }) {
               transition={{ duration: 0.6, delay: 0.6 }}
               className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center"
             >
-              <button
-                onClick={onQuoteClick}
-                className="group relative overflow-hidden rounded-xl bg-primary-600 px-8 py-4 text-base font-semibold text-white shadow-2xl shadow-primary-600/30 transition-all hover:bg-primary-700 hover:shadow-primary-600/50 active:scale-[0.98]"
+              {/*
+                The booking form's own first question, asked here instead.
+                Somebody arriving from a search or a group post can start the
+                thing they came to do without first deciding which button means
+                what — and the postcode travels with them, so /book opens on the
+                price list rather than asking again.
+              */}
+              <form
+                action="/book"
+                method="get"
+                className="flex w-full flex-col gap-3 sm:max-w-md"
               >
-                <span className="relative z-10">Get Your Free Quote</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-primary-600 to-primary-500 opacity-0 transition-opacity group-hover:opacity-100" />
-              </button>
-              <a
-                href="/book"
-                className="flex items-center justify-center gap-2 rounded-xl border border-accent-500/60 bg-accent-600/10 px-8 py-4 text-base font-semibold text-white backdrop-blur-sm transition-all hover:border-accent-400 hover:bg-accent-600/20"
-              >
-                <svg className="h-5 w-5 text-accent-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                </svg>
-                Book Online — Instant Price
-              </a>
+                <label htmlFor="hero-postcode" className="sr-only">
+                  Your postcode
+                </label>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    id="hero-postcode"
+                    name="postcode"
+                    required
+                    minLength={5}
+                    maxLength={9}
+                    autoComplete="postal-code"
+                    placeholder="Your postcode"
+                    className="w-full rounded-xl border border-slate-700 bg-white/95 px-5 py-4 text-base uppercase tracking-wide text-slate-900 outline-none placeholder:normal-case placeholder:text-slate-500 focus:border-accent-400 focus:ring-4 focus:ring-accent-500/30"
+                  />
+                  <button
+                    type="submit"
+                    className="shrink-0 rounded-xl bg-accent-600 px-8 py-4 text-base font-semibold text-white shadow-2xl shadow-accent-600/30 transition-all hover:bg-accent-700 active:scale-[0.98]"
+                  >
+                    See my price
+                  </button>
+                </div>
+                <p className="text-sm text-slate-400">
+                  Fixed price in under a minute · no home visit · nothing to pay
+                  today
+                </p>
+              </form>
+
               <a
                 href="tel:03300434811"
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/50 px-8 py-4 text-base font-semibold text-white backdrop-blur-sm transition-all hover:border-slate-600 hover:bg-slate-800"
