@@ -84,6 +84,13 @@ export default async function CoveragePage() {
     const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
     return AREA_NAMES[top] ?? top;
   };
+  // Meta's bulk dialog parses each line as postal code, city, state, country
+  // — a bare outcode leaves country empty and matches nothing.
+  const metaFormat = (outwards: string[]) =>
+    outwards.map((o) => `${o},,,United Kingdom`).join("\n");
+  const metaAll = metaFormat(covered.map((a) => a.outward));
+  const metaEarning = metaFormat(producing.map((a) => a.outward));
+
   const allPinsText = meta.pins
     .map((pin) => `${pin.lat}, ${pin.lng}  +${pin.radius_miles}mi  (${prefixName(pin.districts)} — ${pin.districts.length} districts)`)
     .join("\n");
@@ -101,9 +108,31 @@ export default async function CoveragePage() {
         </p>
 
         <Card
-          title="Meta ad set locations — pins that match your coverage"
-          description="Plan B for Meta: use these only for districts the bulk Postal codes matcher can't place. Each pin is computed from the districts your approved cleaners actually claim — paste the coordinates into the location search box and drop a pin."
+          title="Meta ad targeting — your coverage, ready to paste"
+          description="Built from the districts your approved cleaners actually claim, so re-copy whenever coverage changes. The buttons are the bulk Postal codes format; the pins below are plan B for any district the matcher refuses — paste a pin's coordinates into the location search box and drop a pin."
         >
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <CopyButton
+              text={metaAll}
+              label={`Copy all ${covered.length} districts for Meta`}
+              className="bg-slate-900 text-white hover:bg-slate-800"
+            />
+            {producing.length > 0 && (
+              <CopyButton
+                text={metaEarning}
+                label={`Copy the ${producing.length} that earn, for Meta`}
+                className="border border-accent-300 text-accent-800 hover:bg-accent-50"
+              />
+            )}
+          </div>
+          <p className="mb-4 text-xs text-slate-500">
+            Paste into Ad set → Locations → Add locations in bulk → location
+            type <strong>Postal codes</strong>. Each line reads
+            &ldquo;district,,,United Kingdom&rdquo; — the three commas fill the
+            city and region columns Meta expects, which is why a plain list of
+            districts matches nothing. Then switch the audience to
+            &ldquo;People living in this location&rdquo;.
+          </p>
           <ul className="space-y-2 text-sm">
             {meta.pins.map((pin) => (
               <li
