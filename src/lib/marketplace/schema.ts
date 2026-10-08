@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 49;
+export const SCHEMA_VERSION = 50;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -352,6 +352,17 @@ export const STATEMENTS: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS quotes_token ON quotes (token) WHERE token IS NOT NULL`,
   // A price agreed on the call that is not the list price. 0 means 'the list'.
   `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS override_pence int NOT NULL DEFAULT 0`,
+  // What the office spent on ads each day, typed in by hand. One row per
+  // day: the point is a profit line, not a reconciliation with ad platforms.
+  `CREATE TABLE IF NOT EXISTS ad_spend (
+     day          date PRIMARY KEY,
+     meta_pence   int NOT NULL DEFAULT 0,
+     google_pence int NOT NULL DEFAULT 0,
+     other_pence  int NOT NULL DEFAULT 0,
+     notes        text NOT NULL DEFAULT '',
+     updated_at   timestamptz NOT NULL DEFAULT now()
+   )`,
+
   // A chase-up discount texted to a quote that never booked.
   `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS offer_pct int NOT NULL DEFAULT 0`,
   `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS offer_sent_at timestamptz`,

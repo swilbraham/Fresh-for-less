@@ -166,3 +166,22 @@ export type QuoteRecord = {
   created_at: string;
   updated_at: string;
 };
+
+export type AdSpendDay = {
+  day: string;
+  meta_pence: number;
+  google_pence: number;
+  other_pence: number;
+  notes: string;
+};
+
+/** One calendar day of the profit picture: demand, bookings and spend. */
+export type ProfitDay = {
+  day: string;
+  quotes: number;
+  leads: number;
+  jobs: number;
+  value_pence: number;
+  commission_pence: number;
+  spend_pence: number;
+};

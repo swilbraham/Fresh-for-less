@@ -25,6 +25,8 @@ import type {
   QuoteRecord,
   Settings,
   SlotWindow,
+  ProfitDay,
+  AdSpendDay,
 } from "./types";
 
 /**
@@ -5232,6 +5234,87 @@ export type BookedDay = {
  * deducted, so a day that took £400 and lost one booking still shows the £400
  * the site earned and the loss next to it.
  */
+export async function upsertAdSpend(input: {
+  day: string;
+  metaPence: number;
+  googlePence: number;
+  otherPence: number;
+  notes: string;
+}): Promise<void> {
+  await query(
+    `INSERT INTO ad_spend (day, meta_pence, google_pence, other_pence, notes)
+     VALUES ($1::date, $2, $3, $4, $5)
+     ON CONFLICT (day) DO UPDATE SET
+       meta_pence = EXCLUDED.meta_pence,
+       google_pence = EXCLUDED.google_pence,
+       other_pence = EXCLUDED.other_pence,
+       notes = EXCLUDED.notes,
+       updated_at = now()`,
+    [input.day, input.metaPence, input.googlePence, input.otherPence, input.notes]
+  );
+}
+
+/**
+ * The profit picture, one row per calendar day whether anything happened or
+ * not — a day of spend with no bookings is exactly the row that matters.
+ *
+ * Bookings are counted on the day they were MADE (not cleaned), because
+ * that's the day the ad money that won them was spent. Commission is already
+ * net of any discount code, which by policy comes out of commission.
+ */
+export async function profitByDay(days = 30): Promise<ProfitDay[]> {
+  const n = Math.min(Math.max(days, 1), 180);
+  return query<ProfitDay>(
+    `WITH span AS (
+       SELECT generate_series(
+                (now() AT TIME ZONE 'Europe/London')::date - ($1::int - 1),
+                (now() AT TIME ZONE 'Europe/London')::date,
+                interval '1 day'
+              )::date AS day
+     ),
+     q AS (
+       SELECT (updated_at AT TIME ZONE 'Europe/London')::date AS day,
+              count(*)::int AS quotes,
+              count(*) FILTER (WHERE customer_phone <> '')::int AS leads
+         FROM quotes
+        GROUP BY 1
+     ),
+     b AS (
+       SELECT (created_at AT TIME ZONE 'Europe/London')::date AS day,
+              count(*)::int AS jobs,
+              COALESCE(sum(total_pence),0)::int AS value_pence,
+              COALESCE(sum(commission_pence),0)::int AS commission_pence
+         FROM jobs
+        WHERE status <> 'cancelled'
+        GROUP BY 1
+     )
+     SELECT to_char(span.day, 'YYYY-MM-DD') AS day,
+            COALESCE(q.quotes, 0) AS quotes,
+            COALESCE(q.leads, 0) AS leads,
+            COALESCE(b.jobs, 0) AS jobs,
+            COALESCE(b.value_pence, 0) AS value_pence,
+            COALESCE(b.commission_pence, 0) AS commission_pence,
+            COALESCE(a.meta_pence + a.google_pence + a.other_pence, 0) AS spend_pence
+       FROM span
+       LEFT JOIN q ON q.day = span.day
+       LEFT JOIN b ON b.day = span.day
+       LEFT JOIN ad_spend a ON a.day = span.day
+      ORDER BY span.day DESC`,
+    [String(n)]
+  );
+}
+
+export async function listAdSpend(days = 30): Promise<AdSpendDay[]> {
+  return query<AdSpendDay>(
+    `SELECT to_char(day, 'YYYY-MM-DD') AS day,
+            meta_pence, google_pence, other_pence, notes
+       FROM ad_spend
+      WHERE day > (now() AT TIME ZONE 'Europe/London')::date - $1::int
+      ORDER BY day DESC`,
+    [String(Math.min(Math.max(days, 1), 180))]
+  );
+}
+
 export async function listBookedByDay(days = 30): Promise<BookedDay[]> {
   return query<BookedDay>(
     `SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'Europe/London'), 'YYYY-MM-DD') AS day,

@@ -179,6 +179,7 @@ export function AdminNav() {
     { href: "/admin/quotes", label: "Quotes" },
     { href: "/admin/invoices", label: "Commission invoices" },
     { href: "/admin/finances", label: "Finances" },
+    { href: "/admin/profit", label: "Profit" },
     { href: "/admin/square", label: "Square" },
   ];
   return (

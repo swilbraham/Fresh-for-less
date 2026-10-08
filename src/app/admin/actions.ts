@@ -52,6 +52,7 @@ import {
   notify,
   getCleaner,
   offerDiscountToQuote,
+  upsertAdSpend,
 } from "@/lib/marketplace/repo";
 import { penceFromInput, gbpShort } from "@/lib/marketplace/money";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
@@ -930,6 +931,33 @@ export async function reassignJobAction(data: FormData) {
     fail("/admin/jobs", result.reason ?? "Couldn't reassign that job.");
   }
   redirect(`/admin/jobs?offered=${result.offered}`);
+}
+
+export async function saveAdSpendAction(data: FormData) {
+  await requireAdmin("/admin/profit");
+  const day = field(data, "day", 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    fail("/admin/profit", "Pick a date for the spend.");
+  }
+  const pence = (name: string) => {
+    const value = penceFromInput(field(data, name, 12) || "0");
+    return value === null ? null : Math.max(0, value);
+  };
+  const meta = pence("meta");
+  const google = pence("google");
+  const other = pence("other");
+  if (meta === null || google === null || other === null) {
+    fail("/admin/profit", "Spend amounts need to be plain numbers.");
+  }
+  await upsertAdSpend({
+    day,
+    metaPence: meta,
+    googlePence: google,
+    otherPence: other,
+    notes: field(data, "notes", 200),
+  });
+  revalidatePath("/admin/profit");
+  redirect("/admin/profit?saved=1");
 }
 
 export async function offerQuoteDiscountAction(data: FormData) {
