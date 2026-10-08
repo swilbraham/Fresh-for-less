@@ -256,6 +256,16 @@ export default function BookingFlow({
   }, []);
 
   /**
+   * Each step's Continue button sits at the bottom of a long page, so without
+   * this every step change leaves the customer staring at the footer and
+   * scrolling back up to see what they're being asked next.
+   */
+  useEffect(() => {
+    if (step === "postcode") return;
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }, [step]);
+
+  /**
    * Log the priced basket, including the ones that never become bookings —
    * which is the whole point, since a quote nobody follows through on is the
    * only visible trace of what the form loses.
