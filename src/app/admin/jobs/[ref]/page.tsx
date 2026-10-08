@@ -100,7 +100,9 @@ export default async function AdminJobPage({
     listCleaners("approved"),
     getJobMessages(job.id),
     getJobInvoiceRef(job.id),
-    unassigned ? nearestCleaners(job.outward) : Promise.resolve([]),
+    unassigned || job.status === "accepted"
+      ? nearestCleaners(job.outward, 999)
+      : Promise.resolve([]),
   ]);
 
   // Who to offer a message box for, and what's already been said on this job.
@@ -108,6 +110,19 @@ export default async function AdminJobPage({
     ? cleaners.find((c) => c.id === job.cleaner_id) ??
       (await getCleaner(job.cleaner_id))
     : null;
+  // Top of the distance ranking for the panels; the full list annotates the
+  // transfer dropdown. The assigned cleaner is never their own alternative.
+  const closest = nearby
+    .filter((candidate) => candidate.id !== job.cleaner_id)
+    .slice(0, 8);
+  const travelFor = new Map(nearby.map((candidate) => [candidate.id, candidate]));
+  const labelWithDistance = (cleanerId: number, name: string) => {
+    const match = travelFor.get(cleanerId);
+    return match && match.miles !== null
+      ? `${name} — ${describeTravel(match.miles)}`
+      : name;
+  };
+
   const customerThread = (await getCustomerThread(job.id)).slice(-4);
   // The cleaner's own thread rather than this job's messages: their replies
   // arrive as plain texts with no job attached, so filtering by job would
@@ -372,7 +387,7 @@ export default async function AdminJobPage({
                 </div>
               )}
 
-              {unassigned && nearby.length > 0 && (
+              {unassigned && closest.length > 0 && (
                 <div className="mt-5 border-t border-slate-100 pt-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Closest cleaners to {job.outward}
@@ -388,7 +403,7 @@ export default async function AdminJobPage({
                   <form action={offerJobToCleanersAction} className="mt-3">
                     <input type="hidden" name="ref" value={job.ref} />
                   <ul className="space-y-2">
-                    {nearby.map((candidate) => (
+                    {closest.map((candidate) => (
                       <li
                         key={candidate.id}
                         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm"
@@ -523,12 +538,19 @@ export default async function AdminJobPage({
                         className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
                       >
                         <option value="">Move quietly to…</option>
-                        {cleaners
+                        {[...cleaners]
                           .filter((candidate) => candidate.id !== job.cleaner_id)
+                          .sort((a, b) => {
+                            const am = travelFor.get(a.id)?.miles ?? Infinity;
+                            const bm = travelFor.get(b.id)?.miles ?? Infinity;
+                            return am - bm;
+                          })
                           .map((candidate) => (
                             <option key={candidate.id} value={candidate.id}>
-                              {candidate.name}
-                              {candidate.business_name ? ` — ${candidate.business_name}` : ""}
+                              {labelWithDistance(
+                                candidate.id,
+                                candidate.business_name || candidate.name
+                              )}
                             </option>
                           ))}
                       </select>
@@ -572,6 +594,77 @@ export default async function AdminJobPage({
                       Cancel booking
                     </button>
                   </form>
+                </div>
+              )}
+
+              {open && job.status === "accepted" && closest.length > 0 && (
+                <div className="mt-5 border-t border-slate-100 pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    If {assignedCleaner?.name ?? "the cleaner"} can&apos;t make it —
+                    closest to {job.outward}
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Ring down the list, then either move the job quietly to
+                    whoever says yes, or use &ldquo;Take off this cleaner &amp;
+                    re-offer&rdquo; above to re-broadcast it to everyone covering{" "}
+                    {job.outward}.
+                  </p>
+                  <ul className="mt-3 space-y-2">
+                    {closest.map((candidate) => (
+                      <li
+                        key={candidate.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                      >
+                        <div>
+                          <p className="font-semibold text-slate-900">
+                            {candidate.business_name || candidate.name}
+                            {candidate.covers && (
+                              <span className="ml-2 rounded-full bg-accent-100 px-2 py-0.5 text-xs font-semibold text-accent-800">
+                                covers {job.outward}
+                              </span>
+                            )}
+                            {candidate.paused && (
+                              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                                paused
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            <a
+                              href={`tel:${candidate.phone}`}
+                              className="font-semibold text-primary-600 underline"
+                            >
+                              {candidate.phone}
+                            </a>
+                            {candidate.miles !== null && (
+                              <>
+                                {" · "}
+                                {describeTravel(candidate.miles)}
+                                {candidate.nearest_outward &&
+                                  ` from ${candidate.nearest_outward}`}
+                              </>
+                            )}
+                            {candidate.miles === null && " · distance unknown"}
+                          </p>
+                        </div>
+                        <form action={transferJobAction}>
+                          <input type="hidden" name="ref" value={job.ref} />
+                          <button
+                            type="submit"
+                            name="cleanerId"
+                            value={candidate.id}
+                            className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                          >
+                            Move job here
+                          </button>
+                        </form>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Moving tells only the cleaner picking it up — the current
+                    cleaner and the customer hear nothing.
+                  </p>
                 </div>
               )}
 
