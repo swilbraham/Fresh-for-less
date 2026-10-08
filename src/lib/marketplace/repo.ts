@@ -5304,6 +5304,21 @@ export async function profitByDay(days = 30): Promise<ProfitDay[]> {
   );
 }
 
+/**
+ * Set just the Meta figure for a day, leaving Google/other alone — the
+ * quick-entry grid is Meta-only because that's where the daily budget lives.
+ */
+export async function setMetaSpend(day: string, metaPence: number): Promise<void> {
+  await query(
+    `INSERT INTO ad_spend (day, meta_pence)
+     VALUES ($1::date, $2)
+     ON CONFLICT (day) DO UPDATE SET
+       meta_pence = EXCLUDED.meta_pence,
+       updated_at = now()`,
+    [day, metaPence]
+  );
+}
+
 export async function listAdSpend(days = 30): Promise<AdSpendDay[]> {
   return query<AdSpendDay>(
     `SELECT to_char(day, 'YYYY-MM-DD') AS day,

@@ -53,6 +53,7 @@ import {
   getCleaner,
   offerDiscountToQuote,
   upsertAdSpend,
+  setMetaSpend,
 } from "@/lib/marketplace/repo";
 import { penceFromInput, gbpShort } from "@/lib/marketplace/money";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
@@ -958,6 +959,27 @@ export async function saveAdSpendAction(data: FormData) {
   });
   revalidatePath("/admin/profit");
   redirect("/admin/profit?saved=1");
+}
+
+/** The week grid: one Meta figure per day, blanks left untouched. */
+export async function saveMetaWeekAction(data: FormData) {
+  await requireAdmin("/admin/profit");
+  let savedDays = 0;
+  for (const [key, value] of data.entries()) {
+    if (!key.startsWith("meta_")) continue;
+    const day = key.slice(5);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    const raw = String(value).trim();
+    if (raw === "") continue; // untouched day — leave whatever is stored
+    const pence = penceFromInput(raw);
+    if (pence === null) {
+      fail("/admin/profit", `"${raw}" isn't a number — check the ${day} box.`);
+    }
+    await setMetaSpend(day, Math.max(0, pence));
+    savedDays += 1;
+  }
+  revalidatePath("/admin/profit");
+  redirect(`/admin/profit?saved=${savedDays}`);
 }
 
 export async function offerQuoteDiscountAction(data: FormData) {

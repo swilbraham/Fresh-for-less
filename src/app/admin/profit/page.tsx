@@ -9,7 +9,7 @@ import {
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import { Card } from "@/components/marketplace/shell";
-import { saveAdSpendAction } from "@/app/admin/actions";
+import { saveAdSpendAction, saveMetaWeekAction } from "@/app/admin/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -40,13 +40,15 @@ export default async function ProfitPage({
   if (!(await isAdmin())) redirect("/admin");
   const { saved, error } = await searchParams;
 
-  const [days, spendRows, summary, cleaners] = await Promise.all([
-    profitByDay(30),
+  const [allDays, spendRows, summary, cleaners] = await Promise.all([
+    profitByDay(183),
     listAdSpend(30),
     getFinanceSummary(),
     listCleanerFinance(),
   ]);
+  const days = allDays.slice(0, 30);
   const notesFor = new Map(spendRows.map((row) => [row.day, row]));
+  const spendFor = new Map(spendRows.map((row) => [row.day, row.meta_pence]));
 
   // days comes newest-first.
   const last7 = days.slice(0, 7);
@@ -68,6 +70,34 @@ export default async function ProfitPage({
   };
   const week = window(last7);
   const month = window(days);
+
+  // Weekly (w/c Monday, last 8) and monthly (last 6) rollups.
+  const mondayOf = (iso: string) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+    return date.toISOString().slice(0, 10);
+  };
+  const rollup = (key: (iso: string) => string, keep: number) => {
+    const buckets = new Map<string, { commission: number; spend: number; jobs: number }>();
+    for (const d of allDays) {
+      const k = key(d.day);
+      const bucket = buckets.get(k) ?? { commission: 0, spend: 0, jobs: 0 };
+      bucket.commission += d.commission_pence;
+      bucket.spend += d.spend_pence;
+      bucket.jobs += d.jobs;
+      buckets.set(k, bucket);
+    }
+    return [...buckets.entries()]
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .slice(0, keep);
+  };
+  const weeks = rollup(mondayOf, 8);
+  const months = rollup((iso) => iso.slice(0, 7), 6);
+  const monthName = (ym: string) => {
+    const [y, m] = ym.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  };
 
   const avgCommissionPerJob = month.jobs > 0 ? month.commission / month.jobs : 0;
   const costPerJob7 = week.jobs > 0 ? week.spend / week.jobs : null;
@@ -261,8 +291,115 @@ export default async function ProfitPage({
         </p>
       </Card>
 
+      {/* Quick Meta week grid */}
+      <Card title="This week's Meta spend — quick entry">
+        <form action={saveMetaWeekAction}>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+            {days.slice(0, 7).map((d) => (
+              <label key={d.day} className="block">
+                <span className="block text-xs font-semibold text-slate-600">
+                  {dayLabel(d.day)}
+                </span>
+                <div className="mt-1 flex items-center gap-1">
+                  <span className="text-slate-500">£</span>
+                  <input
+                    name={`meta_${d.day}`}
+                    inputMode="decimal"
+                    defaultValue={
+                      spendFor.has(d.day) && spendFor.get(d.day)! > 0
+                        ? (spendFor.get(d.day)! / 100).toFixed(2).replace(/\.00$/, "")
+                        : ""
+                    }
+                    placeholder="—"
+                    className="w-full rounded-xl border border-slate-300 px-2 py-2 text-sm tabular-nums"
+                  />
+                </div>
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="submit"
+              className="rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
+            >
+              Save Meta spend
+            </button>
+            <p className="text-xs text-slate-500">
+              Blank days are left as they are. Google and other spend go in the
+              form below.
+            </p>
+          </div>
+        </form>
+      </Card>
+
+      {/* Weekly & monthly profit */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Week by week">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                <th className="py-2 font-semibold">Week</th>
+                <th className="py-2 text-right font-semibold">Bookings</th>
+                <th className="py-2 text-right font-semibold">Commission</th>
+                <th className="py-2 text-right font-semibold">Ads</th>
+                <th className="py-2 text-right font-semibold">Net</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {weeks.map(([wc, w]) => {
+                const net = w.commission - w.spend;
+                return (
+                  <tr key={wc}>
+                    <td className="py-2 whitespace-nowrap text-slate-700">w/c {dayLabel(wc)}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-600">{w.jobs || "—"}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-900">{w.commission ? gbp(w.commission) : "—"}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-600">{w.spend ? gbp(w.spend) : "—"}</td>
+                    <td className={`py-2 text-right font-semibold tabular-nums ${net > 0 ? "text-accent-700" : net < 0 ? "text-red-600" : "text-slate-400"}`}>
+                      {net === 0 ? "—" : net > 0 ? gbp(net) : `−${gbp(-net)}`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+        <Card title="Month by month">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                <th className="py-2 font-semibold">Month</th>
+                <th className="py-2 text-right font-semibold">Bookings</th>
+                <th className="py-2 text-right font-semibold">Commission</th>
+                <th className="py-2 text-right font-semibold">Ads</th>
+                <th className="py-2 text-right font-semibold">Net</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {months.map(([ym, m]) => {
+                const net = m.commission - m.spend;
+                return (
+                  <tr key={ym}>
+                    <td className="py-2 whitespace-nowrap text-slate-700">{monthName(ym)}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-600">{m.jobs || "—"}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-900">{m.commission ? gbp(m.commission) : "—"}</td>
+                    <td className="py-2 text-right tabular-nums text-slate-600">{m.spend ? gbp(m.spend) : "—"}</td>
+                    <td className={`py-2 text-right font-semibold tabular-nums ${net > 0 ? "text-accent-700" : net < 0 ? "text-red-600" : "text-slate-400"}`}>
+                      {net === 0 ? "—" : net > 0 ? gbp(net) : `−${gbp(-net)}`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="mt-2 text-xs text-slate-500">
+            Ad totals only include days you&apos;ve logged — a quiet-looking
+            month might just be missing its spend.
+          </p>
+        </Card>
+      </div>
+
       {/* Spend entry */}
-      <Card title="Log ad spend">
+      <Card title="Log ad spend — any day, all platforms">
         <form action={saveAdSpendAction} className="flex flex-wrap items-end gap-3 text-sm">
           <label className="block">
             <span className="block text-xs font-semibold text-slate-600">Day</span>
