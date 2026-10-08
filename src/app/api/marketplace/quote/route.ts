@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { recordQuote } from "@/lib/marketplace/repo";
+import { notify, recordQuote } from "@/lib/marketplace/repo";
 import { normalisePostcode, outwardOf } from "@/lib/marketplace/postcode";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
+import { isMobile, toE164 } from "@/lib/marketplace/phone";
+import { gbp } from "@/lib/marketplace/money";
 import type { QuoteLine } from "@/lib/marketplace/types";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +50,12 @@ export async function POST(request: Request) {
       })
     : [];
 
+  // Contact details are optional: most baskets stay anonymous, but a customer
+  // who asks for their price by text becomes a lead the office can follow up.
+  const customerName = String(payload.customerName ?? "").trim().slice(0, 80);
+  const rawPhone = String(payload.customerPhone ?? "").trim().slice(0, 30);
+  const mobile = rawPhone && isMobile(rawPhone) ? toE164(rawPhone) : null;
+
   try {
     await recordQuote({
       sessionKey,
@@ -58,11 +66,42 @@ export async function POST(request: Request) {
       subtotalPence: Math.max(0, Math.floor(Number(payload.subtotalPence) || 0)),
       totalPence,
       source: String(payload.source ?? "").slice(0, 40),
+      customerName,
+      customerPhone: mobile ?? "",
     });
   } catch {
     // Deliberately silent: a quote we failed to log is a reporting gap, not a
     // reason to interrupt a booking.
   }
 
-  return NextResponse.json({ ok: true });
+  // "Text me this price": one SMS with the figure and the way back in. Capped
+  // per session so a retry-happy browser can't burn the SMS budget.
+  if (payload.textMe === true && mobile) {
+    const smsLimit = await hitRateLimit("quote-sms", sessionKey, 2, 24 * 60 * 60);
+    if (smsLimit.allowed) {
+      const picks = items
+        .filter((line) => line.qty > 0)
+        .slice(0, 4)
+        .map((line) => (line.qty > 1 ? `${line.qty} x ${line.label}` : line.label))
+        .join(", ");
+      const bookUrl = `https://www.freshforlesscarpetcleaning.co.uk/book?postcode=${encodeURIComponent(postcode)}`;
+      try {
+        await notify({
+          channel: "sms",
+          recipient: mobile,
+          subject: `Quote by text (${postcode})`,
+          body:
+            `${customerName ? `Hi ${customerName.split(" ")[0]}, your` : "Your"} ` +
+            `Fresh For Less price for ${postcode}: ${gbp(totalPence)}` +
+            `${picks ? ` — ${picks}` : ""}. Nothing to pay upfront. ` +
+            `Book online: ${bookUrl} or call 0330 043 4811.`,
+        });
+        return NextResponse.json({ ok: true, texted: true });
+      } catch {
+        // The quote is saved either way; the office can still follow up.
+      }
+    }
+  }
+
+  return NextResponse.json({ ok: true, texted: false });
 }

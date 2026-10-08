@@ -74,6 +74,9 @@ export default function BookingFlow({
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("postcode");
+  const [leadName, setLeadName] = useState("");
+  const [leadPhone, setLeadPhone] = useState("");
+  const [leadStatus, setLeadStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
   const [postcode, setPostcode] = useState(initialPostcode.toUpperCase());
   const [checking, setChecking] = useState(false);
   const [coverage, setCoverage] = useState<
@@ -277,12 +280,48 @@ export default function BookingFlow({
           subtotalPence: quote.subtotal_pence,
           totalPence: quote.total_pence,
           source,
+          customerName: leadName.trim(),
+          customerPhone: leadPhone.trim(),
         }),
       }).catch(() => {});
     }, 1500);
 
     return () => clearTimeout(timer);
+    // leadName/leadPhone ride along but shouldn't re-fire the log on keypress.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coverage, postcode, quote, source]);
+
+  /** "Text me this price" — saves the lead and sends one SMS with the figure. */
+  async function textMyPrice() {
+    const phone = leadPhone.trim();
+    if (phone.replace(/[^0-9]/g, "").length < 10) {
+      setLeadStatus("failed");
+      return;
+    }
+    setLeadStatus("sending");
+    try {
+      const response = await fetch("/api/marketplace/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionKey: quoteKey.current,
+          postcode,
+          covered: Boolean(coverage?.covered),
+          items: quote.lines,
+          subtotalPence: quote.subtotal_pence,
+          totalPence: quote.total_pence,
+          source,
+          customerName: leadName.trim(),
+          customerPhone: phone,
+          textMe: true,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      setLeadStatus(data.texted ? "sent" : "failed");
+    } catch {
+      setLeadStatus("failed");
+    }
+  }
 
   /** Apply a code they were given earlier — or yesterday, in another tab. */
   async function applyCode() {
@@ -599,6 +638,72 @@ export default function BookingFlow({
                 </span>
               </label>
             </section>
+          )}
+
+          {quote.minimum_applied && quote.subtotal_pence > 0 && (
+            <div className="rounded-2xl border border-accent-300 bg-accent-50 px-4 py-3 text-sm text-accent-900">
+              <strong>
+                Your picks come to {gbp(quote.subtotal_pence)} — our minimum
+                visit is {gbp(minimumChargePence)}.
+              </strong>{" "}
+              That means you have {gbp(minimumChargePence - quote.subtotal_pence)}{" "}
+              of cleaning included at no extra cost: add a hallway, staircase,
+              landing or another room and the price stays{" "}
+              {gbp(minimumChargePence)} until you pass it.
+            </div>
+          )}
+
+          {quote.total_pence > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+              {leadStatus === "sent" ? (
+                <p className="font-semibold text-accent-800">
+                  Sent — check your messages. Your price is saved, and there&apos;s
+                  nothing to pay until the job is done.
+                </p>
+              ) : (
+                <>
+                  <p>
+                    <strong className="text-slate-900">
+                      Want to think it over?
+                    </strong>{" "}
+                    We&apos;ll text you this price so you don&apos;t lose it — no
+                    spam, no calls out of the blue.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <input
+                      type="text"
+                      value={leadName}
+                      onChange={(e) => setLeadName(e.target.value)}
+                      placeholder="First name (optional)"
+                      autoComplete="given-name"
+                      className="w-40 flex-none rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="tel"
+                      value={leadPhone}
+                      onChange={(e) => setLeadPhone(e.target.value)}
+                      placeholder="Mobile number"
+                      autoComplete="tel"
+                      className="w-44 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={textMyPrice}
+                      disabled={leadStatus === "sending"}
+                      className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-40"
+                    >
+                      {leadStatus === "sending" ? "Sending…" : "Text me this price"}
+                    </button>
+                  </div>
+                  {leadStatus === "failed" && (
+                    <p className="mt-2 text-xs text-red-600">
+                      That didn&apos;t send — check it&apos;s a UK mobile number, or
+                      just call us on 0330 043 4811.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           )}
 
           <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">

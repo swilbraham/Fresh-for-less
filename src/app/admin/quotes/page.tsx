@@ -160,19 +160,29 @@ export default async function QuotesPage({
                     </td>
                     <td className="py-3 pr-3 whitespace-nowrap font-semibold text-slate-900">
                       {quote.postcode}
-                      {quote.customer_name && (
+                      {(quote.customer_name || quote.customer_phone) && (
                         <span className="block text-xs font-normal text-slate-500">
                           {quote.token ? (
                             <Link
                               href={`/admin/quotes/${quote.token}`}
                               className="font-semibold text-primary-600 underline"
                             >
-                              {quote.customer_name}
+                              {quote.customer_name || "Lead"}
                             </Link>
                           ) : (
-                            quote.customer_name
-                          )}{" "}
-                          · {quote.customer_phone}
+                            quote.customer_name || "Lead"
+                          )}
+                          {quote.customer_phone && (
+                            <>
+                              {" · "}
+                              <a
+                                href={`tel:${quote.customer_phone}`}
+                                className="font-semibold text-primary-600 underline"
+                              >
+                                {quote.customer_phone}
+                              </a>
+                            </>
+                          )}
                         </span>
                       )}
                       {!quote.covered && (

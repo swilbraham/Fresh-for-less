@@ -4863,12 +4863,15 @@ export async function recordQuote(input: {
   subtotalPence: number;
   totalPence: number;
   source: string;
+  /** Left by the customer so the office can follow the quote up. */
+  customerName?: string;
+  customerPhone?: string;
 }): Promise<void> {
   await query(
     `INSERT INTO quotes
        (session_key, postcode, outward, covered, items,
-        subtotal_pence, total_pence, source)
-     VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8)
+        subtotal_pence, total_pence, source, customer_name, customer_phone)
+     VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10)
      ON CONFLICT (session_key) DO UPDATE SET
        postcode       = EXCLUDED.postcode,
        outward        = EXCLUDED.outward,
@@ -4877,6 +4880,8 @@ export async function recordQuote(input: {
        subtotal_pence = EXCLUDED.subtotal_pence,
        total_pence    = EXCLUDED.total_pence,
        source         = CASE WHEN quotes.source = '' THEN EXCLUDED.source ELSE quotes.source END,
+       customer_name  = CASE WHEN EXCLUDED.customer_name  <> '' THEN EXCLUDED.customer_name  ELSE quotes.customer_name  END,
+       customer_phone = CASE WHEN EXCLUDED.customer_phone <> '' THEN EXCLUDED.customer_phone ELSE quotes.customer_phone END,
        updated_at     = now()
      WHERE quotes.booked_ref = ''`,
     [
@@ -4888,6 +4893,8 @@ export async function recordQuote(input: {
       input.subtotalPence,
       input.totalPence,
       input.source,
+      input.customerName ?? "",
+      input.customerPhone ?? "",
     ]
   );
 }
