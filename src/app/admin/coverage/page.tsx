@@ -84,10 +84,11 @@ export default async function CoveragePage() {
     const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
     return AREA_NAMES[top] ?? top;
   };
-  // Meta's bulk dialog parses each line as postal code, city, state, country
-  // — a bare outcode leaves country empty and matches nothing.
+  // Meta's bulk box splits on commas as well as newlines, so the country
+  // can't ride in the same line as a column — it goes in as a GB: prefix,
+  // which is the one format the postal-code matcher documents.
   const metaFormat = (outwards: string[]) =>
-    outwards.map((o) => `${o},,,United Kingdom`).join("\n");
+    outwards.map((o) => `GB:${o}`).join("\n");
   const metaAll = metaFormat(covered.map((a) => a.outward));
   const metaEarning = metaFormat(producing.map((a) => a.outward));
 
@@ -128,9 +129,9 @@ export default async function CoveragePage() {
           <p className="mb-4 text-xs text-slate-500">
             Paste into Ad set → Locations → Add locations in bulk → location
             type <strong>Postal codes</strong>. Each line reads
-            &ldquo;district,,,United Kingdom&rdquo; — the three commas fill the
-            city and region columns Meta expects, which is why a plain list of
-            districts matches nothing. Then switch the audience to
+            &ldquo;GB:district&rdquo; — the prefix pins the match to the UK,
+            and there are no commas because Meta&apos;s paste box treats a
+            comma as the start of a new location. Then switch the audience to
             &ldquo;People living in this location&rdquo;.
           </p>
           <ul className="space-y-2 text-sm">
