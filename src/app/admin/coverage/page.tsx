@@ -100,6 +100,57 @@ export default async function CoveragePage() {
           Every postcode a cleaner claims, and what it has actually produced.
         </p>
 
+        <Card
+          title="Meta ad set locations — pins that match your coverage"
+          description="Meta won't take postcode districts, but its location box accepts a raw latitude, longitude. These circles are computed from the districts your approved cleaners actually claim, so re-copy them whenever coverage changes."
+        >
+          <ul className="space-y-2 text-sm">
+            {meta.pins.map((pin) => (
+              <li
+                key={`${pin.lat},${pin.lng}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
+              >
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {prefixName(pin.districts)}{" "}
+                    <span className="font-normal text-slate-500">
+                      · pin {pin.lat}, {pin.lng} · {pin.radius_miles} mile radius
+                    </span>
+                  </p>
+                  <p className="mt-0.5 break-words font-mono text-xs text-slate-500">
+                    {pin.districts.length > 18
+                      ? `${pin.districts.slice(0, 18).join(" ")} +${pin.districts.length - 18} more`
+                      : pin.districts.join(" ")}
+                  </p>
+                </div>
+                <CopyButton
+                  text={`${pin.lat}, ${pin.lng}`}
+                  label="Copy pin"
+                  className="border border-slate-300 text-slate-700 hover:bg-slate-100"
+                />
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <CopyButton
+              text={allPinsText}
+              label={`Copy all ${meta.pins.length} pins as a list`}
+              className="bg-slate-900 text-white hover:bg-slate-800"
+            />
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            In Ads Manager: Ad set → Locations → remove the broad location →
+            paste a pin into the search box → choose &ldquo;Drop pin&rdquo; →
+            set the radius shown → repeat for each. Then switch the audience
+            from &ldquo;living in or recently in&rdquo; to{" "}
+            <strong>&ldquo;People living in this location&rdquo;</strong> —
+            holidaymakers browsing from a beach don&apos;t need their carpets
+            done here.
+            {meta.unplaced.length > 0 &&
+              ` Couldn't place on the map: ${meta.unplaced.join(", ")}.`}
+          </p>
+        </Card>
+
         {/* Coverage problems are per cleaner, so show it per cleaner. */}
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-bold text-slate-900">Who claims what</h2>
@@ -196,56 +247,6 @@ export default async function CoveragePage() {
           </p>
         </Card>
 
-        <Card
-          title="Meta ad set locations — pins that match your coverage"
-          description="Meta won't take postcode districts, but its location box accepts a raw latitude, longitude. These circles are computed from the districts your approved cleaners actually claim, so re-copy them whenever coverage changes."
-        >
-          <ul className="space-y-2 text-sm">
-            {meta.pins.map((pin) => (
-              <li
-                key={`${pin.lat},${pin.lng}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
-              >
-                <div>
-                  <p className="font-semibold text-slate-900">
-                    {prefixName(pin.districts)}{" "}
-                    <span className="font-normal text-slate-500">
-                      · pin {pin.lat}, {pin.lng} · {pin.radius_miles} mile radius
-                    </span>
-                  </p>
-                  <p className="mt-0.5 break-words font-mono text-xs text-slate-500">
-                    {pin.districts.length > 18
-                      ? `${pin.districts.slice(0, 18).join(" ")} +${pin.districts.length - 18} more`
-                      : pin.districts.join(" ")}
-                  </p>
-                </div>
-                <CopyButton
-                  text={`${pin.lat}, ${pin.lng}`}
-                  label="Copy pin"
-                  className="border border-slate-300 text-slate-700 hover:bg-slate-100"
-                />
-              </li>
-            ))}
-          </ul>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <CopyButton
-              text={allPinsText}
-              label={`Copy all ${meta.pins.length} pins as a list`}
-              className="bg-slate-900 text-white hover:bg-slate-800"
-            />
-          </div>
-          <p className="mt-3 text-xs text-slate-500">
-            In Ads Manager: Ad set → Locations → remove the broad location →
-            paste a pin into the search box → choose &ldquo;Drop pin&rdquo; →
-            set the radius shown → repeat for each. Then switch the audience
-            from &ldquo;living in or recently in&rdquo; to{" "}
-            <strong>&ldquo;People living in this location&rdquo;</strong> —
-            holidaymakers browsing from a beach don&apos;t need their carpets
-            done here.
-            {meta.unplaced.length > 0 &&
-              ` Couldn't place on the map: ${meta.unplaced.join(", ")}.`}
-          </p>
-        </Card>
 
         {soloOrdered.length > 0 && (
           <Card
