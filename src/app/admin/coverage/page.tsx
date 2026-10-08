@@ -102,7 +102,7 @@ export default async function CoveragePage() {
 
         <Card
           title="Meta ad set locations — pins that match your coverage"
-          description="Meta won't take postcode districts, but its location box accepts a raw latitude, longitude. These circles are computed from the districts your approved cleaners actually claim, so re-copy them whenever coverage changes."
+          description="Plan B for Meta: use these only for districts the bulk Postal codes matcher can't place. Each pin is computed from the districts your approved cleaners actually claim — paste the coordinates into the location search box and drop a pin."
         >
           <ul className="space-y-2 text-sm">
             {meta.pins.map((pin) => (
@@ -214,7 +214,7 @@ export default async function CoveragePage() {
 
         <Card
           title="Copy for advertising"
-          description="One district per line, which is the format Google Ads bulk location entry expects — a comma-separated list is read as a single location and matches nothing. Meta won't take districts at all; it wants towns or a dropped pin with a radius."
+          description="One district per line — the format both Google Ads bulk locations and Meta's Add locations in bulk → Postal codes expect. A comma-separated list is read as a single location and matches nothing."
           className="mb-6"
         >
           <div className="mt-4 flex flex-wrap gap-3">
@@ -239,11 +239,12 @@ export default async function CoveragePage() {
             )}
           </div>
           <p className="mt-3 text-xs text-slate-500">
-            For Meta, target the towns instead, or drop pins with a radius —
-            Manchester +9 miles and Warrington +11 miles cover most of this
-            patch between them. Spending against districts you cover but which
-            have never produced a job is the easiest money to waste, which is
-            what the middle button is for.
+            For Meta: Ad set → Locations → Add locations in bulk → location
+            type Postal codes → paste this list → match, then switch the
+            audience to &ldquo;People living in this location&rdquo;. Spending
+            against districts you cover but which have never produced a job is
+            the easiest money to waste, which is what the middle button is
+            for.
           </p>
         </Card>
 
