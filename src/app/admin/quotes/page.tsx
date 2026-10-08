@@ -9,7 +9,7 @@ import {
   quoteStats,
 } from "@/lib/marketplace/repo";
 import QuoteBuilder from "@/components/marketplace/QuoteBuilder";
-import { createOfficeQuoteAction } from "@/app/admin/actions";
+import { createOfficeQuoteAction, offerQuoteDiscountAction } from "@/app/admin/actions";
 import { gbpShort } from "@/lib/marketplace/money";
 import { gbp } from "@/lib/marketplace/money";
 import { Card } from "@/components/marketplace/shell";
@@ -31,11 +31,11 @@ export const metadata = {
 export default async function QuotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; quoted?: string }>;
+  searchParams: Promise<{ error?: string; quoted?: string; offered?: string }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
 
-  const { error, quoted } = await searchParams;
+  const { error, quoted, offered } = await searchParams;
   const [quotes, week, items, bundles, settings] = await Promise.all([
     listQuotes(150),
     quoteStats(7),
@@ -50,11 +50,16 @@ export default async function QuotesPage({
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Quotes</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Every basket that reached a price on /book. No name or number is taken
-          at this stage — these are postcodes and prices, not leads to chase.
+          Every basket that reached a price on /book. Anyone who left a mobile
+          is a lead: text them a discount below and the code works at checkout.
         </p>
       </div>
 
+      {offered && (
+        <div className="rounded-xl border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-900">
+          Offer sent — they have 48 hours to use the {offered}% code.
+        </div>
+      )}
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
@@ -219,7 +224,39 @@ export default async function QuotesPage({
                           Booked · {quote.booked_ref}
                         </Link>
                       ) : (
-                        <span className="text-slate-500">Quoted only</span>
+                        <div>
+                          <span className="text-slate-500">Quoted only</span>
+                          {quote.offer_sent_at && (
+                            <p className="mt-1 text-xs font-semibold text-accent-700">
+                              {quote.offer_pct}% offer texted {quote.offer_sent_at}
+                            </p>
+                          )}
+                          {quote.customer_phone && (
+                            <form
+                              action={offerQuoteDiscountAction}
+                              className="mt-1 flex items-center gap-1"
+                            >
+                              <input type="hidden" name="id" value={quote.id} />
+                              <select
+                                name="pct"
+                                defaultValue="10"
+                                aria-label="Discount to offer"
+                                className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                              >
+                                <option value="5">5%</option>
+                                <option value="10">10%</option>
+                                <option value="15">15%</option>
+                                <option value="20">20%</option>
+                              </select>
+                              <button
+                                type="submit"
+                                className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-primary-700 transition hover:bg-primary-50"
+                              >
+                                {quote.offer_sent_at ? "Text again" : "Text offer"}
+                              </button>
+                            </form>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>

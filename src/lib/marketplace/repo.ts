@@ -4917,6 +4917,8 @@ export async function listQuotes(limit = 100): Promise<QuoteRecord[]> {
     `SELECT id, session_key, postcode, outward, covered, items,
             subtotal_pence, total_pence, source, booked_ref,
             token, customer_name, customer_phone, customer_email, override_pence,
+            offer_pct,
+            to_char(offer_sent_at, 'YYYY-MM-DD HH24:MI') AS offer_sent_at,
             to_char(expires_at, 'YYYY-MM-DD') AS expires_at,
             to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
             to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
@@ -5371,6 +5373,8 @@ export async function getQuoteByToken(
     `SELECT id, session_key, postcode, outward, covered, items,
             subtotal_pence, total_pence, source, booked_ref,
             token, customer_name, customer_phone, customer_email, override_pence,
+            offer_pct,
+            to_char(offer_sent_at, 'YYYY-MM-DD HH24:MI') AS offer_sent_at,
             to_char(expires_at, 'YYYY-MM-DD') AS expires_at,
             to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
             to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
@@ -5626,6 +5630,75 @@ export async function issueDiscountCode(
   );
 
   return { code, pct: EXIT_DISCOUNT_PCT, expiresAt: row!.expires_at };
+}
+
+/**
+ * Text a quoted-only lead a discount code to win the booking.
+ *
+ * The code is issued against the quote's own basket session, so if they come
+ * back through /book the exit-offer plumbing recognises it like any other
+ * code. 48 hours keeps the nudge urgent without feeling like a trick.
+ */
+export async function offerDiscountToQuote(
+  quoteId: number,
+  pct: number
+): Promise<{ ok: boolean; reason?: string }> {
+  if (![5, 10, 15, 20].includes(pct)) {
+    return { ok: false, reason: "Pick 5, 10, 15 or 20 percent." };
+  }
+
+  const quote = await queryOne<{
+    id: number;
+    session_key: string;
+    postcode: string;
+    total_pence: number;
+    booked_ref: string;
+    customer_name: string;
+    customer_phone: string;
+  }>(
+    `SELECT id, session_key, postcode, total_pence, booked_ref,
+            customer_name, customer_phone
+       FROM quotes WHERE id = $1`,
+    [quoteId]
+  );
+  if (!quote) return { ok: false, reason: "That quote no longer exists." };
+  if (quote.booked_ref) {
+    return { ok: false, reason: "They already booked — nothing to chase." };
+  }
+
+  const mobile = toE164(quote.customer_phone);
+  if (!mobile || !isMobile(quote.customer_phone)) {
+    return { ok: false, reason: "No mobile number on this quote." };
+  }
+
+  const code = `FFL${makeRef("").replace("-", "").slice(0, 5)}`;
+  await query(
+    `INSERT INTO discount_codes (code, session_key, pct, expires_at)
+     VALUES ($1, $2, $3, now() + interval '48 hours')`,
+    [code, quote.session_key, pct]
+  );
+
+  const total = quote.total_pence;
+  const discounted = total - Math.round((total * pct) / 100);
+  const first = quote.customer_name.trim().split(" ")[0];
+  await notify({
+    channel: "sms",
+    recipient: mobile,
+    subject: `${pct}% offer on quote (${quote.postcode})`,
+    body:
+      `${first ? `Hi ${first}, your` : "Your"} Fresh For Less quote for ` +
+      `${quote.postcode} came to ${gbpShort(total)}. Book in the next 48 hours ` +
+      `with code ${code} and pay ${gbpShort(discounted)} — ${pct}% off. ` +
+      `Nothing to pay upfront. Book: ` +
+      `https://www.freshforlesscarpetcleaning.co.uk/book?postcode=${encodeURIComponent(quote.postcode)} ` +
+      `or call 0330 043 4811.`,
+  });
+
+  await query(
+    `UPDATE quotes SET offer_pct = $2, offer_sent_at = now() WHERE id = $1`,
+    [quoteId, pct]
+  );
+  return { ok: true };
 }
 
 /** A code's percentage if it is still good, otherwise null. */

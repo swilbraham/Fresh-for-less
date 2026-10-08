@@ -51,6 +51,7 @@ import {
   upsertPriceItem,
   notify,
   getCleaner,
+  offerDiscountToQuote,
 } from "@/lib/marketplace/repo";
 import { penceFromInput, gbpShort } from "@/lib/marketplace/money";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
@@ -923,6 +924,18 @@ export async function reassignJobAction(data: FormData) {
     fail("/admin/jobs", result.reason ?? "Couldn't reassign that job.");
   }
   redirect(`/admin/jobs?offered=${result.offered}`);
+}
+
+export async function offerQuoteDiscountAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const id = Number(field(data, "id", 12));
+  const pct = Number(field(data, "pct", 3));
+  const result = await offerDiscountToQuote(id, pct);
+  revalidatePath("/admin/quotes");
+  if (!result.ok) {
+    fail("/admin/quotes", result.reason ?? "Couldn't send that offer.");
+  }
+  redirect(`/admin/quotes?offered=${pct}`);
 }
 
 export async function rebroadcastJobAction(data: FormData) {

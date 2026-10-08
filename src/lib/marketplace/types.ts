@@ -157,6 +157,9 @@ export type QuoteRecord = {
   expires_at: string | null;
   /** An agreed price that overrides the list total; 0 when there isn't one. */
   override_pence: number;
+  /** A chase-up discount texted to this quote; 0 when none has been sent. */
+  offer_pct: number;
+  offer_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };
