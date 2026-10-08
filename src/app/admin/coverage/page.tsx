@@ -5,6 +5,7 @@ import {
   listCoverage,
   listCoverageByCleaner,
   listUncoveredDemand,
+  metaPinClusters,
 } from "@/lib/marketplace/repo";
 import { Card } from "@/components/marketplace/shell";
 import CopyButton from "@/components/marketplace/CopyButton";
@@ -40,10 +41,11 @@ const AREA_NAMES: Record<string, string> = {
 export default async function CoveragePage() {
   if (!(await isAdmin())) redirect("/admin");
 
-  const [covered, gaps, byCleaner] = await Promise.all([
+  const [covered, gaps, byCleaner, meta] = await Promise.all([
     listCoverage(),
     listUncoveredDemand(),
     listCoverageByCleaner(),
+    metaPinClusters(),
   ]);
 
   const groups = new Map<string, typeof covered>();
@@ -72,6 +74,19 @@ export default async function CoveragePage() {
   const soloOrdered = [...soloByCleaner.entries()].sort(
     (a, b) => b[1].length - a[1].length
   );
+
+  const prefixName = (outwards: string[]) => {
+    const counts = new Map<string, number>();
+    for (const o of outwards) {
+      const prefix = areaPrefix(o);
+      counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+    }
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    return AREA_NAMES[top] ?? top;
+  };
+  const allPinsText = meta.pins
+    .map((pin) => `${pin.lat}, ${pin.lng}  +${pin.radius_miles}mi  (${prefixName(pin.districts)} — ${pin.districts.length} districts)`)
+    .join("\n");
 
   const allDistricts = covered.map((a) => a.outward).join("\n");
   const earningDistricts = producing.map((a) => a.outward).join("\n");
@@ -178,6 +193,57 @@ export default async function CoveragePage() {
             patch between them. Spending against districts you cover but which
             have never produced a job is the easiest money to waste, which is
             what the middle button is for.
+          </p>
+        </Card>
+
+        <Card
+          title="Meta ad set locations — pins that match your coverage"
+          description="Meta won't take postcode districts, but its location box accepts a raw latitude, longitude. These circles are computed from the districts your approved cleaners actually claim, so re-copy them whenever coverage changes."
+        >
+          <ul className="space-y-2 text-sm">
+            {meta.pins.map((pin) => (
+              <li
+                key={`${pin.lat},${pin.lng}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
+              >
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {prefixName(pin.districts)}{" "}
+                    <span className="font-normal text-slate-500">
+                      · pin {pin.lat}, {pin.lng} · {pin.radius_miles} mile radius
+                    </span>
+                  </p>
+                  <p className="mt-0.5 break-words font-mono text-xs text-slate-500">
+                    {pin.districts.length > 18
+                      ? `${pin.districts.slice(0, 18).join(" ")} +${pin.districts.length - 18} more`
+                      : pin.districts.join(" ")}
+                  </p>
+                </div>
+                <CopyButton
+                  text={`${pin.lat}, ${pin.lng}`}
+                  label="Copy pin"
+                  className="border border-slate-300 text-slate-700 hover:bg-slate-100"
+                />
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <CopyButton
+              text={allPinsText}
+              label={`Copy all ${meta.pins.length} pins as a list`}
+              className="bg-slate-900 text-white hover:bg-slate-800"
+            />
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            In Ads Manager: Ad set → Locations → remove the broad location →
+            paste a pin into the search box → choose &ldquo;Drop pin&rdquo; →
+            set the radius shown → repeat for each. Then switch the audience
+            from &ldquo;living in or recently in&rdquo; to{" "}
+            <strong>&ldquo;People living in this location&rdquo;</strong> —
+            holidaymakers browsing from a beach don&apos;t need their carpets
+            done here.
+            {meta.unplaced.length > 0 &&
+              ` Couldn't place on the map: ${meta.unplaced.join(", ")}.`}
           </p>
         </Card>
 

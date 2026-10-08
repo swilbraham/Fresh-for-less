@@ -4807,6 +4807,85 @@ export async function listCoverageByCleaner(): Promise<CleanerCoverage[]> {
   );
 }
 
+export type MetaPin = {
+  lat: number;
+  lng: number;
+  radius_miles: number;
+  districts: string[];
+};
+
+/**
+ * Covered districts folded into a handful of pin-plus-radius circles, which
+ * is the shape Meta's location targeting actually accepts (it won't take UK
+ * postcode districts). Greedy clustering is plenty: ad radii are blunt
+ * instruments and Meta fuzzes them further anyway.
+ */
+export async function metaPinClusters(): Promise<{
+  pins: MetaPin[];
+  unplaced: string[];
+}> {
+  const covered = await query<{ outward: string }>(
+    `SELECT DISTINCT a.outward
+       FROM cleaner_areas a
+       JOIN cleaners c ON c.id = a.cleaner_id AND c.status = 'approved'
+      ORDER BY a.outward`
+  );
+  const outwards = covered.map((row) => row.outward);
+  const coords = await outcodeCoords(outwards);
+
+  const placed = outwards.filter((o) => coords.has(o.toUpperCase()));
+  const unplaced = outwards.filter((o) => !coords.has(o.toUpperCase()));
+
+  const CLUSTER_MILES = 12;
+  const remaining = new Set(placed);
+  const pins: MetaPin[] = [];
+
+  while (remaining.size > 0) {
+    // Seed with whichever point has the most neighbours still unclustered,
+    // so dense patches become one sensible circle rather than several.
+    let seed = "";
+    let seedCount = -1;
+    for (const a of remaining) {
+      const pa = coords.get(a.toUpperCase())!;
+      let count = 0;
+      for (const b of remaining) {
+        if (distanceMiles(pa, coords.get(b.toUpperCase())!) <= CLUSTER_MILES) count += 1;
+      }
+      if (count > seedCount) {
+        seedCount = count;
+        seed = a;
+      }
+    }
+
+    const centreSeed = coords.get(seed.toUpperCase())!;
+    const members = [...remaining].filter(
+      (o) => distanceMiles(centreSeed, coords.get(o.toUpperCase())!) <= CLUSTER_MILES
+    );
+    members.forEach((o) => remaining.delete(o));
+
+    const lat =
+      members.reduce((total, o) => total + coords.get(o.toUpperCase())!.lat, 0) /
+      members.length;
+    const lng =
+      members.reduce((total, o) => total + coords.get(o.toUpperCase())!.lng, 0) /
+      members.length;
+    const spread = Math.max(
+      ...members.map((o) => distanceMiles({ lat, lng }, coords.get(o.toUpperCase())!))
+    );
+    pins.push({
+      lat: Number(lat.toFixed(4)),
+      lng: Number(lng.toFixed(4)),
+      // A couple of miles of slack so district edges aren't clipped; Meta's
+      // pin radius runs 1-50 miles.
+      radius_miles: Math.min(50, Math.max(5, Math.ceil(spread + 2))),
+      districts: members.sort(),
+    });
+  }
+
+  pins.sort((a, b) => b.districts.length - a.districts.length);
+  return { pins, unplaced };
+}
+
 export async function listCoverage(): Promise<CoverageArea[]> {
   return query<CoverageArea>(
     `SELECT a.outward,
