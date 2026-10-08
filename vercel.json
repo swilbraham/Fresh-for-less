@@ -46,6 +46,10 @@
     {
       "path": "/api/cron/confirm",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/offers",
+      "schedule": "0 10 * * *"
     }
   ]
-}
+}\n

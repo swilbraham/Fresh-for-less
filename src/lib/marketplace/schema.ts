@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 48;
+export const SCHEMA_VERSION = 49;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -202,6 +202,10 @@ export const STATEMENTS: string[] = [
   // Stain guard, priced as a percentage of the clean.
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_pct numeric(5,2) NOT NULL DEFAULT 35.00`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS protection_enabled boolean NOT NULL DEFAULT true`,
+  // Automatic chase-up offers for quotes that never booked.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS auto_offer_enabled boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS auto_offer_pct int NOT NULL DEFAULT 10`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS auto_offer_min_pence int NOT NULL DEFAULT 0`,
 
   // Commission payment details, entered through /admin/prices. Blank by
   // default — the repository is public, so bank details never live in source.

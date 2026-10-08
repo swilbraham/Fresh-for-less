@@ -177,6 +177,57 @@ export default async function AdminPricesPage({
                   window is flagged as a late cancellation for you and the cleaner.
                 </p>
               </div>
+              <div className="sm:col-span-2 rounded-xl border border-accent-200 bg-accent-50/40 p-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="autoOfferEnabled"
+                    defaultChecked={settings.auto_offer_enabled}
+                    className="mt-1 h-5 w-5 rounded border-slate-300 accent-accent-600"
+                  />
+                  <span>
+                    <span className="font-semibold text-slate-800">
+                      Auto-chase quotes that didn&apos;t book
+                    </span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Once a day, anyone who left a mobile with a quote but
+                      hasn&apos;t booked after 24 hours gets one text with a
+                      48-hour discount code. Each lead is only ever texted
+                      once automatically — you can still follow up by hand
+                      from the Quotes page.
+                    </span>
+                  </span>
+                </label>
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-700">
+                  <label className="flex items-center gap-2">
+                    Offer
+                    <select
+                      name="autoOfferPct"
+                      defaultValue={String(settings.auto_offer_pct || 10)}
+                      className="rounded-xl border border-slate-300 px-3 py-2"
+                    >
+                      <option value="5">5%</option>
+                      <option value="10">10%</option>
+                      <option value="15">15%</option>
+                      <option value="20">20%</option>
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    on quotes of at least £
+                    <input
+                      name="autoOfferMin"
+                      inputMode="numeric"
+                      defaultValue={
+                        settings.auto_offer_min_pence
+                          ? String(Math.round(settings.auto_offer_min_pence / 100))
+                          : "0"
+                      }
+                      className="w-20 rounded-xl border border-slate-300 px-3 py-2 tabular-nums"
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div className="sm:col-span-2 rounded-xl border border-primary-200 bg-primary-50/40 p-4">
                 <label className="flex cursor-pointer items-start gap-3">
                   <input

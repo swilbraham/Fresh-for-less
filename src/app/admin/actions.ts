@@ -171,6 +171,12 @@ export async function savePricesAction(data: FormData) {
     legalFooter: field(data, "legalFooter", 300),
     adminMobile: field(data, "adminMobile", 30),
     adminSmsEnabled: data.get("adminSmsEnabled") === "on",
+    autoOfferEnabled: data.get("autoOfferEnabled") === "on",
+    autoOfferPct: Number(field(data, "autoOfferPct", 3)) || 10,
+    autoOfferMinPence: Math.max(
+      0,
+      Math.round((Number(field(data, "autoOfferMin", 8)) || 0) * 100)
+    ),
   });
 
   for (const item of await getPriceItems()) {

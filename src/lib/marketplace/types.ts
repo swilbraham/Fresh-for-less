@@ -24,6 +24,9 @@ export type Settings = {
   legal_footer: string;
   admin_mobile: string;
   admin_sms_enabled: boolean;
+  auto_offer_enabled: boolean;
+  auto_offer_pct: number;
+  auto_offer_min_pence: number;
 };
 
 export type PriceItem = {

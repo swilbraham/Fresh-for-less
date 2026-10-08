@@ -95,7 +95,8 @@ export async function getSettings(): Promise<Settings> {
             cancellation_notice_hours, protection_pct, protection_enabled,
             payee_name, payee_account, payee_sort_code, payee_address,
             payment_terms_days, legal_footer,
-            admin_mobile, admin_sms_enabled
+            admin_mobile, admin_sms_enabled,
+            auto_offer_enabled, auto_offer_pct, auto_offer_min_pence
        FROM settings WHERE id = 1`
   );
   if (!row) throw new Error("Marketplace settings row is missing.");
@@ -118,6 +119,9 @@ export async function updateSettings(input: {
   legalFooter: string;
   adminMobile: string;
   adminSmsEnabled: boolean;
+  autoOfferEnabled: boolean;
+  autoOfferPct: number;
+  autoOfferMinPence: number;
 }): Promise<void> {
   await query(
     `UPDATE settings
@@ -129,6 +133,8 @@ export async function updateSettings(input: {
             payee_address = $11, payment_terms_days = $12,
             legal_footer = $13,
             admin_mobile = $14, admin_sms_enabled = $15,
+            auto_offer_enabled = $16, auto_offer_pct = $17,
+            auto_offer_min_pence = $18,
             updated_at = now()
       WHERE id = 1`,
     [
@@ -147,6 +153,9 @@ export async function updateSettings(input: {
       input.legalFooter,
       input.adminMobile,
       input.adminSmsEnabled,
+      input.autoOfferEnabled,
+      input.autoOfferPct,
+      input.autoOfferMinPence,
     ]
   );
 }
@@ -5699,6 +5708,62 @@ export async function offerDiscountToQuote(
     [quoteId, pct]
   );
   return { ok: true };
+}
+
+/**
+ * The daily automatic version of offerDiscountToQuote.
+ *
+ * Quotes are claimed as they are read, so a re-fired cron cannot text the
+ * same lead twice. The 7-day lower bound stops the first-ever run (or the
+ * switch being flipped on after a quiet month) from texting every stale quote
+ * in the table at once.
+ */
+export async function autoOfferQuotes(): Promise<{
+  claimed: number;
+  sent: number;
+}> {
+  const settings = await getSettings();
+  if (!settings.auto_offer_enabled) return { claimed: 0, sent: 0 };
+
+  const pct = [5, 10, 15, 20].includes(Number(settings.auto_offer_pct))
+    ? Number(settings.auto_offer_pct)
+    : 10;
+  const minPence = Math.max(0, Number(settings.auto_offer_min_pence) || 0);
+
+  const rows = await query<{ id: number }>(
+    `UPDATE quotes SET offer_pct = $1, offer_sent_at = now()
+      WHERE id IN (
+        SELECT id FROM quotes
+         WHERE booked_ref = '' AND offer_sent_at IS NULL
+           AND customer_phone <> ''
+           AND total_pence >= $2
+           AND updated_at < now() - interval '24 hours'
+           AND updated_at > now() - interval '7 days'
+         ORDER BY updated_at DESC
+         LIMIT 25
+      )
+      RETURNING id`,
+    [pct, minPence]
+  );
+
+  let sent = 0;
+  for (const row of rows) {
+    try {
+      const result = await offerDiscountToQuote(row.id, pct);
+      if (result.ok) {
+        sent += 1;
+      } else {
+        // A dud number shouldn't show as "offer texted" in the list.
+        await query(
+          `UPDATE quotes SET offer_pct = 0, offer_sent_at = NULL WHERE id = $1`,
+          [row.id]
+        );
+      }
+    } catch (error) {
+      console.error(`auto offer failed for quote ${row.id}`, error);
+    }
+  }
+  return { claimed: rows.length, sent };
 }
 
 /** A code's percentage if it is still good, otherwise null. */
