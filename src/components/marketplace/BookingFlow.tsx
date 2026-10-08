@@ -640,7 +640,9 @@ export default function BookingFlow({
             </section>
           )}
 
-          {quote.minimum_applied && quote.subtotal_pence > 0 && (
+          {quote.minimum_applied &&
+            quote.subtotal_pence > 0 &&
+            quote.total_pence <= minimumChargePence && (
             <div className="rounded-2xl border border-accent-300 bg-accent-50 px-4 py-3 text-sm text-accent-900">
               <strong>
                 Your picks come to {gbp(quote.subtotal_pence)} — our minimum
