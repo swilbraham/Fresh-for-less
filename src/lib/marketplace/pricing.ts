@@ -128,6 +128,8 @@ export function buildQuote(
 
   const amounts = new Map<string, number>();
   const notes = new Map<string, string>();
+  let dealPence = 0;
+  const dealLabels: string[] = [];
 
   for (const group of groups) {
     const members = group.codes
@@ -155,6 +157,12 @@ export function buildQuote(
     if (usedBundles.length) {
       const first = members[0].item.code;
       notes.set(first, usedBundles.map((b) => b.label).join(" + "));
+      // The whole group is "the deal" for receipt framing: the customer saw
+      // the bundle advertised, so that figure should survive on screen.
+      dealPence += pence;
+      for (const bundle of usedBundles) {
+        if (!dealLabels.includes(bundle.label)) dealLabels.push(bundle.label);
+      }
     }
   }
 
@@ -216,5 +224,7 @@ export function buildQuote(
     commission_pct: opts.commissionPct,
     commission_pence: commissionPence,
     savings_pence: Math.max(0, listPrice - subtotal),
+    deal_pence: dealPence,
+    deal_label: dealLabels.join(" + "),
   };
 }

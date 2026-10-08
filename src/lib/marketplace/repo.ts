@@ -4916,11 +4916,28 @@ export async function markQuoteBooked(
   ref: string
 ): Promise<void> {
   if (!sessionKey) return;
+  // Matched by token too: a customer returning through a texted quote link
+  // carries the token, not the browser session that first built the basket.
   await query(
     `UPDATE quotes SET booked_ref = $2, updated_at = now()
-      WHERE session_key = $1 AND booked_ref = ''`,
+      WHERE (session_key = $1 OR token = $1) AND booked_ref = ''`,
     [sessionKey, ref]
   );
+}
+
+/**
+ * Give a web quote a shareable token if it doesn't have one, so a texted
+ * link can drop the customer back into /book with their basket rebuilt.
+ */
+export async function ensureQuoteToken(sessionKey: string): Promise<string | null> {
+  const fresh = makeRef("Q").toLowerCase().replace("-", "");
+  const row = await queryOne<{ token: string }>(
+    `UPDATE quotes SET token = COALESCE(token, $2)
+      WHERE session_key = $1
+      RETURNING token`,
+    [sessionKey, fresh]
+  );
+  return row?.token ?? null;
 }
 
 export async function listQuotes(limit = 100): Promise<QuoteRecord[]> {
@@ -5788,6 +5805,11 @@ export async function offerDiscountToQuote(
   const total = quote.total_pence;
   const discounted = total - Math.round((total * pct) / 100);
   const first = quote.customer_name.trim().split(" ")[0];
+  // The link rebuilds their exact basket — one tap back to the date picker.
+  const token = await ensureQuoteToken(quote.session_key);
+  const link = token
+    ? `${siteUrl()}/book?quote=${token}`
+    : `${siteUrl()}/book?postcode=${encodeURIComponent(quote.postcode)}`;
   await notify({
     channel: "sms",
     recipient: mobile,
@@ -5796,8 +5818,7 @@ export async function offerDiscountToQuote(
       `${first ? `Hi ${first}, your` : "Your"} Fresh For Less quote for ` +
       `${quote.postcode} came to ${gbpShort(total)}. Book in the next 48 hours ` +
       `with code ${code} and pay ${gbpShort(discounted)} — ${pct}% off. ` +
-      `Nothing to pay upfront. Book: ` +
-      `https://www.freshforlesscarpetcleaning.co.uk/book?postcode=${encodeURIComponent(quote.postcode)} ` +
+      `Everything's saved — one tap to finish: ${link} ` +
       `or call 0330 043 4811.`,
   });
 

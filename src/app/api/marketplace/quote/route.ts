@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { notify, recordQuote } from "@/lib/marketplace/repo";
+import { ensureQuoteToken, notify, recordQuote, siteUrl } from "@/lib/marketplace/repo";
 import { normalisePostcode, outwardOf } from "@/lib/marketplace/postcode";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 import { isMobile, toE164 } from "@/lib/marketplace/phone";
@@ -84,7 +84,12 @@ export async function POST(request: Request) {
         .slice(0, 4)
         .map((line) => (line.qty > 1 ? `${line.qty} x ${line.label}` : line.label))
         .join(", ");
-      const bookUrl = `https://www.freshforlesscarpetcleaning.co.uk/book?postcode=${encodeURIComponent(postcode)}`;
+      // The texted link rebuilds their exact basket rather than landing them
+      // on an empty form to re-pick everything they already chose.
+      const token = await ensureQuoteToken(sessionKey);
+      const bookUrl = token
+        ? `${siteUrl()}/book?quote=${token}`
+        : `${siteUrl()}/book?postcode=${encodeURIComponent(postcode)}`;
       try {
         await notify({
           channel: "sms",
@@ -93,8 +98,9 @@ export async function POST(request: Request) {
           body:
             `${customerName ? `Hi ${customerName.split(" ")[0]}, your` : "Your"} ` +
             `Fresh For Less price for ${postcode}: ${gbp(totalPence)}` +
-            `${picks ? ` — ${picks}` : ""}. Nothing to pay upfront. ` +
-            `Book online: ${bookUrl} or call 0330 043 4811.`,
+            `${picks ? ` — ${picks}` : ""}. Nothing to pay upfront, and ` +
+            `everything's saved — one tap to finish: ${bookUrl} ` +
+            `or call 0330 043 4811.`,
         });
         return NextResponse.json({ ok: true, texted: true });
       } catch {

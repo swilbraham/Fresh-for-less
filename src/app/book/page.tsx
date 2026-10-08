@@ -65,7 +65,7 @@ export default async function BookPage({
               : undefined
           }
           quoteToken={usable?.token ?? ""}
-          source={usable ? "phone-quote" : from.slice(0, 40)}
+          source={usable ? usable.source || "phone-quote" : from.slice(0, 40)}
           items={items}
           bundles={bundles}
           minimumChargePence={settings.minimum_charge_pence}

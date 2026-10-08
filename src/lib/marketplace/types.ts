@@ -66,6 +66,9 @@ export type Quote = {
   commission_pct: number;
   commission_pence: number;
   savings_pence: number;
+  /** The bundle-priced part of the basket, for "deal + extras" framing. */
+  deal_pence: number;
+  deal_label: string;
   /** Stain guard, when the customer opts in. */
   protection_pence: number;
   cleaning_pence: number;

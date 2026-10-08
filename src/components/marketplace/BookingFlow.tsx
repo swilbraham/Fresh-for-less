@@ -275,6 +275,7 @@ export default function BookingFlow({
    * is doing depends on it.
    */
   useEffect(() => {
+    if (quoteToken) return; // resumed quote — the row already exists
     if (!coverage) return;
     if (quote.total_pence <= 0) return;
 
@@ -983,6 +984,19 @@ export default function BookingFlow({
                   <dd className="tabular-nums">{gbp(minimumChargePence)}</dd>
                 </div>
               )}
+              {quote.deal_pence > 0 &&
+                !quote.minimum_applied &&
+                quote.total_pence > quote.deal_pence && (
+                  <div className="flex justify-between font-semibold text-accent-700">
+                    <dt>
+                      That&apos;s your {quote.deal_label} ({gbp(quote.deal_pence)})
+                      plus extras
+                    </dt>
+                    <dd className="tabular-nums">
+                      +{gbp(quote.total_pence - quote.deal_pence)}
+                    </dd>
+                  </div>
+                )}
             </dl>
             <p className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
               {discountPence > 0
@@ -1119,6 +1133,15 @@ export default function BookingFlow({
                   {discount?.code} applied — {discount?.pct}% off
                 </p>
               )}
+              {discountPence === 0 &&
+                quote.deal_pence > 0 &&
+                !quote.minimum_applied &&
+                quote.total_pence > quote.deal_pence && (
+                  <p className="text-xs font-semibold text-accent-700">
+                    {quote.deal_label} {gbp(quote.deal_pence)} + extras{" "}
+                    {gbp(quote.total_pence - quote.deal_pence)}
+                  </p>
+                )}
             </div>
             <div className="text-right text-xs text-slate-500">
               {quote.savings_pence > 0 && (
