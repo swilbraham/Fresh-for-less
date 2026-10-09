@@ -3195,6 +3195,89 @@ export async function listInboundSms(limit = 50): Promise<
   );
 }
 
+/**
+ * Inbound texts with the sender worked out, so the inbox reads "Dave
+ * (cleaner)" or "Sarah — FFL-ABC123" instead of a bare phone number.
+ * Matching is by the last nine digits, same trick the threads use.
+ */
+export async function listInboundSmsResolved(limit = 30): Promise<
+  {
+    id: number;
+    recipient: string;
+    body: string;
+    created_at: string;
+    cleaner_id: number | null;
+    cleaner_name: string | null;
+    job_id: number | null;
+    job_ref: string | null;
+    customer_name: string | null;
+  }[]
+> {
+  return query(
+    `SELECT n.id, n.recipient, n.body, n.created_at,
+            c.id AS cleaner_id, c.name AS cleaner_name,
+            j.id AS job_id, j.ref AS job_ref, j.customer_name
+       FROM notifications n
+       LEFT JOIN LATERAL (
+         SELECT c.id, c.name FROM cleaners c
+          WHERE right(regexp_replace(c.phone, '[^0-9]', '', 'g'), 9)
+              = right(regexp_replace(n.recipient, '[^0-9]', '', 'g'), 9)
+          LIMIT 1
+       ) c ON true
+       LEFT JOIN LATERAL (
+         SELECT j.id, j.ref, j.customer_name FROM jobs j
+          WHERE right(regexp_replace(j.customer_phone, '[^0-9]', '', 'g'), 9)
+              = right(regexp_replace(n.recipient, '[^0-9]', '', 'g'), 9)
+          ORDER BY j.created_at DESC
+          LIMIT 1
+       ) j ON true
+      WHERE n.direction = 'in'
+      ORDER BY n.created_at DESC
+      LIMIT $1`,
+    [limit]
+  );
+}
+
+/** Last message each way per cleaner, for ordering the sidebar by life. */
+export async function listCleanerActivity(): Promise<
+  Map<number, { last_at: string; last_direction: string; inbound: number }>
+> {
+  const rows = await query<{
+    cleaner_id: number;
+    last_at: string;
+    last_direction: string;
+    inbound: number;
+  }>(
+    `SELECT c.id AS cleaner_id,
+            max(n.created_at)::text AS last_at,
+            (ARRAY_AGG(n.direction ORDER BY n.created_at DESC))[1] AS last_direction,
+            count(*) FILTER (WHERE n.direction = 'in'
+              AND n.created_at > now() - interval '7 days')::int AS inbound
+       FROM cleaners c
+       JOIN notifications n
+         ON right(regexp_replace(n.recipient, '[^0-9]', '', 'g'), 9)
+          = right(regexp_replace(c.phone, '[^0-9]', '', 'g'), 9)
+      WHERE n.channel = 'sms'
+      GROUP BY c.id`
+  );
+  return new Map(rows.map((r) => [r.cleaner_id, r]));
+}
+
+/** The jobs a cleaner currently holds, to pin above their thread. */
+export async function listCleanerActiveJobs(cleanerId: number): Promise<
+  { ref: string; slot_date: string; slot_window: string; postcode: string }[]
+> {
+  return query(
+    `SELECT ref, to_char(slot_date, 'YYYY-MM-DD') AS slot_date,
+            slot_window, postcode
+       FROM jobs
+      WHERE cleaner_id = $1 AND status = 'accepted'
+      ORDER BY slot_date
+      LIMIT 6`,
+    [cleanerId]
+  );
+}
+
 /** Public base URL, used to build tappable links inside SMS. */
 const CANONICAL_URL = "https://www.freshforlesscarpetcleaning.co.uk";
 

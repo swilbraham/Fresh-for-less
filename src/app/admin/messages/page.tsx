@@ -4,9 +4,11 @@ import { isAdmin } from "@/lib/marketplace/auth";
 import {
   getCleanerThread,
   getCustomerThread,
+  listCleanerActiveJobs,
+  listCleanerActivity,
   listCleaners,
   listCustomerThreads,
-  listInboundSms,
+  listInboundSmsResolved,
 } from "@/lib/marketplace/repo";
 import { Card } from "@/components/marketplace/shell";
 import {
@@ -32,6 +34,14 @@ function when(value: string) {
   });
 }
 
+/** "2h ago" / "3d ago" — enough to order a sidebar by eye. */
+function ago(value: string): string {
+  const seconds = Math.max(0, (Date.now() - new Date(value).getTime()) / 1000);
+  if (seconds < 3600) return `${Math.max(1, Math.floor(seconds / 60))}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
 export default async function MessagesPage({
   searchParams,
 }: {
@@ -52,11 +62,20 @@ export default async function MessagesPage({
     broadcast,
   } = await searchParams;
 
-  const [cleaners, customers, inbound] = await Promise.all([
+  const [cleaners, customers, inbound, activity] = await Promise.all([
     listCleaners("approved"),
     listCustomerThreads(40),
-    listInboundSms(30),
+    listInboundSmsResolved(30),
+    listCleanerActivity(),
   ]);
+
+  // Who spoke last, most recently, floats to the top of the sidebar.
+  const byActivity = [...cleaners].sort((a, b) => {
+    const at = activity.get(a.id)?.last_at ?? "";
+    const bt = activity.get(b.id)?.last_at ?? "";
+    if (at !== bt) return at < bt ? 1 : -1;
+    return a.name.localeCompare(b.name);
+  });
 
   // A ?job= in the URL means a customer thread; otherwise show cleaners.
   const customerMode = Boolean(jobParam);
@@ -68,13 +87,18 @@ export default async function MessagesPage({
     ? null
     : cleaners.find((c) => c.id === selectedId) ?? null;
 
-  const thread = customerMode
-    ? jobId
-      ? await getCustomerThread(jobId)
-      : []
-    : selected
-      ? await getCleanerThread(selected.id)
-      : [];
+  const [thread, activeJobs] = await Promise.all([
+    customerMode
+      ? jobId
+        ? getCustomerThread(jobId)
+        : Promise.resolve([])
+      : selected
+        ? getCleanerThread(selected.id)
+        : Promise.resolve([]),
+    !customerMode && selected
+      ? listCleanerActiveJobs(selected.id)
+      : Promise.resolve([]),
+  ]);
 
   return (
     <main>
@@ -100,85 +124,6 @@ export default async function MessagesPage({
           {broadcast}
         </p>
       )}
-
-      <Card title="Ask everyone covering an area" className="mt-6">
-        <p className="mt-1 text-sm text-slate-500">
-          Texts every approved cleaner covering the area(s) at once — handy for
-          &ldquo;can anyone do 3 rooms in CH41 on Friday?&rdquo; before booking
-          a job in. Replies come back to each cleaner&apos;s own thread below.
-        </p>
-        <form
-          action={textAreaCleanersAction}
-          className="mt-3 flex flex-wrap items-end gap-2"
-        >
-          <label className="flex-none text-sm text-slate-600">
-            Area(s)
-            <input
-              name="areas"
-              required
-              placeholder="CH41, L4"
-              className="mt-1 block w-36 rounded-xl border border-slate-300 px-3 py-2 text-sm uppercase"
-            />
-          </label>
-          <label className="min-w-[240px] flex-1 text-sm text-slate-600">
-            Message
-            <textarea
-              name="body"
-              required
-              rows={2}
-              maxLength={600}
-              placeholder="Can anyone take 3 rooms + stairs in CH41 this Friday AM? Reply here if you can."
-              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <button
-            type="submit"
-            className="rounded-xl bg-primary-600 px-5 py-2 text-sm font-semibold text-white"
-          >
-            Send to all
-          </button>
-        </form>
-      </Card>
-
-      <Card title="Tell every cleaner something" className="mt-6">
-        <p className="mt-1 text-sm text-slate-500">
-          Texts every approved cleaner on the network, whatever area they
-          cover. For announcements — a change to the terms, a price change,
-          a shutdown over Christmas. Replies come back to each cleaner&apos;s
-          own thread below.
-        </p>
-        <form action={textAllCleanersAction} className="mt-3 space-y-3">
-          <label className="block text-sm text-slate-600">
-            Message
-            <textarea
-              name="body"
-              required
-              rows={4}
-              maxLength={600}
-              placeholder="Write it in full — this goes to everybody and there is no undo."
-              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex-none text-sm text-slate-600">
-              Type SEND to confirm
-              <input
-                name="confirm"
-                required
-                placeholder="SEND"
-                autoComplete="off"
-                className="mt-1 block w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm uppercase"
-              />
-            </label>
-            <button
-              type="submit"
-              className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
-            >
-              Text everyone
-            </button>
-          </div>
-        </form>
-      </Card>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[260px_1fr]">
         <div className="min-w-0">
@@ -212,23 +157,35 @@ export default async function MessagesPage({
           <Card title={customerMode ? "Recent customers" : "Cleaners"}>
             <ul className="mt-2 divide-y divide-slate-100 text-sm">
               {!customerMode &&
-                cleaners.map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      href={`/admin/messages?cleaner=${c.id}`}
-                      className={`block px-1 py-2 ${
-                        c.id === selectedId
-                          ? "font-semibold text-primary-700"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      {c.name}
-                      <span className="block text-xs font-normal text-slate-400">
-                        {c.business_name || c.phone}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
+                byActivity.map((c) => {
+                  const act = activity.get(c.id);
+                  return (
+                    <li key={c.id}>
+                      <Link
+                        href={`/admin/messages?cleaner=${c.id}`}
+                        className={`block px-1 py-2 ${
+                          c.id === selectedId
+                            ? "font-semibold text-primary-700"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span>{c.name}</span>
+                          {act && act.inbound > 0 && (
+                            <span className="rounded-full bg-accent-100 px-1.5 text-[11px] font-semibold text-accent-700">
+                              {act.inbound}
+                            </span>
+                          )}
+                        </span>
+                        <span className="block text-xs font-normal text-slate-400">
+                          {act
+                            ? `${act.last_direction === "in" ? "↩ replied" : "sent"} ${ago(act.last_at)}`
+                            : c.business_name || c.phone}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
               {!customerMode && cleaners.length === 0 && (
                 <li className="py-2 text-slate-500">No approved cleaners yet.</li>
               )}
@@ -333,6 +290,21 @@ export default async function MessagesPage({
             </Card>
           ) : selected ? (
             <Card title={`${selected.name} — ${selected.phone}`}>
+              {activeJobs.length > 0 && (
+                <p className="-mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span>Holding:</span>
+                  {activeJobs.map((job) => (
+                    <Link
+                      key={job.ref}
+                      href={`/admin/jobs/${job.ref}`}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold text-primary-700 hover:bg-primary-50"
+                    >
+                      {job.ref} · {job.postcode} · {job.slot_date}{" "}
+                      {job.slot_window === "am" ? "AM" : "PM"}
+                    </Link>
+                  ))}
+                </p>
+              )}
               <div className="mt-3 max-h-[420px] space-y-3 overflow-y-auto">
                 {thread.length === 0 && (
                   <p className="text-sm text-slate-500">
@@ -393,15 +365,61 @@ export default async function MessagesPage({
             </Card>
           )}
 
-          <Card title="Recent replies">
+          <Card title="Recent replies — who said what">
             <ul className="mt-2 divide-y divide-slate-100 text-sm">
               {inbound.map((m) => (
                 <li key={m.id} className="py-2">
-                  <p className="font-semibold text-slate-800">{m.subject}</p>
-                  <p className="text-slate-600">{m.body}</p>
-                  <p className="text-xs text-slate-400">
-                    {m.recipient} · {when(m.created_at)}
+                  <p className="flex flex-wrap items-center gap-2">
+                    {m.cleaner_id ? (
+                      <>
+                        <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-800">
+                          Cleaner
+                        </span>
+                        <Link
+                          href={`/admin/messages?cleaner=${m.cleaner_id}`}
+                          className="font-semibold text-primary-700 underline"
+                        >
+                          {m.cleaner_name}
+                        </Link>
+                      </>
+                    ) : m.job_id ? (
+                      <>
+                        <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-semibold text-accent-800">
+                          Customer
+                        </span>
+                        <Link
+                          href={`/admin/messages?job=${m.job_id}`}
+                          className="font-semibold text-primary-700 underline"
+                        >
+                          {m.customer_name}
+                        </Link>
+                        {m.job_ref && (
+                          <Link
+                            href={`/admin/jobs/${m.job_ref}`}
+                            className="text-xs font-semibold text-slate-500 underline"
+                          >
+                            {m.job_ref}
+                          </Link>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                          Unknown
+                        </span>
+                        <a
+                          href={`tel:${m.recipient}`}
+                          className="font-semibold text-slate-700 underline"
+                        >
+                          {m.recipient}
+                        </a>
+                      </>
+                    )}
+                    <span className="ml-auto text-xs text-slate-400">
+                      {when(m.created_at)}
+                    </span>
                   </p>
+                  <p className="mt-1 text-slate-600">{m.body}</p>
                 </li>
               ))}
               {inbound.length === 0 && (
@@ -414,6 +432,87 @@ export default async function MessagesPage({
           </Card>
         </div>
         </div>
+
+      <div className="mt-8 space-y-6">
+      <Card title="Ask everyone covering an area" className="mt-6">
+        <p className="mt-1 text-sm text-slate-500">
+          Texts every approved cleaner covering the area(s) at once — handy for
+          &ldquo;can anyone do 3 rooms in CH41 on Friday?&rdquo; before booking
+          a job in. Replies come back to each cleaner&apos;s own thread below.
+        </p>
+        <form
+          action={textAreaCleanersAction}
+          className="mt-3 flex flex-wrap items-end gap-2"
+        >
+          <label className="flex-none text-sm text-slate-600">
+            Area(s)
+            <input
+              name="areas"
+              required
+              placeholder="CH41, L4"
+              className="mt-1 block w-36 rounded-xl border border-slate-300 px-3 py-2 text-sm uppercase"
+            />
+          </label>
+          <label className="min-w-[240px] flex-1 text-sm text-slate-600">
+            Message
+            <textarea
+              name="body"
+              required
+              rows={2}
+              maxLength={600}
+              placeholder="Can anyone take 3 rooms + stairs in CH41 this Friday AM? Reply here if you can."
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-xl bg-primary-600 px-5 py-2 text-sm font-semibold text-white"
+          >
+            Send to all
+          </button>
+        </form>
+      </Card>
+
+      <Card title="Tell every cleaner something" className="mt-6">
+        <p className="mt-1 text-sm text-slate-500">
+          Texts every approved cleaner on the network, whatever area they
+          cover. For announcements — a change to the terms, a price change,
+          a shutdown over Christmas. Replies come back to each cleaner&apos;s
+          own thread below.
+        </p>
+        <form action={textAllCleanersAction} className="mt-3 space-y-3">
+          <label className="block text-sm text-slate-600">
+            Message
+            <textarea
+              name="body"
+              required
+              rows={4}
+              maxLength={600}
+              placeholder="Write it in full — this goes to everybody and there is no undo."
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex-none text-sm text-slate-600">
+              Type SEND to confirm
+              <input
+                name="confirm"
+                required
+                placeholder="SEND"
+                autoComplete="off"
+                className="mt-1 block w-28 rounded-xl border border-slate-300 px-3 py-2 text-sm uppercase"
+              />
+            </label>
+            <button
+              type="submit"
+              className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
+            >
+              Text everyone
+            </button>
+          </div>
+        </form>
+      </Card>
+      </div>
       </div>
     </main>
   );
