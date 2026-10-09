@@ -355,6 +355,12 @@ export default async function AdminJobPage({
                     >
                       Message thread
                     </Link>
+                    <Link
+                      href={`/admin/messages?job=${job.id}`}
+                      className="font-semibold text-primary-600 underline"
+                    >
+                      Full booking conversation
+                    </Link>
                   </p>
                 </>
               ) : job.cleaner_id ? (

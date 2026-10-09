@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import {
   getCleanerThread,
-  getCustomerThread,
+  getJobConversation,
   listCleanerActiveJobs,
   listCleanerActivity,
   listCleaners,
@@ -90,7 +90,7 @@ export default async function MessagesPage({
   const [thread, activeJobs] = await Promise.all([
     customerMode
       ? jobId
-        ? getCustomerThread(jobId)
+        ? getJobConversation(jobId)
         : Promise.resolve([])
       : selected
         ? getCleanerThread(selected.id)
@@ -232,7 +232,8 @@ export default async function MessagesPage({
                 >
                   {customer.ref}
                 </Link>{" "}
-                · {customer.slot_date} · {customer.status}
+                · {customer.slot_date} · {customer.status} · everything sent
+                about this booking, customer and cleaner, in one thread
               </p>
               <div className="mt-3 max-h-[420px] space-y-3 overflow-y-auto">
                 {thread.length === 0 && (
@@ -242,6 +243,11 @@ export default async function MessagesPage({
                 )}
                 {thread.map((m) => {
                   const inboundMsg = m.direction === "in";
+                  const conv = m as unknown as {
+                    party?: string;
+                    is_customer?: boolean;
+                  };
+                  const party = conv.party ?? "Customer";
                   return (
                     <div
                       key={m.id}
@@ -251,6 +257,13 @@ export default async function MessagesPage({
                           : "ml-auto bg-primary-600 text-white"
                       }`}
                     >
+                      <p
+                        className={`text-[11px] font-semibold uppercase tracking-wide ${
+                          inboundMsg ? "text-slate-500" : "text-primary-200"
+                        }`}
+                      >
+                        {inboundMsg ? `${party} replied` : `FFL → ${party}`}
+                      </p>
                       <p className="whitespace-pre-wrap">{m.body}</p>
                       <p
                         className={`mt-1 text-[11px] ${

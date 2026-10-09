@@ -3125,7 +3125,17 @@ export async function recordInboundSms(input: {
 
   // Not a cleaner? It may be a customer replying about their booking.
   const job = cleaner
-    ? null
+    ? // A cleaner's reply is almost always about the job they're holding:
+      // the next accepted slot, falling back to their most recent job.
+      await queryOne<{ id: number; ref: string; customer_name: string }>(
+        `SELECT id, ref, customer_name FROM jobs
+          WHERE cleaner_id = $1
+          ORDER BY (status = 'accepted') DESC,
+                   CASE WHEN status = 'accepted' THEN slot_date END ASC,
+                   created_at DESC
+          LIMIT 1`,
+        [cleaner.id]
+      )
     : await queryOne<{ id: number; ref: string; customer_name: string }>(
         `SELECT id, ref, customer_name FROM jobs
           WHERE regexp_replace(customer_phone, '[^0-9]', '', 'g') LIKE $1
@@ -3134,7 +3144,7 @@ export async function recordInboundSms(input: {
       );
 
   const subject = cleaner
-    ? `Reply from ${cleaner.name}`
+    ? `Reply from ${cleaner.name}${job ? ` (${job.ref})` : ""}`
     : job
       ? `Reply from ${job.customer_name} (${job.ref})`
       : "Reply from an unknown number";
@@ -3153,6 +3163,54 @@ export async function recordInboundSms(input: {
     jobId: job?.id ?? null,
     duplicate: row === null,
   };
+}
+
+/**
+ * Everything said about one booking, in one thread: messages tagged with
+ * the job plus anything to or from the customer's number, with cleaner
+ * traffic named. This is "the conversation under the booking reference".
+ */
+export async function getJobConversation(jobId: number): Promise<
+  {
+    id: number;
+    direction: string;
+    body: string;
+    created_at: string;
+    sent_at: string | null;
+    error: string | null;
+    party: string;
+    is_customer: boolean;
+  }[]
+> {
+  return query(
+    `WITH job AS (SELECT * FROM jobs WHERE id = $1)
+     SELECT n.id, n.direction, n.body,
+            n.created_at::text AS created_at,
+            n.sent_at::text AS sent_at, n.error,
+            CASE
+              WHEN right(regexp_replace(n.recipient, '[^0-9]', '', 'g'), 9)
+                 = right(regexp_replace(job.customer_phone, '[^0-9]', '', 'g'), 9)
+                THEN 'Customer'
+              ELSE COALESCE(c.name, n.recipient)
+            END AS party,
+            right(regexp_replace(n.recipient, '[^0-9]', '', 'g'), 9)
+              = right(regexp_replace(job.customer_phone, '[^0-9]', '', 'g'), 9)
+              AS is_customer
+       FROM notifications n
+      CROSS JOIN job
+       LEFT JOIN LATERAL (
+         SELECT c.name FROM cleaners c
+          WHERE right(regexp_replace(c.phone, '[^0-9]', '', 'g'), 9)
+              = right(regexp_replace(n.recipient, '[^0-9]', '', 'g'), 9)
+          LIMIT 1
+       ) c ON true
+      WHERE n.channel = 'sms'
+        AND (n.job_id = job.id
+             OR right(regexp_replace(n.recipient, '[^0-9]', '', 'g'), 9)
+              = right(regexp_replace(job.customer_phone, '[^0-9]', '', 'g'), 9))
+      ORDER BY n.created_at, n.id`,
+    [jobId]
+  );
 }
 
 /** One cleaner's full message history, oldest first. */
