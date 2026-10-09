@@ -51,5 +51,18 @@
       "path": "/api/cron/offers",
       "schedule": "0 10 * * *"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "freshforlesscarpetcleaning.co.uk"
+        }
+      ],
+      "destination": "https://www.freshforlesscarpetcleaning.co.uk/:path*",
+      "permanent": true
+    }
   ]
 }
