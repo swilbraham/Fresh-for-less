@@ -372,6 +372,22 @@ export default async function AdminCleanersPage({
                       · Applied {cleaner.created_at} · {cleaner.jobs_done} job
                       {cleaner.jobs_done === 1 ? "" : "s"} completed
                     </p>
+                    {(preferredByCleaner.get(cleaner.id) ?? []).length > 0 && (
+                      <p className="mt-2 text-xs">
+                        <span className="rounded-full bg-amber-100 px-2 py-1 font-semibold text-amber-900">
+                          First refusal:{" "}
+                          {(preferredByCleaner.get(cleaner.id) ?? []).length}{" "}
+                          district
+                          {(preferredByCleaner.get(cleaner.id) ?? []).length === 1
+                            ? ""
+                            : "s"}{" "}
+                          · {cleaner.first_refusal_hours || 2}h head start
+                        </span>
+                        <span className="mt-1 block break-words font-mono text-[11px] text-amber-800">
+                          {(preferredByCleaner.get(cleaner.id) ?? []).join(" ")}
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
