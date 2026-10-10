@@ -552,12 +552,21 @@ export default async function AdminCleanersPage({
                       One company per district — a clash is refused by name.
                       Leave empty for none.
                     </p>
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="useCoverage"
+                        className="h-4 w-4 rounded border-slate-300 accent-amber-600"
+                      />
+                      Everything they cover ({areas.length} district
+                      {areas.length === 1 ? "" : "s"}) — ignores the box below
+                    </label>
                     <textarea
                       id={`preferred-${cleaner.id}`}
                       name="preferredAreas"
                       rows={2}
                       defaultValue={(preferredByCleaner.get(cleaner.id) ?? []).join(", ")}
-                      placeholder="CH41 CH42 — leave empty for no first refusal"
+                      placeholder="CH41 CH42 — or tick the box above to use their coverage"
                       className="w-full rounded-xl border border-slate-300 px-4 py-2.5 uppercase tracking-wide"
                     />
                     <div className="flex flex-wrap items-end gap-3">

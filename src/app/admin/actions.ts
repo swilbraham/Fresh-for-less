@@ -41,6 +41,7 @@ import {
   deleteTrainingEnquiry,
   removeInvoiceLine,
   getInvoice,
+  getCleanerAreas,
   getJobByRef,
   holdJobForCleaner,
   offerJobToCleaners,
@@ -1044,11 +1045,23 @@ export async function setPreferredAreasAction(data: FormData) {
   await requireAdmin("/admin/cleaners");
   const cleanerId = Number(field(data, "id", 12));
   const hours = Number(field(data, "hours", 3)) || 2;
-  const raw = field(data, "preferredAreas", 4000);
 
-  const { codes, invalid } = parseOutwardList(raw);
-  if (invalid.length > 0) {
-    fail("/admin/cleaners", invalidCoverageMessage(invalid));
+  // Ticking "everything they cover" reads the patch straight from their
+  // registered coverage, so nothing has to be retyped (or kept in step when
+  // their coverage changes later — save again and it re-copies).
+  let codes: string[];
+  if (data.get("useCoverage") === "on") {
+    codes = await getCleanerAreas(cleanerId);
+    if (codes.length === 0) {
+      fail("/admin/cleaners", "They have no coverage set yet — add their postcode areas first.");
+    }
+  } else {
+    const raw = field(data, "preferredAreas", 4000);
+    const parsed = parseOutwardList(raw);
+    if (parsed.invalid.length > 0) {
+      fail("/admin/cleaners", invalidCoverageMessage(parsed.invalid));
+    }
+    codes = parsed.codes;
   }
 
   const result = await setPreferredAreas(cleanerId, codes, hours);
