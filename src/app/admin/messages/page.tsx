@@ -11,6 +11,8 @@ import {
   listInboundSmsResolved,
 } from "@/lib/marketplace/repo";
 import { Card } from "@/components/marketplace/shell";
+import AutoRefresh from "@/components/marketplace/AutoRefresh";
+import ScrollToEnd from "@/components/marketplace/ScrollToEnd";
 import {
   textAllCleanersAction,
   textAreaCleanersAction,
@@ -51,6 +53,7 @@ export default async function MessagesPage({
     error?: string;
     sent?: string;
     broadcast?: string;
+    q?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
@@ -60,6 +63,7 @@ export default async function MessagesPage({
     error,
     sent,
     broadcast,
+    q,
   } = await searchParams;
 
   const [cleaners, customers, inbound, activity] = await Promise.all([
@@ -76,6 +80,17 @@ export default async function MessagesPage({
     if (at !== bt) return at < bt ? 1 : -1;
     return a.name.localeCompare(b.name);
   });
+
+  // Sidebar search: by the time there are forty cleaners, scrolling for a
+  // name is slower than typing three letters of it.
+  const term = (q ?? "").trim().toLowerCase();
+  const sidebarCleaners = term
+    ? byActivity.filter((c) =>
+        [c.name, c.business_name, c.phone]
+          .filter(Boolean)
+          .some((v) => v.toLowerCase().includes(term))
+      )
+    : byActivity;
 
   // A ?job= in the URL means a customer thread; otherwise show cleaners.
   const customerMode = Boolean(jobParam);
@@ -108,6 +123,7 @@ export default async function MessagesPage({
         Text a cleaner directly. Their replies come back to the same thread and
         you get a text when one arrives.
       </p>
+      <AutoRefresh label="Checking for new replies automatically" />
 
       {error && (
         <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -155,18 +171,32 @@ export default async function MessagesPage({
           </div>
 
           <Card title={customerMode ? "Recent customers" : "Cleaners"}>
-            <ul className="mt-2 divide-y divide-slate-100 text-sm">
+            {!customerMode && (
+              <form method="GET" className="mt-2">
+                {selectedId > 0 && (
+                  <input type="hidden" name="cleaner" value={selectedId} />
+                )}
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={q ?? ""}
+                  placeholder="Find a cleaner…"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-sm"
+                />
+              </form>
+            )}
+            <ul className="mt-2 max-h-[480px] divide-y divide-slate-100 overflow-y-auto text-sm">
               {!customerMode &&
-                byActivity.map((c) => {
+                sidebarCleaners.map((c) => {
                   const act = activity.get(c.id);
                   return (
                     <li key={c.id}>
                       <Link
-                        href={`/admin/messages?cleaner=${c.id}`}
-                        className={`block px-1 py-2 ${
+                        href={`/admin/messages?cleaner=${c.id}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+                        className={`block rounded-lg px-2 py-2 ${
                           c.id === selectedId
-                            ? "font-semibold text-primary-700"
-                            : "text-slate-600 hover:text-slate-900"
+                            ? "bg-primary-50 font-semibold text-primary-700"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                         }`}
                       >
                         <span className="flex items-center justify-between gap-2">
@@ -188,6 +218,11 @@ export default async function MessagesPage({
                 })}
               {!customerMode && cleaners.length === 0 && (
                 <li className="py-2 text-slate-500">No approved cleaners yet.</li>
+              )}
+              {!customerMode && cleaners.length > 0 && sidebarCleaners.length === 0 && (
+                <li className="py-2 text-slate-500">
+                  Nobody matches &ldquo;{q}&rdquo;.
+                </li>
               )}
 
               {customerMode &&
@@ -277,6 +312,7 @@ export default async function MessagesPage({
                     </div>
                   );
                 })}
+                <ScrollToEnd watch={`job-${jobId}-${thread.length}`} />
               </div>
 
               <form action={textCustomerAction} className="mt-4 flex gap-2">
@@ -348,6 +384,7 @@ export default async function MessagesPage({
                     </div>
                   );
                 })}
+                <ScrollToEnd watch={`cleaner-${selectedId}-${thread.length}`} />
               </div>
 
               <form action={textCleanerAction} className="mt-4 flex gap-2">
@@ -446,12 +483,15 @@ export default async function MessagesPage({
         </div>
         </div>
 
-      <div className="mt-8 space-y-6">
-      <Card title="Ask everyone covering an area" className="mt-6">
-        <p className="mt-1 text-sm text-slate-500">
+      <div className="mt-8 space-y-4">
+      <details className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <summary className="cursor-pointer text-sm font-semibold text-primary-700">
+          Ask everyone covering an area
+        </summary>
+        <p className="mt-2 text-sm text-slate-500">
           Texts every approved cleaner covering the area(s) at once — handy for
           &ldquo;can anyone do 3 rooms in CH41 on Friday?&rdquo; before booking
-          a job in. Replies come back to each cleaner&apos;s own thread below.
+          a job in. Replies come back to each cleaner&apos;s own thread above.
         </p>
         <form
           action={textAreaCleanersAction}
@@ -484,14 +524,17 @@ export default async function MessagesPage({
             Send to all
           </button>
         </form>
-      </Card>
+      </details>
 
-      <Card title="Tell every cleaner something" className="mt-6">
-        <p className="mt-1 text-sm text-slate-500">
+      <details className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <summary className="cursor-pointer text-sm font-semibold text-primary-700">
+          Tell every cleaner something
+        </summary>
+        <p className="mt-2 text-sm text-slate-500">
           Texts every approved cleaner on the network, whatever area they
           cover. For announcements — a change to the terms, a price change,
           a shutdown over Christmas. Replies come back to each cleaner&apos;s
-          own thread below.
+          own thread above.
         </p>
         <form action={textAllCleanersAction} className="mt-3 space-y-3">
           <label className="block text-sm text-slate-600">
@@ -524,7 +567,7 @@ export default async function MessagesPage({
             </button>
           </div>
         </form>
-      </Card>
+      </details>
       </div>
       </div>
     </main>

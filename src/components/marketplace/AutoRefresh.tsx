@@ -11,7 +11,13 @@ import { useRouter } from "next/navigation";
  * actually visible — a phone in a pocket shouldn't poll — and immediately when
  * they come back to it.
  */
-export default function AutoRefresh({ seconds = 30 }: { seconds?: number }) {
+export default function AutoRefresh({
+  seconds = 30,
+  label = "Checking for new jobs automatically",
+}: {
+  seconds?: number;
+  label?: string;
+}) {
   const router = useRouter();
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
 
@@ -36,7 +42,7 @@ export default function AutoRefresh({ seconds = 30 }: { seconds?: number }) {
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-400 opacity-75" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-500" />
       </span>
-      Checking for new jobs automatically
+      {label}
       {refreshedAt && (
         <span suppressHydrationWarning>
           {" "}
