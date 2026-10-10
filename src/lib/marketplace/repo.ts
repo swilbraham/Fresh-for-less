@@ -45,6 +45,9 @@ const JOB_COLUMNS = `
   j.cancelled_by, j.late_cancellation, j.rescheduled_count,
   j.completion_assumed, j.customer_confirmed, j.cleaner_dispute_reason,
   j.source, j.discount_pence,
+  j.held_for_cleaner_id,
+  to_char(j.held_until AT TIME ZONE 'Europe/London', 'YYYY-MM-DD HH24:MI') AS held_until,
+  (j.held_for_cleaner_id IS NOT NULL AND j.held_until > now()) AS hold_active,
   to_char(j.cleaner_disputed_at, 'YYYY-MM-DD HH24:MI') AS cleaner_disputed_at,
   to_char(j.created_at,   'YYYY-MM-DD HH24:MI') AS created_at,
   to_char(j.accepted_at,  'YYYY-MM-DD HH24:MI') AS accepted_at,
@@ -1631,11 +1634,17 @@ export async function acceptJob(
     [jobId, cleanerId]
   );
 
+  // A live hold means only the held cleaner can win the race; the time
+  // condition keeps this self-expiring, with no job to run.
   const won = await query<{ id: number }>(
     `UPDATE jobs
-        SET status = 'accepted', cleaner_id = $2, accepted_at = now()
+        SET status = 'accepted', cleaner_id = $2, accepted_at = now(),
+            held_for_cleaner_id = NULL, held_until = NULL
       WHERE id = $1 AND cleaner_id IS NULL
         AND status IN ('offered', 'unfilled', 'provisional')
+        AND (held_for_cleaner_id IS NULL
+             OR held_until <= now()
+             OR held_for_cleaner_id = $2)
       RETURNING id`,
     [jobId, cleanerId]
   );
@@ -1652,6 +1661,12 @@ export async function acceptJob(
     }
     if (current?.status === "cancelled") {
       return { ok: false, reason: "That booking has been cancelled." };
+    }
+    if (current?.hold_active && current.held_for_cleaner_id !== cleanerId) {
+      return {
+        ok: false,
+        reason: `This job is reserved for another company until ${current.held_until} — it opens to everyone after that.`,
+      };
     }
     return { ok: false, reason: "Another cleaner accepted this job first." };
   }
@@ -1934,7 +1949,8 @@ export async function assignJob(
 
   await query(
     `UPDATE jobs
-        SET status = 'accepted', cleaner_id = $2, accepted_at = now()
+        SET status = 'accepted', cleaner_id = $2, accepted_at = now(),
+            held_for_cleaner_id = NULL, held_until = NULL
       WHERE id = $1`,
     [jobId, cleanerId]
   );
@@ -2177,7 +2193,8 @@ export async function rebroadcastJob(jobId: number): Promise<number> {
     `UPDATE jobs
         SET status = 'offered', cleaner_id = NULL, accepted_at = NULL,
             cancelled_at = NULL, cancel_reason = '', cancelled_by = '',
-            late_cancellation = false
+            late_cancellation = false,
+            held_for_cleaner_id = NULL, held_until = NULL
       WHERE id = $1`,
     [jobId]
   );
@@ -5297,12 +5314,15 @@ export async function setCleanerPaused(
  * Provisional jobs are included — those are the ones with nobody at all.
  */
 export async function listOpenJobs(): Promise<Job[]> {
+  // A job held for one cleaner stays off everyone's board until the hold
+  // lapses; the held cleaner sees it in their own offers list instead.
   return query<Job>(
     `SELECT ${JOB_COLUMNS}
        FROM jobs j
       WHERE j.cleaner_id IS NULL
         AND j.status IN ('offered', 'unfilled', 'provisional')
         AND j.slot_date >= CURRENT_DATE
+        AND (j.held_for_cleaner_id IS NULL OR j.held_until <= now())
       ORDER BY j.slot_date, j.slot_window
       LIMIT 50`
   );
@@ -5446,6 +5466,102 @@ export async function offerJobToCleaners(
   }
 
   return { sent, skipped };
+}
+
+/**
+ * First refusal: hold a job for one cleaner until a deadline. While the hold
+ * is live the job is off the open board and nobody else can accept it; the
+ * cleaner is texted that it's theirs alone until then. The hold lapses by
+ * time, so acceptance opens up the second it expires even if nothing runs —
+ * the daily cron then re-broadcasts anything that lapsed untaken.
+ */
+export async function holdJobForCleaner(
+  jobId: number,
+  cleanerId: number,
+  hours: number
+): Promise<{ ok: boolean; reason?: string; until?: string }> {
+  const job = await getJob(jobId);
+  if (!job) return { ok: false, reason: "Job not found." };
+  if (job.cleaner_id || !["provisional", "unfilled", "offered"].includes(job.status)) {
+    return { ok: false, reason: "Only an unassigned job can be held." };
+  }
+  const cleaner = await getCleaner(cleanerId);
+  if (!cleaner || cleaner.status !== "approved") {
+    return { ok: false, reason: "Pick an approved cleaner to hold it for." };
+  }
+  if (cleaner.paused_at) {
+    return { ok: false, reason: `${cleaner.name} is paused — unpause them first.` };
+  }
+
+  const window = Math.max(1, Math.min(72, Math.round(hours)));
+  const updated = await query<{ held_until: string }>(
+    `UPDATE jobs
+        SET held_for_cleaner_id = $2,
+            held_until = now() + ($3 || ' hours')::interval,
+            status = CASE WHEN status IN ('provisional','unfilled') THEN 'offered' ELSE status END
+      WHERE id = $1 AND cleaner_id IS NULL
+      RETURNING to_char(held_until AT TIME ZONE 'Europe/London', 'HH24:MI on DD Mon') AS held_until`,
+    [jobId, cleanerId, String(window)]
+  );
+  if (updated.length === 0) return { ok: false, reason: "That job has just been taken." };
+  const until = updated[0].held_until;
+
+  await query(
+    `INSERT INTO job_offers (job_id, cleaner_id) VALUES ($1,$2)
+     ON CONFLICT (job_id, cleaner_id) DO NOTHING`,
+    [jobId, cleanerId]
+  );
+
+  const items = job.items.map((line) => `${line.qty}x ${line.label}`).join(", ");
+  const youKeep = gbpShort(job.total_pence - job.commission_pence);
+  await notifyCleaner(cleaner, {
+    jobId,
+    subject: `First refusal — ${job.outward} on ${job.slot_date}, yours until ${until}`,
+    body:
+      `${firstName(cleaner.name)}, this job is held for you alone until ${until} ` +
+      `— nobody else can take it before then.\n\n` +
+      `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
+      `Job: ${items}\n` +
+      `Job value: ${gbpShort(job.total_pence)}\n` +
+      `Commission: ${gbpShort(job.commission_pence)} — you keep ${youKeep}\n\n` +
+      `Accept it on your dashboard: ${siteUrl()}/pro/dashboard\n` +
+      `After ${until} it goes out to everyone.`,
+    smsBody:
+      `Fresh For Less: first refusal on ${job.outward}, ${job.slot_date} ` +
+      `${job.slot_window.toUpperCase()}, ${gbpShort(job.total_pence)} (you keep ${youKeep}). ` +
+      `Yours alone until ${until}: ${siteUrl()}/pro/dashboard`,
+  });
+
+  return { ok: true, until };
+}
+
+/** Take the hold off a job early. Quiet — nobody is texted. */
+export async function releaseHold(jobId: number): Promise<void> {
+  await query(
+    `UPDATE jobs SET held_for_cleaner_id = NULL, held_until = NULL WHERE id = $1`,
+    [jobId]
+  );
+}
+
+/**
+ * Holds that lapsed with the job still untaken: clear them and put the job
+ * out to everyone covering it. Runs from the daily cron; acceptance was
+ * already open to all from the moment each hold expired.
+ */
+export async function releaseExpiredHolds(): Promise<number> {
+  const lapsed = await query<{ id: number; outward: string; slot_date: string; slot_window: SlotWindow }>(
+    `UPDATE jobs
+        SET held_for_cleaner_id = NULL, held_until = NULL
+      WHERE cleaner_id IS NULL
+        AND held_for_cleaner_id IS NOT NULL
+        AND held_until <= now()
+        AND status IN ('offered', 'unfilled')
+      RETURNING id, outward, to_char(slot_date, 'YYYY-MM-DD') AS slot_date, slot_window`
+  );
+  for (const job of lapsed) {
+    await broadcastJob(job.id, job.outward, job.slot_date, job.slot_window);
+  }
+  return lapsed.length;
 }
 
 

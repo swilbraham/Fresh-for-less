@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   claimJobsForCompletionNudge,
+  releaseExpiredHolds,
   claimJobsForReminder,
   claimJobsForWeekReminder,
   sendCompletionNudge,
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
   let reminded = 0;
   let weekAhead = 0;
   let completionNudges = 0;
+  let lapsedHolds = 0;
   try {
     for (const job of await claimJobsForReminder()) {
       await sendBookingReminder(job);
@@ -61,6 +63,8 @@ export async function GET(request: Request) {
       await sendCompletionNudge(job);
       completionNudges += 1;
     }
+    // First-refusal holds that lapsed untaken: broadcast to everyone covering.
+    lapsedHolds = await releaseExpiredHolds();
   } catch (error) {
     // A reminder failing must not cost the office its unfilled warning.
     console.error("reminders failed", error);
@@ -73,6 +77,7 @@ export async function GET(request: Request) {
       reminded,
       weekAhead,
       completionNudges,
+      lapsedHolds,
       jobs: 0,
     });
   }
@@ -104,6 +109,7 @@ export async function GET(request: Request) {
     reminded,
     weekAhead,
     completionNudges,
+    lapsedHolds,
     jobs: jobs.length,
     refs: jobs.map((j) => j.ref),
   });

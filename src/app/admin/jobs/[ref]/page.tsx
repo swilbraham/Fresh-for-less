@@ -31,7 +31,9 @@ import {
   rescheduleJobAction,
   updateJobDetailsAction,
   reassignJobAction,
+  holdJobAction,
   offerJobToCleanersAction,
+  releaseHoldAction,
   rebroadcastJobAction,
   transferJobAction,
   requestReferralsAction,
@@ -109,6 +111,10 @@ export default async function AdminJobPage({
   const assignedCleaner = job.cleaner_id
     ? cleaners.find((c) => c.id === job.cleaner_id) ??
       (await getCleaner(job.cleaner_id))
+    : null;
+  const heldFor = job.held_for_cleaner_id
+    ? cleaners.find((c) => c.id === job.held_for_cleaner_id) ??
+      (await getCleaner(job.held_for_cleaner_id))
     : null;
   // Top of the distance ranking for the panels; the full list annotates the
   // transfer dropdown. The assigned cleaner is never their own alternative.
@@ -391,6 +397,77 @@ export default async function AdminJobPage({
                     </button>
                   </form>
                 </div>
+              )}
+
+              {unassigned && job.hold_active && (
+                <div className="mt-3 rounded-xl bg-amber-50 px-3 py-3 text-sm text-amber-900">
+                  <p>
+                    <strong>
+                      Held for {heldFor?.business_name || heldFor?.name || "one cleaner"}
+                    </strong>{" "}
+                    until {job.held_until}. Off the open board — only they can
+                    accept until then; after that anyone can, and tomorrow&apos;s
+                    run re-broadcasts it if still untaken.
+                  </p>
+                  <form action={releaseHoldAction} className="mt-3">
+                    <input type="hidden" name="ref" value={job.ref} />
+                    <button
+                      type="submit"
+                      className="rounded-xl border border-amber-400 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+                    >
+                      Release the hold now (tells nobody)
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {unassigned && !job.hold_active && cleaners.length > 0 && (
+                <form
+                  action={holdJobAction}
+                  className="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4"
+                >
+                  <input type="hidden" name="ref" value={job.ref} />
+                  <label className="text-xs font-semibold text-slate-600">
+                    First refusal for
+                    <select
+                      name="cleanerId"
+                      defaultValue=""
+                      className="mt-1 block rounded-xl border border-slate-300 px-3 py-2 text-sm font-normal"
+                    >
+                      <option value="">Pick a company…</option>
+                      {cleaners.map((cleaner) => (
+                        <option key={cleaner.id} value={cleaner.id}>
+                          {cleaner.business_name || cleaner.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-xs font-semibold text-slate-600">
+                    For
+                    <select
+                      name="hours"
+                      defaultValue="4"
+                      className="mt-1 block rounded-xl border border-slate-300 px-3 py-2 text-sm font-normal"
+                    >
+                      <option value="2">2 hours</option>
+                      <option value="4">4 hours</option>
+                      <option value="8">8 hours</option>
+                      <option value="24">24 hours</option>
+                      <option value="48">48 hours</option>
+                    </select>
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+                  >
+                    Hold &amp; text them
+                  </button>
+                  <p className="w-full text-xs text-slate-500">
+                    Theirs alone until the deadline — hidden from everyone
+                    else&apos;s board and nobody else can accept it. Lapses on
+                    its own if they don&apos;t take it.
+                  </p>
+                </form>
               )}
 
               {unassigned && closest.length > 0 && (

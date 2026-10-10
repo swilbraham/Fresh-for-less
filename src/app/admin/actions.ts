@@ -42,7 +42,9 @@ import {
   removeInvoiceLine,
   getInvoice,
   getJobByRef,
+  holdJobForCleaner,
   offerJobToCleaners,
+  releaseHold,
   transferJob,
   requestReferrals,
   notifyInvoiceRaised,
@@ -1029,6 +1031,52 @@ export async function transferJobAction(data: FormData) {
   redirect(
     `${back}?transferred=${encodeURIComponent(
       `Moved${result.from ? ` from ${result.from}` : ""}. Only the new cleaner was told — the customer and the previous cleaner are yours to message.`
+    )}`
+  );
+}
+
+/** Hold a job for one company until a deadline — first refusal, enforced. */
+export async function holdJobAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const back = `/admin/jobs/${ref}`;
+  const cleanerId = Number(field(data, "cleanerId", 12));
+  const hours = Number(field(data, "hours", 3)) || 4;
+
+  if (!cleanerId) {
+    redirect(`${back}?error=${encodeURIComponent("Pick a cleaner to hold it for.")}`);
+  }
+  const job = await getJobByRef(ref.toUpperCase());
+  if (!job) {
+    redirect(`${back}?error=${encodeURIComponent("That job no longer exists.")}`);
+  }
+
+  const result = await holdJobForCleaner(job!.id, cleanerId, hours);
+  revalidatePath(back);
+  if (!result.ok) {
+    redirect(`${back}?error=${encodeURIComponent(result.reason ?? "Couldn't hold that job.")}`);
+  }
+  redirect(
+    `${back}?offered=${encodeURIComponent(
+      `Held — they've been texted that it's theirs alone until ${result.until}. After that it opens to everyone, and tomorrow's run re-broadcasts it if still untaken.`
+    )}`
+  );
+}
+
+/** Take a hold off early so everyone can accept again. Tells nobody. */
+export async function releaseHoldAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const back = `/admin/jobs/${ref}`;
+  const job = await getJobByRef(ref.toUpperCase());
+  if (!job) {
+    redirect(`${back}?error=${encodeURIComponent("That job no longer exists.")}`);
+  }
+  await releaseHold(job!.id);
+  revalidatePath(back);
+  redirect(
+    `${back}?offered=${encodeURIComponent(
+      "Hold released — anyone can accept it again. Re-broadcast if you want the others texted now."
     )}`
   );
 }

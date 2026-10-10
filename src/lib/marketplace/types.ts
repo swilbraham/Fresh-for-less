@@ -140,6 +140,10 @@ export type Job = {
   source: string;
   /** Taken off the list price by a discount code; 0 for most jobs. */
   discount_pence: number;
+  /** First refusal: while hold_active, only this cleaner can accept. */
+  held_for_cleaner_id: number | null;
+  held_until: string | null;
+  hold_active: boolean;
 };
 
 /** A priced basket, whether or not it turned into a booking. */
