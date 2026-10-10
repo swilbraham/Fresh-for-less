@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 51;
+export const SCHEMA_VERSION = 52;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -538,6 +538,15 @@ export const STATEMENTS: string[] = [
   // run for it to expire; the daily cron re-broadcasts lapsed ones.
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS held_for_cleaner_id int REFERENCES cleaners(id) ON DELETE SET NULL`,
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS held_until timestamptz`,
+
+  // Automatic first refusal: areas where one company gets every new booking
+  // held for them before anyone else hears about it. One preferred company
+  // per district, enforced here rather than in code.
+  `ALTER TABLE cleaner_areas ADD COLUMN IF NOT EXISTS preferred boolean NOT NULL DEFAULT false`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS cleaner_areas_one_preferred
+     ON cleaner_areas (outward) WHERE preferred`,
+  // How long their head start lasts, per company.
+  `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS first_refusal_hours int NOT NULL DEFAULT 2`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------

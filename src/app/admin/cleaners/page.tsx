@@ -7,11 +7,13 @@ import {
   DROP_REVIEW_LIMIT,
   getAllCleanerAreas,
   getAvailability,
+  getPreferredAreas,
   listCleaners,
 } from "@/lib/marketplace/repo";
 import {
   createCleanerAction,
   issueResetLinkAction,
+  setPreferredAreasAction,
   setCleanerPausedAction,
   setCleanerStatusAction,
   updateCleanerAction,
@@ -114,6 +116,14 @@ export default async function AdminCleanersPage({
       cleaners.map(
         async (cleaner) =>
           [cleaner.id, await getAvailability(cleaner.id)] as const
+      )
+    )
+  );
+  const preferredByCleaner = new Map(
+    await Promise.all(
+      cleaners.map(
+        async (cleaner) =>
+          [cleaner.id, await getPreferredAreas(cleaner.id)] as const
       )
     )
   );
@@ -523,6 +533,55 @@ export default async function AdminCleanersPage({
                     >
                       Save coverage &amp; availability
                     </button>
+                  </form>
+
+                  <form
+                    action={setPreferredAreasAction}
+                    className="mt-6 space-y-3 border-t border-slate-100 pt-6"
+                  >
+                    <input type="hidden" name="id" value={cleaner.id} />
+                    <label
+                      htmlFor={`preferred-${cleaner.id}`}
+                      className="block text-sm font-semibold text-slate-700"
+                    >
+                      First refusal patch
+                    </label>
+                    <p className="-mt-1 text-xs text-slate-500">
+                      Every new online booking in these districts is held for
+                      this company alone before anyone else hears about it.
+                      One company per district — a clash is refused by name.
+                      Leave empty for none.
+                    </p>
+                    <textarea
+                      id={`preferred-${cleaner.id}`}
+                      name="preferredAreas"
+                      rows={2}
+                      defaultValue={(preferredByCleaner.get(cleaner.id) ?? []).join(", ")}
+                      placeholder="CH41 CH42 — leave empty for no first refusal"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-2.5 uppercase tracking-wide"
+                    />
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="text-xs font-semibold text-slate-600">
+                        Head start
+                        <select
+                          name="hours"
+                          defaultValue={String(cleaner.first_refusal_hours || 2)}
+                          className="mt-1 block rounded-xl border border-slate-300 px-3 py-2 text-sm font-normal"
+                        >
+                          <option value="1">1 hour</option>
+                          <option value="2">2 hours</option>
+                          <option value="4">4 hours</option>
+                          <option value="8">8 hours</option>
+                          <option value="24">24 hours</option>
+                        </select>
+                      </label>
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-amber-600 px-5 py-2.5 font-semibold text-white transition hover:bg-amber-700"
+                      >
+                        Save first refusal
+                      </button>
+                    </div>
                   </form>
 
                   <form

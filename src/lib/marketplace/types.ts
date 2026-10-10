@@ -93,6 +93,8 @@ export type Cleaner = {
   /** Set while the cleaner is paused: no offers, no texts. */
   paused_at: string | null;
   notify_email: boolean;
+  /** Head start on bookings in their preferred districts, in hours. */
+  first_refusal_hours: number;
   created_at: string;
   reviewed_at: string | null;
 };

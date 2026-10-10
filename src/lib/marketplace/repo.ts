@@ -87,6 +87,7 @@ const CLEANER_COLUMNS = `
   c.years_experience, c.equipment, c.dbs_checked, c.admin_notes,
   c.vat_registered, c.vat_number,
   c.notify_sms, c.notify_email,
+  c.first_refusal_hours,
   to_char(c.paused_at, 'YYYY-MM-DD HH24:MI') AS paused_at,
   to_char(c.created_at,  'YYYY-MM-DD HH24:MI') AS created_at,
   to_char(c.reviewed_at, 'YYYY-MM-DD HH24:MI') AS reviewed_at
@@ -659,10 +660,34 @@ export async function createBooking(
   }
   if (!job) throw new Error("Could not create the booking. Please try again.");
 
-  const offered =
-    covered && !input.skipBroadcast
-      ? await broadcastJob(job.id, outward, input.slotDate, input.slotWindow)
-      : 0;
+  // Automatic first refusal: if one company is preferred for this district
+  // and is actually free that slot, the job is held for them alone instead
+  // of being broadcast — everyone else hears about it only if the hold
+  // lapses. Unavailable or paused, and it broadcasts as normal.
+  let offered = 0;
+  let heldFirstRefusal: { name: string; until: string } | null = null;
+  if (covered && !input.skipBroadcast) {
+    const preferred = await getPreferredCleanerFor(outward);
+    const free =
+      preferred &&
+      (
+        await findMatchingCleaners(outward, input.slotDate, input.slotWindow)
+      ).some((c) => c.id === preferred.id);
+    if (preferred && free) {
+      const hold = await holdJobForCleaner(
+        job.id,
+        preferred.id,
+        preferred.first_refusal_hours
+      );
+      if (hold.ok) {
+        offered = 1;
+        heldFirstRefusal = { name: preferred.name, until: hold.until! };
+      }
+    }
+    if (!heldFirstRefusal) {
+      offered = await broadcastJob(job.id, outward, input.slotDate, input.slotWindow);
+    }
+  }
   // Before any notification goes out: every message below quotes a price, and
   // they all have to quote the discounted one.
   if (input.discountCode) {
@@ -695,7 +720,9 @@ export async function createBooking(
         `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
         `${input.skipBroadcast
           ? "Going straight to the cleaner you picked."
-          : `Offered to ${offered} cleaner${offered === 1 ? "" : "s"}.`}`
+          : heldFirstRefusal
+            ? `First refusal: held for ${heldFirstRefusal.name} until ${heldFirstRefusal.until}.`
+            : `Offered to ${offered} cleaner${offered === 1 ? "" : "s"}.`}`
       : `NEW REQUEST ${saved.ref}: ${saved.postcode}, ${saved.slot_date} ` +
         `${saved.slot_window.toUpperCase()}, ${gbpShort(saved.total_pence)}. ` +
         `NO COVER — promised confirmation within 24h.`,
@@ -5533,6 +5560,87 @@ export async function holdJobForCleaner(
   });
 
   return { ok: true, until };
+}
+
+/** The company with automatic first refusal in an area, if fit to take work. */
+export async function getPreferredCleanerFor(
+  outward: string
+): Promise<{ id: number; name: string; first_refusal_hours: number } | null> {
+  return queryOne<{ id: number; name: string; first_refusal_hours: number }>(
+    `SELECT c.id, c.name, c.first_refusal_hours
+       FROM cleaner_areas a
+       JOIN cleaners c ON c.id = a.cleaner_id
+      WHERE a.outward = $1 AND a.preferred
+        AND c.status = 'approved' AND c.paused_at IS NULL`,
+    [outward]
+  );
+}
+
+/**
+ * Mark the districts where this company gets automatic first refusal, and
+ * how long their head start lasts. One preferred company per district — a
+ * clash is refused by name so the office resolves it deliberately rather
+ * than one cleaner silently stealing another's patch.
+ */
+export async function setPreferredAreas(
+  cleanerId: number,
+  outwards: string[],
+  hours: number
+): Promise<{ ok: boolean; reason?: string }> {
+  if (outwards.length > 0) {
+    const clashes = await query<{ outward: string; name: string }>(
+      `SELECT a.outward, c.name
+         FROM cleaner_areas a JOIN cleaners c ON c.id = a.cleaner_id
+        WHERE a.preferred AND a.cleaner_id <> $1 AND a.outward = ANY($2::text[])
+        ORDER BY a.outward`,
+      [cleanerId, outwards]
+    );
+    if (clashes.length > 0) {
+      const listed = clashes
+        .slice(0, 5)
+        .map((c) => `${c.outward} (${c.name})`)
+        .join(", ");
+      return {
+        ok: false,
+        reason: `Already someone's patch: ${listed}${clashes.length > 5 ? ` and ${clashes.length - 5} more` : ""}. Take it off them first.`,
+      };
+    }
+  }
+
+  await query(
+    `UPDATE cleaner_areas SET preferred = false WHERE cleaner_id = $1`,
+    [cleanerId]
+  );
+  for (const outward of outwards) {
+    // Preferred implies covered — add the district if they don't claim it yet.
+    await query(
+      `INSERT INTO cleaner_areas (cleaner_id, outward) VALUES ($1,$2)
+       ON CONFLICT (cleaner_id, outward) DO NOTHING`,
+      [cleanerId, outward]
+    );
+  }
+  if (outwards.length > 0) {
+    await query(
+      `UPDATE cleaner_areas SET preferred = true
+        WHERE cleaner_id = $1 AND outward = ANY($2::text[])`,
+      [cleanerId, outwards]
+    );
+  }
+  await query(
+    `UPDATE cleaners SET first_refusal_hours = $2 WHERE id = $1`,
+    [cleanerId, Math.max(1, Math.min(72, Math.round(hours)))]
+  );
+  return { ok: true };
+}
+
+/** A cleaner's districts with automatic first refusal, for their card. */
+export async function getPreferredAreas(cleanerId: number): Promise<string[]> {
+  const rows = await query<{ outward: string }>(
+    `SELECT outward FROM cleaner_areas
+      WHERE cleaner_id = $1 AND preferred ORDER BY outward`,
+    [cleanerId]
+  );
+  return rows.map((r) => r.outward);
 }
 
 /** Take the hold off a job early. Quiet — nobody is texted. */

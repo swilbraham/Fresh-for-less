@@ -45,6 +45,7 @@ import {
   holdJobForCleaner,
   offerJobToCleaners,
   releaseHold,
+  setPreferredAreas,
   transferJob,
   requestReferrals,
   notifyInvoiceRaised,
@@ -1033,6 +1034,29 @@ export async function transferJobAction(data: FormData) {
       `Moved${result.from ? ` from ${result.from}` : ""}. Only the new cleaner was told — the customer and the previous cleaner are yours to message.`
     )}`
   );
+}
+
+/**
+ * Set the districts where a company gets automatic first refusal on every
+ * new booking, and how long their head start lasts.
+ */
+export async function setPreferredAreasAction(data: FormData) {
+  await requireAdmin("/admin/cleaners");
+  const cleanerId = Number(field(data, "id", 12));
+  const hours = Number(field(data, "hours", 3)) || 2;
+  const raw = field(data, "preferredAreas", 4000);
+
+  const { codes, invalid } = parseOutwardList(raw);
+  if (invalid.length > 0) {
+    fail("/admin/cleaners", invalidCoverageMessage(invalid));
+  }
+
+  const result = await setPreferredAreas(cleanerId, codes, hours);
+  revalidatePath("/admin/cleaners");
+  if (!result.ok) {
+    fail("/admin/cleaners", result.reason ?? "Couldn't save that.");
+  }
+  redirect("/admin/cleaners?saved=1");
 }
 
 /** Hold a job for one company until a deadline — first refusal, enforced. */
