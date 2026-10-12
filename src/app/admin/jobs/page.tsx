@@ -136,12 +136,20 @@ export default async function AdminJobsPage({
 
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-slate-900">Jobs</h1>
-          <Link
-            href="/admin/jobs/new"
-            className="rounded-xl bg-accent-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-700"
-          >
-            + Book a job by phone
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/jobs/post"
+              className="rounded-xl border border-primary-300 px-4 py-2 text-sm font-semibold text-primary-700 transition hover:bg-primary-50"
+            >
+              Post unfilled jobs
+            </Link>
+            <Link
+              href="/admin/jobs/new"
+              className="rounded-xl bg-accent-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-700"
+            >
+              + Book a job by phone
+            </Link>
+          </div>
         </div>
 
         {/* Status tabs */}
