@@ -85,12 +85,12 @@ export default function Navbar({ onQuoteClick }: { onQuoteClick: () => void }) {
               </svg>
               0330 043 4811
             </a>
-            <button
-              onClick={onQuoteClick}
+            <a
+              href="/book"
               className="ml-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-primary-600/40 active:scale-[0.98]"
             >
               Get a Free Quote
-            </button>
+            </a>
           </div>
 
           {/* Mobile Toggle */}
@@ -142,15 +142,13 @@ export default function Navbar({ onQuoteClick }: { onQuoteClick: () => void }) {
                 </svg>
                 Call 0330 043 4811
               </a>
-              <button
-                onClick={() => {
-                  setMobileOpen(false);
-                  onQuoteClick();
-                }}
-                className="mt-2 w-full rounded-lg bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary-600/25"
+              <a
+                href="/book"
+                onClick={() => setMobileOpen(false)}
+                className="mt-2 block w-full rounded-lg bg-primary-600 px-5 py-3 text-center text-sm font-semibold text-white shadow-lg shadow-primary-600/25"
               >
                 Get a Free Quote
-              </button>
+              </a>
             </div>
           </motion.div>
         )}
