@@ -113,11 +113,16 @@ export default function ExitOffer({
 
   if (!open || !offer) return null;
 
-  const until = new Date(offer.expiresAt).toLocaleString("en-GB", {
-    weekday: "long",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  // A deadline that fails to parse must degrade to words, never to
+  // "Valid until Invalid Date" in front of a customer.
+  const expires = new Date(offer.expiresAt);
+  const until = Number.isNaN(expires.getTime())
+    ? "this time tomorrow"
+    : expires.toLocaleString("en-GB", {
+        weekday: "long",
+        hour: "numeric",
+        minute: "2-digit",
+      });
 
   return (
     <div

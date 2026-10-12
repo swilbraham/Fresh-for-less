@@ -667,29 +667,30 @@ export default function BookingFlow({
           )}
 
           {quote.total_pence > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+            <div className="rounded-2xl bg-slate-900 px-5 py-5 text-sm text-slate-300 shadow-lg">
               {leadStatus === "sent" ? (
-                <p className="font-semibold text-accent-800">
-                  Sent — check your messages. Your price is saved, and there&apos;s
-                  nothing to pay until the job is done.
+                <p className="text-base font-semibold text-accent-400">
+                  ✓ Sent — check your messages. Your price is saved, and
+                  there&apos;s nothing to pay until the job is done.
                 </p>
               ) : (
                 <>
-                  <p>
-                    <strong className="text-slate-900">
-                      Want to think it over?
-                    </strong>{" "}
-                    We&apos;ll text you this price so you don&apos;t lose it — no
-                    spam, no calls out of the blue.
+                  <p className="text-lg font-bold text-white">
+                    📱 Not ready to book? Keep this price.
                   </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <p className="mt-1">
+                    We&apos;ll text your {gbp(payable)} quote to you right now,
+                    so you don&apos;t lose it — no spam, no calls out of the
+                    blue.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <input
                       type="text"
                       value={leadName}
                       onChange={(e) => setLeadName(e.target.value)}
                       placeholder="First name (optional)"
                       autoComplete="given-name"
-                      className="w-40 flex-none rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-40 flex-none rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-400"
                     />
                     <input
                       type="tel"
@@ -697,19 +698,19 @@ export default function BookingFlow({
                       onChange={(e) => setLeadPhone(e.target.value)}
                       placeholder="Mobile number"
                       autoComplete="tel"
-                      className="w-44 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      className="w-44 flex-1 rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-400"
                     />
                     <button
                       type="button"
                       onClick={textMyPrice}
                       disabled={leadStatus === "sending"}
-                      className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-40"
+                      className="rounded-xl bg-accent-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-accent-600 disabled:opacity-40"
                     >
                       {leadStatus === "sending" ? "Sending…" : "Text me this price"}
                     </button>
                   </div>
                   {leadStatus === "failed" && (
-                    <p className="mt-2 text-xs text-red-600">
+                    <p className="mt-2 text-xs font-semibold text-red-400">
                       That didn&apos;t send — check it&apos;s a UK mobile number, or
                       just call us on 0330 043 4811.
                     </p>

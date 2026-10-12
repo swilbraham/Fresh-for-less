@@ -6178,7 +6178,7 @@ export async function issueDiscountCode(
     pct: number;
     expires_at: string;
   }>(
-    `SELECT code, pct, to_char(expires_at, 'YYYY-MM-DD"T"HH24:MI:SSOF') AS expires_at
+    `SELECT code, pct, to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS expires_at
        FROM discount_codes
       WHERE session_key = $1 AND used_at IS NULL AND expires_at > now()
       ORDER BY issued_at DESC
@@ -6193,7 +6193,7 @@ export async function issueDiscountCode(
   const row = await queryOne<{ expires_at: string }>(
     `INSERT INTO discount_codes (code, session_key, pct, expires_at)
      VALUES ($1, $2, $3, now() + ($4 || ' hours')::interval)
-     RETURNING to_char(expires_at, 'YYYY-MM-DD"T"HH24:MI:SSOF') AS expires_at`,
+     RETURNING to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS expires_at`,
     [code, sessionKey, EXIT_DISCOUNT_PCT, String(EXIT_DISCOUNT_HOURS)]
   );
 
