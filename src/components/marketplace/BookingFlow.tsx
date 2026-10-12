@@ -715,6 +715,11 @@ export default function BookingFlow({
                       just call us on 0330 043 4811.
                     </p>
                   )}
+                  <p className="mt-3 text-[11px] leading-snug text-slate-500">
+                    By sharing your number you agree we may text you this quote
+                    and contact you once with an offer about it. No marketing
+                    lists, nothing more.
+                  </p>
                 </>
               )}
             </div>
