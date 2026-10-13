@@ -218,6 +218,24 @@ export default function BookingFlow({
 
   async function checkPostcode(event: React.FormEvent) {
     event.preventDefault();
+    // Name and mobile come before the price: every quote from here on is a
+    // lead the office can text, not an anonymous basket. The same values
+    // pre-fill the booking form later, so nothing is typed twice.
+    const name = leadName.trim();
+    const phone = leadPhone.trim();
+    if (name.length < 2) {
+      setError("Please add your name.");
+      return;
+    }
+    if (phone.replace(/[^0-9]/g, "").length < 10) {
+      setError("Please add a valid mobile number.");
+      return;
+    }
+    setDetails((current) => ({
+      ...current,
+      customerName: current.customerName || name,
+      customerPhone: current.customerPhone || phone,
+    }));
     await runPostcodeCheck(postcode);
   }
 
@@ -486,7 +504,24 @@ export default function BookingFlow({
             Enter your postcode and we&apos;ll show you the vetted cleaners
             covering your area, with a fixed price — no home visit, no haggling.
           </p>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <input
+              value={leadName}
+              onChange={(e) => setLeadName(e.target.value)}
+              placeholder="Your name"
+              autoComplete="name"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+            />
+            <input
+              type="tel"
+              value={leadPhone}
+              onChange={(e) => setLeadPhone(e.target.value)}
+              placeholder="Mobile number"
+              autoComplete="tel"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+            />
+          </div>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
             <input
               value={postcode}
               onChange={(e) => setPostcode(e.target.value.toUpperCase())}
@@ -502,6 +537,10 @@ export default function BookingFlow({
               {checking ? "Checking…" : "Check my area"}
             </button>
           </div>
+          <p className="mt-3 text-[11px] leading-snug text-slate-500">
+            We may text you with regards to your quote — no marketing lists,
+            nothing more.
+          </p>
 
 
           {coverage?.covered && coverage.slots.length === 0 && (
