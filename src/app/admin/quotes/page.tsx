@@ -45,10 +45,12 @@ export default async function QuotesPage({
   if (!(await isAdmin())) redirect("/admin");
 
   const { error, quoted, offered } = await searchParams;
-  const [quotes, week, items, bundles, settings, leadFees, leadStats] =
+  const [quotes, week, month, year, items, bundles, settings, leadFees, leadStats] =
     await Promise.all([
       listQuotes(150),
       quoteStats(7),
+      quoteStats(30),
+      quoteStats(365),
       getPriceItems(true),
       getBundles(true),
       getSettings(),
@@ -155,6 +157,53 @@ export default async function QuotesPage({
             <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
               {stat.value}
             </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Rolling totals — always the last 30/365 days, not calendar months. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          {
+            label: "Quoted — last 30 days",
+            value: gbp(month.quoted_pence),
+            sub: `${month.quotes} quotes`,
+          },
+          {
+            label: "Booked — last 30 days",
+            value: gbp(month.booked_pence),
+            sub: `${month.booked} booked${
+              month.quotes > 0
+                ? ` (${Math.round((month.booked / month.quotes) * 100)}%)`
+                : ""
+            }`,
+          },
+          {
+            label: "Quoted — last 12 months",
+            value: gbp(year.quoted_pence),
+            sub: `${year.quotes} quotes`,
+          },
+          {
+            label: "Booked — last 12 months",
+            value: gbp(year.booked_pence),
+            sub: `${year.booked} booked${
+              year.quotes > 0
+                ? ` (${Math.round((year.booked / year.quotes) * 100)}%)`
+                : ""
+            }`,
+          },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-2xl border border-slate-200 bg-white p-5"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {stat.label}
+            </p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
+              {stat.value}
+            </p>
+            <p className="text-xs text-slate-500">{stat.sub}</p>
           </div>
         ))}
       </div>
