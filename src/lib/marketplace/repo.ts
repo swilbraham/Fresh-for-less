@@ -5260,6 +5260,19 @@ export async function listQuoteAsLead(
   const items = (quote.items ?? [])
     .map((line) => `${line.qty}x ${line.label}`)
     .join(", ");
+
+  // "quoted 2h ago" sells the lead's freshness — the single strongest line
+  // in the pitch. Based on when the basket was last touched.
+  const ageMs = Date.now() - new Date(quote.updated_at).getTime();
+  const ageMinutes = Math.max(1, Math.round(ageMs / 60000));
+  const age = Number.isNaN(ageMs)
+    ? "today"
+    : ageMinutes < 60
+      ? `${ageMinutes}min ago`
+      : ageMinutes < 48 * 60
+        ? `${Math.round(ageMinutes / 60)}h ago`
+        : `${Math.round(ageMinutes / 1440)} days ago`;
+
   const covering = await approvedCleanersCovering([quote.outward]);
   let alerted = 0;
   for (const row of covering) {
@@ -5269,14 +5282,15 @@ export async function listQuoteAsLead(
       subject: `Lead for sale in ${quote.outward} — ${gbpShort(pricePence)}`,
       body:
         `${firstName(cleaner.name)}, a customer in ${quote.outward} priced up ` +
-        `${items || "a clean"} at ${gbpShort(quote.total_pence)} but hasn't booked.\n\n` +
+        `${items || "a clean"} at ${gbpShort(quote.total_pence)} just ${age} ` +
+        `and hasn't booked.\n\n` +
         `Their name and number are for sale at ${gbpShort(pricePence)} — ` +
         `exclusive, first to buy gets it, credited if the number's dead.\n\n` +
         `Buy it on your dashboard: ${siteUrl()}/pro/dashboard`,
       smsBody:
         `Fresh For Less: lead for sale, ${quote.outward} — ${items || "clean"}, ` +
-        `quoted ${gbpShort(quote.total_pence)}. ${gbpShort(pricePence)}, exclusive, ` +
-        `first to buy: ${siteUrl()}/pro/dashboard`,
+        `quoted ${gbpShort(quote.total_pence)} ${age}. ${gbpShort(pricePence)}, ` +
+        `exclusive, first to buy: ${siteUrl()}/pro/dashboard`,
     });
     alerted += 1;
   }
