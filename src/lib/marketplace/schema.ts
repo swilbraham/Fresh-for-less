@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 53;
+export const SCHEMA_VERSION = 54;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -560,6 +560,10 @@ export const STATEMENTS: string[] = [
   `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_sold_at timestamptz`,
   `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_credited_at timestamptz`,
   `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_settled_at timestamptz`,
+
+  // Stamped when the buyer has been texted the fee and bank details, an hour
+  // after purchase — late enough not to talk money while the lead is warm.
+  `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_fee_texted_at timestamptz`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------

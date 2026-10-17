@@ -5431,6 +5431,69 @@ export async function creditLead(
   return { ok: true };
 }
 
+/**
+ * Lead fees due an invoice text: sold over an hour ago, not credited, not
+ * yet texted. Claimed by stamping before sending, so a cron retry can't
+ * bill anyone twice. The hour's delay is deliberate — the purchase moment
+ * belongs to calling the customer, not to money.
+ */
+export async function claimLeadFeesForText(limit = 20): Promise<
+  {
+    id: number;
+    outward: string;
+    customer_name: string;
+    lead_price_pence: number;
+    lead_sold_to: number;
+  }[]
+> {
+  return query(
+    `UPDATE quotes SET lead_fee_texted_at = now()
+      WHERE id IN (
+        SELECT id FROM quotes
+         WHERE lead_sold_to IS NOT NULL
+           AND lead_credited_at IS NULL
+           AND lead_fee_texted_at IS NULL
+           AND lead_sold_at <= now() - interval '1 hour'
+           AND lead_sold_at > now() - interval '7 days'
+         ORDER BY lead_sold_at
+         LIMIT $1
+      )
+      RETURNING id, outward, customer_name, lead_price_pence, lead_sold_to`,
+    [limit]
+  );
+}
+
+/** Text the buyer the fee with the bank details, invoice-style. */
+export async function sendLeadFeeText(lead: {
+  id: number;
+  outward: string;
+  customer_name: string;
+  lead_price_pence: number;
+  lead_sold_to: number;
+}): Promise<void> {
+  const cleaner = await getCleaner(lead.lead_sold_to);
+  if (!cleaner) return;
+  const settings = await getSettings();
+  const ref = `LEAD-${lead.id}`;
+  const bank =
+    settings.payee_account && settings.payee_sort_code
+      ? `Pay by transfer to ${settings.payee_name || "Fresh For Less"}, ` +
+        `sort ${settings.payee_sort_code}, account ${settings.payee_account}, ref ${ref} — ` +
+        `or leave it and it goes on your next invoice.`
+      : `It will be added to your next commission invoice.`;
+
+  await notifyCleaner(cleaner, {
+    subject: `Lead fee ${gbpShort(lead.lead_price_pence)} — ${ref}`,
+    body:
+      `${firstName(cleaner.name)}, the lead fee for ${lead.customer_name || "the customer"} ` +
+      `in ${lead.outward} is ${gbpShort(lead.lead_price_pence)} (ref ${ref}).\n\n${bank}\n\n` +
+      `If the number was dead, reply here and we'll credit it.`,
+    smsBody:
+      `Fresh For Less: lead fee ${gbpShort(lead.lead_price_pence)} for your ` +
+      `${lead.outward} lead (${ref}). ${bank}`,
+  });
+}
+
 /** Everything sold and not yet settled or credited, grouped per cleaner. */
 export async function leadFeesOwed(): Promise<
   { cleaner_id: number; cleaner_name: string; leads: number; owed_pence: number }[]
