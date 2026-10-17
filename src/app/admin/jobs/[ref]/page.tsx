@@ -341,8 +341,44 @@ export default async function AdminJobPage({
               )}
               <details className="mt-3">
                 <summary className="cursor-pointer text-xs font-semibold text-primary-700">
-                  💬 Text {job.customer_name.split(" ")[0]}
+                  💬 Messages with {job.customer_name.split(" ")[0]}
+                  {customerThread.length > 0 && (
+                    <span className="ml-1 font-normal text-slate-400">
+                      ({customerThread.length} recent)
+                    </span>
+                  )}
                 </summary>
+                {customerThread.length > 0 ? (
+                  <ul className="mt-2 space-y-1.5">
+                    {customerThread.map((m) => (
+                      <li
+                        key={m.id}
+                        className={`rounded-lg px-3 py-1.5 text-xs ${
+                          m.direction === "in"
+                            ? "bg-slate-100 text-slate-700"
+                            : "bg-primary-50 text-primary-900"
+                        }`}
+                      >
+                        <span className="font-semibold">
+                          {m.direction === "in" ? "They said" : "You sent"}:
+                        </span>{" "}
+                        {m.body.slice(0, 160)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    No texts with them yet.
+                  </p>
+                )}
+                <p className="mt-1 text-xs">
+                  <Link
+                    href={`/admin/messages?job=${job.id}`}
+                    className="font-semibold text-primary-600 underline"
+                  >
+                    Full conversation
+                  </Link>
+                </p>
                 <form action={textCustomerAction} className="mt-2 space-y-2">
                   <input type="hidden" name="jobId" value={job.id} />
                   <input type="hidden" name="ref" value={job.ref} />
@@ -417,8 +453,44 @@ export default async function AdminJobPage({
                   </p>
                   <details className="mt-3">
                     <summary className="cursor-pointer text-xs font-semibold text-primary-700">
-                      💬 Text {assignedCleaner.name.split(" ")[0]}
+                      💬 Messages with {assignedCleaner.name.split(" ")[0]}
+                      {cleanerThread.length > 0 && (
+                        <span className="ml-1 font-normal text-slate-400">
+                          ({cleanerThread.length} recent)
+                        </span>
+                      )}
                     </summary>
+                    {cleanerThread.length > 0 ? (
+                      <ul className="mt-2 space-y-1.5">
+                        {cleanerThread.map((m) => (
+                          <li
+                            key={m.id}
+                            className={`rounded-lg px-3 py-1.5 text-xs ${
+                              m.direction === "in"
+                                ? "bg-slate-100 text-slate-700"
+                                : "bg-primary-50 text-primary-900"
+                            }`}
+                          >
+                            <span className="font-semibold">
+                              {m.direction === "in" ? "They said" : "You sent"}:
+                            </span>{" "}
+                            {m.body.slice(0, 160)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-slate-500">
+                        No texts with them yet.
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs">
+                      <Link
+                        href={`/admin/messages?cleaner=${assignedCleaner.id}`}
+                        className="font-semibold text-primary-600 underline"
+                      >
+                        Full conversation
+                      </Link>
+                    </p>
                     <form action={textCleanerAction} className="mt-2 space-y-2">
                       <input
                         type="hidden"

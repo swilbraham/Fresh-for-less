@@ -7,6 +7,7 @@ import {
   DROP_REVIEW_LIMIT,
   getAllCleanerAreas,
   getAvailability,
+  getCleanerThread,
   getPreferredAreas,
   listCleaners,
 } from "@/lib/marketplace/repo";
@@ -126,6 +127,14 @@ export default async function AdminCleanersPage({
       cleaners.map(
         async (cleaner) =>
           [cleaner.id, await getPreferredAreas(cleaner.id)] as const
+      )
+    )
+  );
+  const threadByCleaner = new Map(
+    await Promise.all(
+      cleaners.map(
+        async (cleaner) =>
+          [cleaner.id, (await getCleanerThread(cleaner.id)).slice(-4)] as const
       )
     )
   );
@@ -382,8 +391,45 @@ export default async function AdminCleanersPage({
                     </p>
                     <details className="mt-2">
                       <summary className="cursor-pointer text-xs font-semibold text-primary-700">
-                        💬 Text {cleaner.name.split(" ")[0]}
+                        💬 Messages with {cleaner.name.split(" ")[0]}
+                        {(threadByCleaner.get(cleaner.id) ?? []).length > 0 && (
+                          <span className="ml-1 font-normal text-slate-400">
+                            ({(threadByCleaner.get(cleaner.id) ?? []).length}{" "}
+                            recent)
+                          </span>
+                        )}
                       </summary>
+                      {(threadByCleaner.get(cleaner.id) ?? []).length > 0 ? (
+                        <ul className="mt-2 max-w-md space-y-1.5">
+                          {(threadByCleaner.get(cleaner.id) ?? []).map((m) => (
+                            <li
+                              key={m.id}
+                              className={`rounded-lg px-3 py-1.5 text-xs ${
+                                m.direction === "in"
+                                  ? "bg-slate-100 text-slate-700"
+                                  : "bg-primary-50 text-primary-900"
+                              }`}
+                            >
+                              <span className="font-semibold">
+                                {m.direction === "in" ? "They said" : "You sent"}:
+                              </span>{" "}
+                              {m.body.slice(0, 160)}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-500">
+                          No texts with them yet.
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs">
+                        <Link
+                          href={`/admin/messages?cleaner=${cleaner.id}`}
+                          className="font-semibold text-primary-600 underline"
+                        >
+                          Full conversation
+                        </Link>
+                      </p>
                       <form
                         action={textCleanerAction}
                         className="mt-2 flex max-w-md gap-2"
