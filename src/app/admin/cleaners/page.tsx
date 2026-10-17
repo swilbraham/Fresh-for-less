@@ -14,6 +14,7 @@ import {
   createCleanerAction,
   issueResetLinkAction,
   setPreferredAreasAction,
+  textCleanerAction,
   setCleanerPausedAction,
   setCleanerStatusAction,
   updateCleanerAction,
@@ -42,13 +43,14 @@ export default async function AdminCleanersPage({
     paused?: string;
     saved?: string;
     reset?: string;
+    texted?: string;
     q?: string;
     sort?: string;
     status?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, reset, q, sort, status, paused } = await searchParams;
+  const { error, saved, reset, texted, q, sort, status, paused } = await searchParams;
 
   const [all, areasByCleaner] = await Promise.all([
     listCleaners(),
@@ -133,6 +135,12 @@ export default async function AdminCleanersPage({
       <div className="mx-auto max-w-5xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Cleaner updated.</Alert>}
+        {texted && (
+          <Alert tone="success">
+            Text sent — their reply lands in Messages and you get a text when
+            it does.
+          </Alert>
+        )}
         {paused === "1" && (
           <Alert tone="info">
             Paused — they&apos;ll get no offers or texts until you resume them.
@@ -372,6 +380,32 @@ export default async function AdminCleanersPage({
                       · Applied {cleaner.created_at} · {cleaner.jobs_done} job
                       {cleaner.jobs_done === 1 ? "" : "s"} completed
                     </p>
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs font-semibold text-primary-700">
+                        💬 Text {cleaner.name.split(" ")[0]}
+                      </summary>
+                      <form
+                        action={textCleanerAction}
+                        className="mt-2 flex max-w-md gap-2"
+                      >
+                        <input type="hidden" name="cleanerId" value={cleaner.id} />
+                        <input type="hidden" name="back" value="cleaners" />
+                        <textarea
+                          name="body"
+                          required
+                          rows={2}
+                          maxLength={600}
+                          placeholder={`Text ${cleaner.name.split(" ")[0]}…`}
+                          className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                        />
+                        <button
+                          type="submit"
+                          className="self-end rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white"
+                        >
+                          Send
+                        </button>
+                      </form>
+                    </details>
                     {(preferredByCleaner.get(cleaner.id) ?? []).length > 0 && (
                       <p className="mt-2 text-xs">
                         <span className="rounded-full bg-amber-100 px-2 py-1 font-semibold text-amber-900">

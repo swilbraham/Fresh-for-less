@@ -542,18 +542,26 @@ export async function textCleanerAction(data: FormData) {
   // from. Path-only and pattern-checked, so a crafted ref can't redirect off-site.
   const ref = field(data, "ref", 20);
   const fromJob = /^[A-Z0-9-]+$/.test(ref);
-  const base = fromJob ? `/admin/jobs/${ref}` : `/admin/messages?cleaner=${cleanerId}`;
-  const to = (param: string) => `${base}${fromJob ? "?" : "&"}${param}`;
+  // A fixed token, never caller-controlled text, decides the return page.
+  const fromCleaners = field(data, "back", 20) === "cleaners";
+  const base = fromJob
+    ? `/admin/jobs/${ref}`
+    : fromCleaners
+      ? `/admin/cleaners`
+      : `/admin/messages?cleaner=${cleanerId}`;
+  const to = (param: string) =>
+    `${base}${base.includes("?") ? "&" : "?"}${param}`;
 
   if (!body) redirect(to(`error=${encodeURIComponent("Write a message first.")}`));
 
   const result = await textCleaner(cleanerId, body);
   revalidatePath("/admin/messages");
   if (fromJob) revalidatePath(`/admin/jobs/${ref}`);
+  if (fromCleaners) revalidatePath("/admin/cleaners");
   if (!result.ok) {
     redirect(to(`error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`));
   }
-  redirect(to("sent=1"));
+  redirect(to(fromCleaners ? "texted=1" : "sent=1"));
 }
 
 /**

@@ -339,6 +339,29 @@ export default async function AdminJobPage({
                   </p>
                 </form>
               )}
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-semibold text-primary-700">
+                  💬 Text {job.customer_name.split(" ")[0]}
+                </summary>
+                <form action={textCustomerAction} className="mt-2 space-y-2">
+                  <input type="hidden" name="jobId" value={job.id} />
+                  <input type="hidden" name="ref" value={job.ref} />
+                  <textarea
+                    name="body"
+                    required
+                    rows={2}
+                    maxLength={600}
+                    placeholder={`Text ${job.customer_name.split(" ")[0]}…`}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Send text
+                  </button>
+                </form>
+              </details>
             </Card>
 
             <Card title="Cleaner">
@@ -392,6 +415,33 @@ export default async function AdminJobPage({
                       Full booking conversation
                     </Link>
                   </p>
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-xs font-semibold text-primary-700">
+                      💬 Text {assignedCleaner.name.split(" ")[0]}
+                    </summary>
+                    <form action={textCleanerAction} className="mt-2 space-y-2">
+                      <input
+                        type="hidden"
+                        name="cleanerId"
+                        value={assignedCleaner.id}
+                      />
+                      <input type="hidden" name="ref" value={job.ref} />
+                      <textarea
+                        name="body"
+                        required
+                        rows={2}
+                        maxLength={600}
+                        placeholder={`Text ${assignedCleaner.name.split(" ")[0]}…`}
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white"
+                      >
+                        Send text
+                      </button>
+                    </form>
+                  </details>
                 </>
               ) : job.cleaner_id ? (
                 <p className="mt-2 text-sm text-slate-700">
