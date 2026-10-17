@@ -44,6 +44,9 @@ import {
   getCleanerAreas,
   getJobByRef,
   holdJobForCleaner,
+  listQuoteAsLead,
+  creditLead,
+  settleLeadFees,
   offerJobToCleaners,
   releaseHold,
   setPreferredAreas,
@@ -1070,6 +1073,49 @@ export async function setPreferredAreasAction(data: FormData) {
     fail("/admin/cleaners", result.reason ?? "Couldn't save that.");
   }
   redirect("/admin/cleaners?saved=1");
+}
+
+/**
+ * Put an un-booked quote up for sale as an exclusive lead. Covering cleaners
+ * are texted a redacted description; first to buy gets the contact.
+ */
+export async function listLeadAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const id = Number(field(data, "id", 12));
+  const pence = penceFromInput(field(data, "price", 12)) ?? 0;
+  const result = await listQuoteAsLead(id, pence);
+  revalidatePath("/admin/quotes");
+  if (!result.ok) {
+    redirect(`/admin/quotes?error=${encodeURIComponent(result.reason ?? "Couldn't list that.")}`);
+  }
+  redirect(
+    `/admin/quotes?quoted=${encodeURIComponent(
+      `Lead listed — ${result.alerted} covering cleaner${result.alerted === 1 ? "" : "s"} texted. First to buy gets it.`
+    )}`
+  );
+}
+
+/** The guarantee button: dud lead, fee wiped, buyer told. */
+export async function creditLeadAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const result = await creditLead(Number(field(data, "id", 12)));
+  revalidatePath("/admin/quotes");
+  if (!result.ok) {
+    redirect(`/admin/quotes?error=${encodeURIComponent(result.reason ?? "Couldn't credit that.")}`);
+  }
+  redirect(`/admin/quotes?quoted=${encodeURIComponent("Lead credited — the cleaner has been told there's nothing to pay.")}`);
+}
+
+/** After the fees have been added to an invoice by hand, clear the tally. */
+export async function settleLeadFeesAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const settled = await settleLeadFees(Number(field(data, "cleanerId", 12)));
+  revalidatePath("/admin/quotes");
+  redirect(
+    `/admin/quotes?quoted=${encodeURIComponent(
+      `Marked ${settled} lead fee${settled === 1 ? "" : "s"} as invoiced.`
+    )}`
+  );
 }
 
 /** Hold a job for one company until a deadline — first refusal, enforced. */

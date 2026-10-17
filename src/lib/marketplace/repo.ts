@@ -5211,6 +5211,12 @@ export async function listQuotes(limit = 100): Promise<QuoteRecord[]> {
             token, customer_name, customer_phone, customer_email, override_pence,
             offer_pct,
             to_char(offer_sent_at, 'YYYY-MM-DD HH24:MI') AS offer_sent_at,
+            lead_price_pence, lead_sold_to,
+            to_char(lead_listed_at, 'YYYY-MM-DD HH24:MI') AS lead_listed_at,
+            to_char(lead_sold_at,   'YYYY-MM-DD HH24:MI') AS lead_sold_at,
+            to_char(lead_credited_at, 'YYYY-MM-DD') AS lead_credited_at,
+            to_char(lead_settled_at,  'YYYY-MM-DD') AS lead_settled_at,
+            (SELECT c.name FROM cleaners c WHERE c.id = lead_sold_to) AS lead_sold_to_name,
             to_char(expires_at, 'YYYY-MM-DD') AS expires_at,
             to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
             to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
@@ -5219,6 +5225,225 @@ export async function listQuotes(limit = 100): Promise<QuoteRecord[]> {
       LIMIT $1`,
     [Math.min(Math.max(limit, 1), 500)]
   );
+}
+
+/**
+ * Put an un-booked quote up for sale as an exclusive lead. Every approved
+ * cleaner covering the area is texted a redacted description — first to buy
+ * gets the contact details, and the listing also takes the quote out of the
+ * automatic discount chase for good.
+ */
+export async function listQuoteAsLead(
+  quoteId: number,
+  pricePence: number
+): Promise<{ ok: boolean; reason?: string; alerted?: number }> {
+  const quote = await queryOne<QuoteRecord>(
+    `SELECT * FROM quotes WHERE id = $1`,
+    [quoteId]
+  );
+  if (!quote) return { ok: false, reason: "Quote not found." };
+  if (quote.booked_ref) return { ok: false, reason: "They already booked." };
+  if (!quote.customer_phone) {
+    return { ok: false, reason: "No phone number — nothing to sell." };
+  }
+  if (quote.lead_listed_at) return { ok: false, reason: "Already listed." };
+  if (pricePence < 500 || pricePence > 5000) {
+    return { ok: false, reason: "Price a lead between £5 and £50." };
+  }
+
+  await query(
+    `UPDATE quotes SET lead_price_pence = $2, lead_listed_at = now()
+      WHERE id = $1`,
+    [quoteId, pricePence]
+  );
+
+  const items = (quote.items ?? [])
+    .map((line) => `${line.qty}x ${line.label}`)
+    .join(", ");
+  const covering = await approvedCleanersCovering([quote.outward]);
+  let alerted = 0;
+  for (const row of covering) {
+    const cleaner = await getCleaner(row.id);
+    if (!cleaner || cleaner.paused_at) continue;
+    await notifyCleaner(cleaner, {
+      subject: `Lead for sale in ${quote.outward} — ${gbpShort(pricePence)}`,
+      body:
+        `${firstName(cleaner.name)}, a customer in ${quote.outward} priced up ` +
+        `${items || "a clean"} at ${gbpShort(quote.total_pence)} but hasn't booked.\n\n` +
+        `Their name and number are for sale at ${gbpShort(pricePence)} — ` +
+        `exclusive, first to buy gets it, credited if the number's dead.\n\n` +
+        `Buy it on your dashboard: ${siteUrl()}/pro/dashboard`,
+      smsBody:
+        `Fresh For Less: lead for sale, ${quote.outward} — ${items || "clean"}, ` +
+        `quoted ${gbpShort(quote.total_pence)}. ${gbpShort(pricePence)}, exclusive, ` +
+        `first to buy: ${siteUrl()}/pro/dashboard`,
+    });
+    alerted += 1;
+  }
+  return { ok: true, alerted };
+}
+
+/** Unsold leads in this cleaner's patch, redacted until bought. */
+export async function leadsForCleaner(cleanerId: number): Promise<
+  {
+    id: number;
+    outward: string;
+    items: QuoteLine[];
+    total_pence: number;
+    lead_price_pence: number;
+    listed_at: string;
+  }[]
+> {
+  return query(
+    `SELECT q.id, q.outward, q.items, q.total_pence, q.lead_price_pence,
+            to_char(q.lead_listed_at, 'DD Mon HH24:MI') AS listed_at
+       FROM quotes q
+      WHERE q.lead_listed_at IS NOT NULL
+        AND q.lead_sold_to IS NULL
+        AND q.booked_ref = ''
+        AND q.lead_listed_at > now() - interval '7 days'
+        AND q.outward IN (SELECT outward FROM cleaner_areas WHERE cleaner_id = $1)
+      ORDER BY q.lead_listed_at DESC`,
+    [cleanerId]
+  );
+}
+
+/** Leads this cleaner bought, contact details included. */
+export async function boughtLeadsForCleaner(cleanerId: number): Promise<
+  {
+    id: number;
+    outward: string;
+    customer_name: string;
+    customer_phone: string;
+    items: QuoteLine[];
+    total_pence: number;
+    lead_price_pence: number;
+    sold_at: string;
+    credited: boolean;
+  }[]
+> {
+  return query(
+    `SELECT id, outward, customer_name, customer_phone, items, total_pence,
+            lead_price_pence,
+            to_char(lead_sold_at, 'DD Mon HH24:MI') AS sold_at,
+            (lead_credited_at IS NOT NULL) AS credited
+       FROM quotes
+      WHERE lead_sold_to = $1
+        AND lead_sold_at > now() - interval '30 days'
+      ORDER BY lead_sold_at DESC`,
+    [cleanerId]
+  );
+}
+
+/**
+ * First to buy wins — the conditional UPDATE is the race, exactly like
+ * accepting a job. The buyer is texted the contact details so the lead
+ * survives a closed browser tab; the fee goes on their next invoice by
+ * hand, which the admin's lead-fees list keeps track of.
+ */
+export async function buyLead(
+  quoteId: number,
+  cleanerId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const cleaner = await getCleaner(cleanerId);
+  if (!cleaner || cleaner.status !== "approved") {
+    return { ok: false, reason: "Your account can't buy leads at the moment." };
+  }
+  if (cleaner.paused_at) {
+    return { ok: false, reason: "Your account is paused." };
+  }
+
+  const won = await query<{ id: number }>(
+    `UPDATE quotes
+        SET lead_sold_to = $2, lead_sold_at = now()
+      WHERE id = $1 AND lead_listed_at IS NOT NULL
+        AND lead_sold_to IS NULL AND booked_ref = ''
+      RETURNING id`,
+    [quoteId, cleanerId]
+  );
+  if (won.length === 0) {
+    return { ok: false, reason: "Another cleaner bought this lead first." };
+  }
+
+  const quote = await queryOne<QuoteRecord>(`SELECT * FROM quotes WHERE id = $1`, [
+    quoteId,
+  ]);
+  if (quote) {
+    const items = (quote.items ?? [])
+      .map((line) => `${line.qty}x ${line.label}`)
+      .join(", ");
+    await notifyCleaner(cleaner, {
+      subject: `Your lead in ${quote.outward} — ${quote.customer_name}`,
+      body:
+        `${firstName(cleaner.name)}, this lead is yours alone.\n\n` +
+        `Name: ${quote.customer_name || "Not given"}\n` +
+        `Mobile: ${quote.customer_phone}\n` +
+        `Wants: ${items}\n` +
+        `Quoted online: ${gbpShort(quote.total_pence)}\n\n` +
+        `Call while it's warm. ${gbpShort(quote.lead_price_pence)} goes on your ` +
+        `next invoice — credited if the number's dead.`,
+      smsBody:
+        `Your FFL lead: ${quote.customer_name || "Customer"} ${quote.customer_phone}, ` +
+        `${quote.outward} — ${items}, quoted ${gbpShort(quote.total_pence)}. ` +
+        `Call while it's warm.`,
+    });
+  }
+  return { ok: true };
+}
+
+/** A dud lead: fee wiped, buyer told. The office's one-button guarantee. */
+export async function creditLead(
+  quoteId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const quote = await queryOne<QuoteRecord>(`SELECT * FROM quotes WHERE id = $1`, [
+    quoteId,
+  ]);
+  if (!quote?.lead_sold_to) return { ok: false, reason: "That lead wasn't sold." };
+  if (quote.lead_credited_at) return { ok: true };
+
+  await query(`UPDATE quotes SET lead_credited_at = now() WHERE id = $1`, [quoteId]);
+  const cleaner = await getCleaner(quote.lead_sold_to);
+  if (cleaner) {
+    await notifyCleaner(cleaner, {
+      subject: `Lead credited — ${quote.outward}`,
+      body:
+        `${firstName(cleaner.name)}, the ${gbpShort(quote.lead_price_pence)} lead in ` +
+        `${quote.outward} has been credited — nothing to pay on it.`,
+      smsBody:
+        `Fresh For Less: the ${gbpShort(quote.lead_price_pence)} lead in ` +
+        `${quote.outward} is credited — nothing to pay on it.`,
+    });
+  }
+  return { ok: true };
+}
+
+/** Everything sold and not yet settled or credited, grouped per cleaner. */
+export async function leadFeesOwed(): Promise<
+  { cleaner_id: number; cleaner_name: string; leads: number; owed_pence: number }[]
+> {
+  return query(
+    `SELECT c.id AS cleaner_id, c.name AS cleaner_name,
+            count(*)::int AS leads,
+            COALESCE(sum(q.lead_price_pence), 0)::int AS owed_pence
+       FROM quotes q JOIN cleaners c ON c.id = q.lead_sold_to
+      WHERE q.lead_sold_to IS NOT NULL
+        AND q.lead_credited_at IS NULL
+        AND q.lead_settled_at IS NULL
+      GROUP BY c.id, c.name
+      ORDER BY owed_pence DESC`
+  );
+}
+
+/** Called once the fees have been put on an invoice by hand. */
+export async function settleLeadFees(cleanerId: number): Promise<number> {
+  const rows = await query<{ id: number }>(
+    `UPDATE quotes SET lead_settled_at = now()
+      WHERE lead_sold_to = $1 AND lead_credited_at IS NULL
+        AND lead_settled_at IS NULL
+      RETURNING id`,
+    [cleanerId]
+  );
+  return rows.length;
 }
 
 /** Headline figures for the last `days` days. */
@@ -6298,6 +6523,7 @@ export async function autoOfferQuotes(): Promise<{
       WHERE id IN (
         SELECT id FROM quotes
          WHERE booked_ref = '' AND offer_sent_at IS NULL
+           AND lead_listed_at IS NULL
            AND customer_phone <> ''
            AND total_pence >= $2
            AND updated_at < now() - interval '24 hours'

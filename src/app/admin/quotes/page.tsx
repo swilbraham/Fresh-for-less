@@ -5,11 +5,18 @@ import {
   getBundles,
   getPriceItems,
   getSettings,
+  leadFeesOwed,
   listQuotes,
   quoteStats,
 } from "@/lib/marketplace/repo";
 import QuoteBuilder from "@/components/marketplace/QuoteBuilder";
-import { createOfficeQuoteAction, offerQuoteDiscountAction } from "@/app/admin/actions";
+import {
+  createOfficeQuoteAction,
+  creditLeadAction,
+  listLeadAction,
+  offerQuoteDiscountAction,
+  settleLeadFeesAction,
+} from "@/app/admin/actions";
 import { gbpShort } from "@/lib/marketplace/money";
 import { gbp } from "@/lib/marketplace/money";
 import { Card } from "@/components/marketplace/shell";
@@ -36,12 +43,13 @@ export default async function QuotesPage({
   if (!(await isAdmin())) redirect("/admin");
 
   const { error, quoted, offered } = await searchParams;
-  const [quotes, week, items, bundles, settings] = await Promise.all([
+  const [quotes, week, items, bundles, settings, leadFees] = await Promise.all([
     listQuotes(150),
     quoteStats(7),
     getPriceItems(true),
     getBundles(true),
     getSettings(),
+    leadFeesOwed(),
   ]);
   const rate = week.quotes > 0 ? Math.round((week.booked / week.quotes) * 100) : 0;
 
@@ -231,7 +239,55 @@ export default async function QuotesPage({
                               {quote.offer_pct}% offer texted {quote.offer_sent_at}
                             </p>
                           )}
-                          {quote.customer_phone && (
+                          {quote.lead_sold_to ? (
+                            <p className="mt-1 text-xs font-semibold text-accent-700">
+                              Lead sold to {quote.lead_sold_to_name} ·{" "}
+                              {gbp(quote.lead_price_pence)}
+                              {quote.lead_credited_at
+                                ? " · credited"
+                                : quote.lead_settled_at
+                                  ? " · invoiced"
+                                  : ""}
+                            </p>
+                          ) : quote.lead_listed_at ? (
+                            <p className="mt-1 text-xs font-semibold text-amber-700">
+                              Lead listed at {gbp(quote.lead_price_pence)} —
+                              waiting for a buyer
+                            </p>
+                          ) : null}
+                          {quote.lead_sold_to && !quote.lead_credited_at && !quote.lead_settled_at && (
+                            <form action={creditLeadAction} className="mt-1">
+                              <input type="hidden" name="id" value={quote.id} />
+                              <button
+                                type="submit"
+                                className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                              >
+                                Credit (dud lead)
+                              </button>
+                            </form>
+                          )}
+                          {!quote.lead_listed_at && quote.customer_phone && (
+                            <form
+                              action={listLeadAction}
+                              className="mt-1 flex items-center gap-1"
+                            >
+                              <input type="hidden" name="id" value={quote.id} />
+                              <span className="text-xs text-slate-500">£</span>
+                              <input
+                                name="price"
+                                defaultValue="12"
+                                aria-label="Lead price in pounds"
+                                className="w-12 rounded-lg border border-slate-300 px-2 py-1 text-xs text-right tabular-nums"
+                              />
+                              <button
+                                type="submit"
+                                className="rounded-lg bg-amber-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-amber-700"
+                              >
+                                Sell as lead
+                              </button>
+                            </form>
+                          )}
+                          {!quote.lead_listed_at && quote.customer_phone && (
                             <form
                               action={offerQuoteDiscountAction}
                               className="mt-1 flex items-center gap-1"
@@ -266,6 +322,43 @@ export default async function QuotesPage({
           </div>
         )}
       </Card>
+
+      {leadFees.length > 0 && (
+        <Card
+          title="Lead fees to invoice"
+          description="Sold leads not yet billed. Add the amount to the cleaner's next commission invoice (a manual invoice works too), then mark it invoiced here."
+        >
+          <ul className="mt-3 divide-y divide-slate-100 text-sm">
+            {leadFees.map((row) => (
+              <li
+                key={row.cleaner_id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+              >
+                <span className="font-semibold text-slate-900">
+                  {row.cleaner_name}
+                  <span className="ml-2 font-normal text-slate-500">
+                    {row.leads} lead{row.leads === 1 ? "" : "s"}
+                  </span>
+                </span>
+                <span className="flex items-center gap-3">
+                  <span className="font-bold tabular-nums text-slate-900">
+                    {gbp(row.owed_pence)}
+                  </span>
+                  <form action={settleLeadFeesAction}>
+                    <input type="hidden" name="cleanerId" value={row.cleaner_id} />
+                    <button
+                      type="submit"
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Mark invoiced
+                    </button>
+                  </form>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <p className="text-xs text-slate-500">
         A row is one visitor&apos;s basket, updated as they change it — not one

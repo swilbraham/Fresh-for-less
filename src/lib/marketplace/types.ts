@@ -172,6 +172,14 @@ export type QuoteRecord = {
   /** A chase-up discount texted to this quote; 0 when none has been sent. */
   offer_pct: number;
   offer_sent_at: string | null;
+  /** Lead sale: 0/null until listed; sold fields set when a cleaner buys. */
+  lead_price_pence: number;
+  lead_listed_at: string | null;
+  lead_sold_to: number | null;
+  lead_sold_to_name?: string | null;
+  lead_sold_at: string | null;
+  lead_credited_at: string | null;
+  lead_settled_at: string | null;
   created_at: string;
   updated_at: string;
 };

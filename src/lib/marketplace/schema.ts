@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 52;
+export const SCHEMA_VERSION = 53;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -547,6 +547,19 @@ export const STATEMENTS: string[] = [
      ON cleaner_areas (outward) WHERE preferred`,
   // How long their head start lasts, per company.
   `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS first_refusal_hours int NOT NULL DEFAULT 2`,
+
+  // ---- Lead sales ------------------------------------------------------------
+  // An un-booked quote can be listed for sale to covering cleaners: first to
+  // buy gets the contact details exclusively, the fee lands on their next
+  // invoice by hand (settled), and a dud is credited. A listed quote is
+  // never also discount-chased — a customer getting our 10% text and a
+  // cleaner's call the same afternoon burns both.
+  `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_price_pence int NOT NULL DEFAULT 0`,
+  `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_listed_at timestamptz`,
+  `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_sold_to int REFERENCES cleaners(id) ON DELETE SET NULL`,
+  `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_sold_at timestamptz`,
+  `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_credited_at timestamptz`,
+  `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_settled_at timestamptz`,
 
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
   // ---- One-off, 2026-08-26 ------------------------------------------------

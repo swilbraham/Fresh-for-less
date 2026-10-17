@@ -11,6 +11,7 @@ import {
 } from "@/lib/marketplace/auth";
 import {
   acceptJob,
+  buyLead,
   addBlackout,
   completeJob,
   createCleaner,
@@ -263,6 +264,20 @@ export async function acceptJobAction(data: FormData) {
   revalidatePath("/pro/dashboard");
   if (!result.ok) fail("/pro/dashboard", result.reason ?? "Couldn't accept that job.");
   redirect("/pro/dashboard?accepted=1");
+}
+
+/**
+ * First to buy wins the lead; the fee lands on the next invoice. The
+ * contact details are also texted, so a closed tab loses nothing.
+ */
+export async function buyLeadAction(data: FormData) {
+  const cleaner = await requireCleaner();
+  const quoteId = Number(field(data, "quoteId", 12));
+
+  const result = await buyLead(quoteId, cleaner.id);
+  revalidatePath("/pro/dashboard");
+  if (!result.ok) fail("/pro/dashboard", result.reason ?? "Couldn't buy that lead.");
+  redirect("/pro/dashboard?lead=1");
 }
 
 export async function declineJobAction(data: FormData) {

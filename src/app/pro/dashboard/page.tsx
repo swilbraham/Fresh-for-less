@@ -4,6 +4,8 @@ import { currentCleaner } from "@/lib/marketplace/auth";
 import {
   getCleanerAreas,
   listInvoices,
+  boughtLeadsForCleaner,
+  leadsForCleaner,
   listJobsForCleaner,
   listOffersForCleaner,
   listOpenJobs,
@@ -16,6 +18,7 @@ import {
 import type { Job } from "@/lib/marketplace/types";
 import {
   acceptJobAction,
+  buyLeadAction,
   completeJobAction,
   declineJobAction,
   disputeJobAction,
@@ -70,6 +73,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{
     error?: string;
+    lead?: string;
     accepted?: string;
     completed?: string;
     released?: string;
@@ -79,14 +83,16 @@ export default async function DashboardPage({
   const cleaner = await currentCleaner();
   if (!cleaner) redirect("/pro?next=/pro/dashboard");
 
-  const { error, accepted, completed, released, disputed } = await searchParams;
-  const [offers, openJobs, upcoming, done, areas, invoices] = await Promise.all([
+  const { error, lead, accepted, completed, released, disputed } = await searchParams;
+  const [offers, openJobs, upcoming, done, areas, invoices, leadsForSale, myLeads] = await Promise.all([
     listOffersForCleaner(cleaner.id),
     listOpenJobs(),
     listJobsForCleaner(cleaner.id, ["accepted"]),
     listJobsForCleaner(cleaner.id, ["completed"]),
     getCleanerAreas(cleaner.id),
     listInvoices(cleaner.id),
+    leadsForCleaner(cleaner.id),
+    boughtLeadsForCleaner(cleaner.id),
   ]);
 
   // The board is everything unclaimed that is not already sitting in their own
@@ -131,6 +137,12 @@ export default async function DashboardPage({
       <div className="mx-auto max-w-5xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {accepted && <Alert tone="success">Job accepted — it&apos;s yours.</Alert>}
+        {lead && (
+          <Alert tone="success">
+            Lead bought — it&apos;s yours alone. The name and number are below
+            and in a text we&apos;ve just sent you. Call while it&apos;s warm.
+          </Alert>
+        )}
         {completed && (
           <Alert tone="success">
             Job marked complete. Commission has been added to your next invoice.
@@ -287,6 +299,84 @@ export default async function DashboardPage({
             </ul>
           )}
         </Card>
+
+        {/* Exclusive leads: priced-up customers who didn't book */}
+        {!cleaner.paused_at && leadsForSale.length > 0 && (
+          <Card
+            title={`Leads for sale in your patch (${leadsForSale.length})`}
+            description="Customers who priced up a clean online but didn't book. Buy one and the name and number are yours alone — nobody else gets it. Credited if the number's dead. The fee goes on your next invoice."
+            className="mb-6"
+          >
+            <ul className="mt-4 space-y-3">
+              {leadsForSale.map((l) => (
+                <li
+                  key={l.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/40 p-4"
+                >
+                  <div>
+                    <p className="font-bold text-slate-900">
+                      {l.outward} · quoted {gbp(l.total_pence)}
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      {(l.items ?? [])
+                        .map((line) => `${line.qty}× ${line.label}`)
+                        .join(", ") || "Carpet clean"}
+                    </p>
+                    <p className="text-xs text-slate-400">quoted {l.listed_at}</p>
+                  </div>
+                  <form action={buyLeadAction}>
+                    <input type="hidden" name="quoteId" value={l.id} />
+                    <SubmitButton
+                      pendingLabel="Buying…"
+                      className="rounded-xl bg-amber-600 px-5 py-2.5 font-semibold text-white transition hover:bg-amber-700"
+                    >
+                      Buy lead — {gbp(l.lead_price_pence)}
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {myLeads.length > 0 && (
+          <Card
+            title={`Your leads (${myLeads.length})`}
+            description="Bought in the last 30 days — exclusively yours."
+            className="mb-6"
+          >
+            <ul className="mt-4 divide-y divide-slate-100 text-sm">
+              {myLeads.map((l) => (
+                <li key={l.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2.5">
+                  <span>
+                    <span className="font-semibold text-slate-900">
+                      {l.customer_name || "Customer"}
+                    </span>{" "}
+                    <a
+                      href={`tel:${l.customer_phone}`}
+                      className="font-semibold text-primary-600 underline"
+                    >
+                      {l.customer_phone}
+                    </a>
+                    <span className="text-slate-500">
+                      {" "}· {l.outward} ·{" "}
+                      {(l.items ?? [])
+                        .map((line) => `${line.qty}× ${line.label}`)
+                        .join(", ")}{" "}
+                      · quoted {gbp(l.total_pence)}
+                    </span>
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {l.credited
+                      ? "credited — nothing to pay"
+                      : `${gbp(l.lead_price_pence)} on your next invoice`}{" "}
+                    · {l.sold_at}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         {/* Everything unclaimed, wherever it is */}
         <Card
