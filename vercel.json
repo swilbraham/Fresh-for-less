@@ -53,7 +53,19 @@
     },
     {
       "path": "/api/cron/lead-invoices",
-      "schedule": "30 * * * *"
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/lead-invoices",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/lead-invoices",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/lead-invoices",
+      "schedule": "0 18 * * *"
     }
   ],
   "redirects": [

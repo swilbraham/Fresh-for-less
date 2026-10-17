@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Hourly: text each lead buyer their fee an hour after purchase. The hour
- * keeps money talk out of the moment they should be calling the customer;
- * the claim-before-send stamp keeps a retry from billing twice.
+ * Four times a day (9, 12, 15, 18 UTC — the plan refuses hourly schedules):
+ * text each lead buyer their fee once the purchase is at least an hour old.
+ * The delay keeps money talk out of the moment they should be calling the
+ * customer; the claim-before-send stamp keeps a retry from billing twice.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
