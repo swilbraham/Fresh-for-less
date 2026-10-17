@@ -5504,6 +5504,45 @@ export async function sendLeadFeeText(lead: {
   });
 }
 
+/** The lead-sales scoreboard: volume and revenue, last 30 days and ever. */
+export async function leadSalesStats(): Promise<{
+  sold_30d: number;
+  revenue_30d_pence: number;
+  sold_all: number;
+  revenue_all_pence: number;
+  credited_all: number;
+}> {
+  const row = await queryOne<{
+    sold_30d: number;
+    revenue_30d_pence: number;
+    sold_all: number;
+    revenue_all_pence: number;
+    credited_all: number;
+  }>(
+    `SELECT
+       count(*) FILTER (WHERE lead_sold_at > now() - interval '30 days'
+                          AND lead_credited_at IS NULL)::int AS sold_30d,
+       COALESCE(sum(lead_price_pence) FILTER (
+         WHERE lead_sold_at > now() - interval '30 days'
+           AND lead_credited_at IS NULL), 0)::int AS revenue_30d_pence,
+       count(*) FILTER (WHERE lead_credited_at IS NULL)::int AS sold_all,
+       COALESCE(sum(lead_price_pence) FILTER (
+         WHERE lead_credited_at IS NULL), 0)::int AS revenue_all_pence,
+       count(*) FILTER (WHERE lead_credited_at IS NOT NULL)::int AS credited_all
+       FROM quotes
+      WHERE lead_sold_to IS NOT NULL`
+  );
+  return (
+    row ?? {
+      sold_30d: 0,
+      revenue_30d_pence: 0,
+      sold_all: 0,
+      revenue_all_pence: 0,
+      credited_all: 0,
+    }
+  );
+}
+
 /** Everything sold and not yet settled or credited, grouped per cleaner. */
 export async function leadFeesOwed(): Promise<
   { cleaner_id: number; cleaner_name: string; leads: number; owed_pence: number }[]

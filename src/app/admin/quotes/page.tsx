@@ -6,6 +6,7 @@ import {
   getPriceItems,
   getSettings,
   leadFeesOwed,
+  leadSalesStats,
   listQuotes,
   quoteStats,
 } from "@/lib/marketplace/repo";
@@ -43,14 +44,16 @@ export default async function QuotesPage({
   if (!(await isAdmin())) redirect("/admin");
 
   const { error, quoted, offered } = await searchParams;
-  const [quotes, week, items, bundles, settings, leadFees] = await Promise.all([
-    listQuotes(150),
-    quoteStats(7),
-    getPriceItems(true),
-    getBundles(true),
-    getSettings(),
-    leadFeesOwed(),
-  ]);
+  const [quotes, week, items, bundles, settings, leadFees, leadStats] =
+    await Promise.all([
+      listQuotes(150),
+      quoteStats(7),
+      getPriceItems(true),
+      getBundles(true),
+      getSettings(),
+      leadFeesOwed(),
+      leadSalesStats(),
+    ]);
   const rate = week.quotes > 0 ? Math.round((week.booked / week.quotes) * 100) : 0;
 
   return (
@@ -126,12 +129,20 @@ export default async function QuotesPage({
         </QuoteBuilder>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {[
           { label: "Quoted this week", value: String(week.quotes) },
           { label: "Of those, booked", value: `${week.booked} (${rate}%)` },
           { label: "Value quoted", value: gbp(week.quoted_pence) },
           { label: "Value booked", value: gbp(week.booked_pence) },
+          {
+            label: "Leads sold (30d)",
+            value: `${leadStats.sold_30d} · ${gbp(leadStats.revenue_30d_pence)}`,
+          },
+          {
+            label: "Leads sold (ever)",
+            value: `${leadStats.sold_all} · ${gbp(leadStats.revenue_all_pence)}`,
+          },
         ].map((stat) => (
           <div
             key={stat.label}
