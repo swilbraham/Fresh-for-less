@@ -31,6 +31,7 @@ import {
   getPriceItems,
   rebroadcastJob,
   reinstateJob,
+  sendManualReminder,
   setCleanerPaused,
   setCleanerStatus,
   setInvoiceStatus,
@@ -1128,6 +1129,19 @@ export async function settleLeadFeesAction(data: FormData) {
       `Marked ${settled} lead fee${settled === 1 ? "" : "s"} as invoiced.`
     )}`
   );
+}
+
+/** Text the customer a reminder of their booking, right now. */
+export async function remindCustomerAction(data: FormData) {
+  await requireAdmin("/admin/jobs");
+  const ref = field(data, "ref", 20);
+  const back = /^[A-Z0-9-]+$/.test(ref) ? `/admin/jobs/${ref}` : "/admin/jobs";
+  const result = await sendManualReminder(Number(field(data, "id", 12)));
+  revalidatePath(back);
+  if (!result.ok) {
+    redirect(`${back}?error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`);
+  }
+  redirect(`${back}?reminded=1`);
 }
 
 /** Hold a job for one company until a deadline — first refusal, enforced. */

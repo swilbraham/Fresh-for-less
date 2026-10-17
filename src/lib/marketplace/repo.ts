@@ -1224,6 +1224,56 @@ export async function listCompletionConcerns(): Promise<CompletionConcern[]> {
   );
 }
 
+/**
+ * A reminder sent because the office pressed the button, not because the
+ * clock did. Same voice as the automatic one, but it names the date rather
+ * than saying "tomorrow", and it deliberately leaves reminded_at alone — the
+ * day-before text still goes out on schedule.
+ */
+export async function sendManualReminder(
+  jobId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const job = await getJob(jobId);
+  if (!job) return { ok: false, reason: "Job not found." };
+  if (["cancelled", "completed"].includes(job.status)) {
+    return { ok: false, reason: "That booking is closed — nothing to remind them of." };
+  }
+
+  const cleaner = job.cleaner_id ? await getCleaner(job.cleaner_id) : null;
+  const who = cleaner ? firstName(cleaner.name) : null;
+  const when =
+    job.slot_window === "am" ? "morning, 8am-12pm" : "afternoon, 12pm-5pm";
+  const day = longDateLabel(job.slot_date);
+  const link = bookingUrl(job.ref, siteUrl());
+
+  await notifyCustomer(job, {
+    jobId,
+    subject: `A reminder about your carpet clean — ${job.ref}`,
+    body:
+      `Hello ${firstName(job.customer_name)}, a quick reminder about your ` +
+      `carpet clean.\n\n` +
+      `When: ${day}, ${when}\n` +
+      `Where: ${job.address_line}, ${job.postcode}\n` +
+      `${who ? `Cleaner: ${who}\n` : ""}` +
+      `To pay on the day: ${gbpShort(job.total_pence)}\n\n` +
+      `Need to change or cancel? Use this link:\n${link}`,
+    smsBody:
+      `Fresh For Less reminder: your carpet clean is ${day}, ${when}` +
+      `${who ? `, with ${who}` : ""}. ${gbpShort(job.total_pence)} on the day. ` +
+      `Change it: ${link}`,
+  });
+  return { ok: true };
+}
+
+/** "2026-10-21" -> "Tuesday 21 October". */
+function longDateLabel(day: string): string {
+  return new Date(`${day}T12:00:00`).toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
 /** Remind one customer their clean is tomorrow, with a way out if it isn't. */
 export async function sendBookingReminder(job: ReminderJob): Promise<void> {
   const when =
