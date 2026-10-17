@@ -5401,6 +5401,16 @@ export async function buyLead(
         `${quote.outward} — ${items}, quoted ${gbpShort(quote.total_pence)}. ` +
         `Call while it's warm.`,
     });
+
+    // The office hears about every sale as it happens — revenue shouldn't
+    // need a page refresh to notice.
+    await notifyAdmin({
+      subject: `Lead sold — ${quote.outward} for ${gbpShort(quote.lead_price_pence)}`,
+      smsBody:
+        `LEAD SOLD: ${quote.outward} (${items || "clean"}, quoted ${gbpShort(quote.total_pence)}) ` +
+        `bought by ${cleaner.business_name || cleaner.name} for ${gbpShort(quote.lead_price_pence)}. ` +
+        `Fee on their next invoice.`,
+    });
   }
   return { ok: true };
 }
