@@ -35,6 +35,7 @@ import {
   offerJobToCleanersAction,
   releaseHoldAction,
   rebroadcastJobAction,
+  remindCustomerAction,
   transferJobAction,
   requestReferralsAction,
   reinstateJobAction,
@@ -70,6 +71,7 @@ export default async function AdminJobPage({
     referrals?: string;
     offered?: string;
     transferred?: string;
+    reminded?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
@@ -87,6 +89,7 @@ export default async function AdminJobPage({
     referrals,
     offered,
     transferred,
+    reminded,
   } = await searchParams;
 
   const job = await getJobByRef(ref.toUpperCase());
@@ -203,6 +206,11 @@ export default async function AdminJobPage({
           <Alert tone="success">Message sent.</Alert>
         )}
         {referrals && <Alert tone="success">{referrals}</Alert>}
+        {reminded && (
+          <Alert tone="success">
+            Reminder sent — texted now, and emailed if they gave an address.
+          </Alert>
+        )}
         {offered && <Alert tone="success">{offered}</Alert>}
         {transferred && <Alert tone="success">{transferred}</Alert>}
         {moved && (
@@ -315,6 +323,22 @@ export default async function AdminJobPage({
                 <Row label="Phone" value={job.customer_phone} />
                 <Row label="Email" value={job.customer_email} />
               </dl>
+              {!["cancelled", "completed"].includes(job.status) && (
+                <form action={remindCustomerAction} className="mt-3">
+                  <input type="hidden" name="id" value={job.id} />
+                  <input type="hidden" name="ref" value={job.ref} />
+                  <button
+                    type="submit"
+                    className="rounded-xl border border-primary-300 px-4 py-2 text-sm font-semibold text-primary-700 transition hover:bg-primary-50"
+                  >
+                    Text booking reminder now
+                  </button>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Date, time window, price and their change/cancel link. The
+                    automatic day-before reminder still goes out as normal.
+                  </p>
+                </form>
+              )}
             </Card>
 
             <Card title="Cleaner">
