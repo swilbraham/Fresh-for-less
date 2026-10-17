@@ -5158,6 +5158,73 @@ export async function listCoverage(): Promise<CoverageArea[]> {
   );
 }
 
+/**
+ * Map positions for postcode districts, cached in outcode_geo. Unknown ones
+ * are fetched from postcodes.io once (failures cached as NULL so a typo'd
+ * district doesn't hit the API on every page view). Returns only districts
+ * with a real position.
+ */
+export async function getOutcodeGeo(
+  outwards: string[]
+): Promise<Map<string, { lat: number; lng: number }>> {
+  const result = new Map<string, { lat: number; lng: number }>();
+  const wanted = [...new Set(outwards.map((o) => o.toUpperCase()))].filter(
+    (o) => /^[A-Z]{1,2}[0-9][A-Z0-9]?$/.test(o)
+  );
+  if (wanted.length === 0) return result;
+
+  const cached = await query<{ outward: string; lat: number | null; lng: number | null }>(
+    `SELECT outward, lat, lng FROM outcode_geo WHERE outward = ANY($1)`,
+    [wanted]
+  );
+  const seen = new Set<string>();
+  for (const row of cached) {
+    seen.add(row.outward);
+    if (row.lat !== null && row.lng !== null) {
+      result.set(row.outward, { lat: Number(row.lat), lng: Number(row.lng) });
+    }
+  }
+
+  // First visit after new coverage: look the stragglers up, a few at a time.
+  const missing = wanted.filter((o) => !seen.has(o)).slice(0, 150);
+  const CHUNK = 10;
+  for (let i = 0; i < missing.length; i += CHUNK) {
+    await Promise.all(
+      missing.slice(i, i + CHUNK).map(async (outward) => {
+        let lat: number | null = null;
+        let lng: number | null = null;
+        try {
+          const res = await fetch(
+            `https://api.postcodes.io/outcodes/${encodeURIComponent(outward)}`,
+            { signal: AbortSignal.timeout(4000) }
+          );
+          if (res.ok) {
+            const json = await res.json();
+            if (
+              typeof json?.result?.latitude === "number" &&
+              typeof json?.result?.longitude === "number"
+            ) {
+              lat = json.result.latitude;
+              lng = json.result.longitude;
+            }
+          } else if (res.status !== 404) {
+            return; // API wobble — leave uncached so a later view retries
+          }
+        } catch {
+          return; // timeout/network — retry on a later view
+        }
+        await query(
+          `INSERT INTO outcode_geo (outward, lat, lng) VALUES ($1, $2, $3)
+           ON CONFLICT (outward) DO NOTHING`,
+          [outward, lat, lng]
+        );
+        if (lat !== null && lng !== null) result.set(outward, { lat, lng });
+      })
+    );
+  }
+  return result;
+}
+
 /** Postcodes that have produced work or enquiries but nobody covers. */
 export async function listUncoveredDemand(): Promise<
   { outward: string; jobs: number; requests: number }[]

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/marketplace/auth";
 import {
+  getOutcodeGeo,
   listCoverage,
   listCoverageByCleaner,
   listUncoveredDemand,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/marketplace/repo";
 import { Card } from "@/components/marketplace/shell";
 import CopyButton from "@/components/marketplace/CopyButton";
+import CoverageMap from "@/components/marketplace/CoverageMap";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,30 @@ export default async function CoveragePage() {
     listCoverageByCleaner(),
     metaPinClusters(),
   ]);
+
+  const geo = await getOutcodeGeo([
+    ...covered.map((a) => a.outward),
+    ...gaps.map((g) => g.outward),
+  ]);
+  const mapAreas = covered.flatMap((a) => {
+    const at = geo.get(a.outward);
+    return at
+      ? [{
+          outward: a.outward,
+          lat: at.lat,
+          lng: at.lng,
+          cleanerCount: a.cleaner_count,
+          cleaners: a.cleaners,
+          jobs: a.jobs,
+        }]
+      : [];
+  });
+  const mapGaps = gaps.flatMap((g) => {
+    const at = geo.get(g.outward);
+    return at
+      ? [{ outward: g.outward, lat: at.lat, lng: at.lng, jobs: g.jobs, requests: g.requests }]
+      : [];
+  });
 
   const groups = new Map<string, typeof covered>();
   for (const area of covered) {
@@ -107,6 +133,34 @@ export default async function CoveragePage() {
         <p className="mt-1 text-sm text-slate-500">
           Every postcode a cleaner claims, and what it has actually produced.
         </p>
+
+        <Card
+          title="The map"
+          description="One dot per postcode district. Click a dot to see who covers it, with a link straight to their cards."
+        >
+          <div className="mb-3 flex flex-wrap gap-4 text-xs text-slate-600">
+            <span>
+              <span className="mr-1 inline-block h-3 w-3 rounded-full bg-green-600/70 align-middle" />
+              2+ cleaners
+            </span>
+            <span>
+              <span className="mr-1 inline-block h-3 w-3 rounded-full bg-amber-600/70 align-middle" />
+              only 1 cleaner
+            </span>
+            <span>
+              <span className="mr-1 inline-block h-3 w-3 rounded-full bg-red-600/50 align-middle" />
+              demand, nobody covers it
+            </span>
+          </div>
+          <CoverageMap areas={mapAreas} gaps={mapGaps} />
+          {mapAreas.length < covered.length && (
+            <p className="mt-2 text-xs text-slate-400">
+              {covered.length - mapAreas.length} district
+              {covered.length - mapAreas.length === 1 ? "" : "s"} couldn&apos;t
+              be placed yet — positions fill in on the next visit.
+            </p>
+          )}
+        </Card>
 
         <Card
           title="Meta ad targeting — your coverage, ready to paste"

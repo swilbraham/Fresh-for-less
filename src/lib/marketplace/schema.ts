@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 55;
+export const SCHEMA_VERSION = 56;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -181,6 +181,14 @@ export const STATEMENTS: string[] = [
   // ---- Demand in uncovered areas ------------------------------------------
   // A postcode with no cleaner is a lost customer AND the best possible signal
   // of where to recruit next, so capture it rather than showing a dead end.
+  // Where each postcode district sits on the map, cached from postcodes.io.
+  // lat/lng NULL records a lookup that failed, so bad codes aren't re-fetched.
+  `CREATE TABLE IF NOT EXISTS outcode_geo (
+     outward    text PRIMARY KEY,
+     lat        double precision,
+     lng        double precision,
+     fetched_at timestamptz NOT NULL DEFAULT now()
+   )`,
   `CREATE TABLE IF NOT EXISTS coverage_requests (
      id         serial PRIMARY KEY,
      name       text NOT NULL DEFAULT '',
