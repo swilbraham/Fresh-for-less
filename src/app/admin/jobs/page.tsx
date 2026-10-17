@@ -293,7 +293,7 @@ export default async function AdminJobsPage({
               id="q"
               name="q"
               defaultValue={q ?? ""}
-              placeholder="Reference, name, postcode or town"
+              placeholder="Reference, name, phone, postcode or town"
               className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
             />
           </div>

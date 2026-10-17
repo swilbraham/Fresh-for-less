@@ -2349,14 +2349,34 @@ function jobFilterClause(filters: JobFilters): {
   if (filters.q) {
     params.push(`%${filters.q.toLowerCase()}%`);
     const n = params.length;
-    clauses.push(
-      `(lower(j.ref) LIKE $${n} OR lower(j.customer_name) LIKE $${n}
-        OR lower(j.postcode) LIKE $${n} OR lower(j.town) LIKE $${n}
-        OR EXISTS (SELECT 1 FROM cleaners cf
-                    WHERE cf.id = j.cleaner_id
-                      AND (lower(cf.name) LIKE $${n}
-                        OR lower(cf.business_name) LIKE $${n})))`
-    );
+    const parts = [
+      `lower(j.ref) LIKE $${n}`,
+      `lower(j.customer_name) LIKE $${n}`,
+      `lower(j.postcode) LIKE $${n}`,
+      `lower(j.town) LIKE $${n}`,
+      `EXISTS (SELECT 1 FROM cleaners cf
+                WHERE cf.id = j.cleaner_id
+                  AND (lower(cf.name) LIKE $${n}
+                    OR lower(cf.business_name) LIKE $${n}))`,
+    ];
+    // Phone search, digits-normalised on both sides so "07709", "+44 7709"
+    // and "990 749" all find the same customer. "+447..." also matches rows
+    // stored as "07..." by comparing against the 44-stripped form too.
+    const digits = filters.q.replace(/[^0-9]/g, "");
+    if (digits.length >= 4) {
+      const stripped = digits.startsWith("44") ? digits.slice(2) : digits;
+      params.push(`%${digits}%`);
+      parts.push(
+        `regexp_replace(j.customer_phone, '[^0-9]', '', 'g') LIKE $${params.length}`
+      );
+      if (stripped !== digits) {
+        params.push(`%${stripped}%`);
+        parts.push(
+          `regexp_replace(j.customer_phone, '[^0-9]', '', 'g') LIKE $${params.length}`
+        );
+      }
+    }
+    clauses.push(`(${parts.join(" OR ")})`);
   }
 
   return {
