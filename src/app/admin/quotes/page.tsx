@@ -15,6 +15,7 @@ import {
   createOfficeQuoteAction,
   creditLeadAction,
   listLeadAction,
+  rejectLeadCreditAction,
   offerQuoteDiscountAction,
   settleLeadFeesAction,
 } from "@/app/admin/actions";
@@ -266,16 +267,40 @@ export default async function QuotesPage({
                               waiting for a buyer
                             </p>
                           ) : null}
+                          {quote.lead_credit_requested_at && !quote.lead_credited_at && (
+                            <p className="mt-1 max-w-[240px] whitespace-normal rounded-lg bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
+                              Credit requested {quote.lead_credit_requested_at}:{" "}
+                              {{
+                                "dead-number": "number dead/unreachable",
+                                "wrong-person": "wrong person",
+                                "never-asked": "never asked for a quote",
+                                "already-mine": "already their customer",
+                              }[quote.lead_credit_reason ?? ""] ?? quote.lead_credit_reason}
+                            </p>
+                          )}
                           {quote.lead_sold_to && !quote.lead_credited_at && !quote.lead_settled_at && (
-                            <form action={creditLeadAction} className="mt-1">
-                              <input type="hidden" name="id" value={quote.id} />
-                              <button
-                                type="submit"
-                                className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50"
-                              >
-                                Credit (dud lead)
-                              </button>
-                            </form>
+                            <div className="mt-1 flex gap-1">
+                              <form action={creditLeadAction}>
+                                <input type="hidden" name="id" value={quote.id} />
+                                <button
+                                  type="submit"
+                                  className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                                >
+                                  {quote.lead_credit_requested_at ? "Approve credit" : "Credit (dud lead)"}
+                                </button>
+                              </form>
+                              {quote.lead_credit_requested_at && (
+                                <form action={rejectLeadCreditAction}>
+                                  <input type="hidden" name="id" value={quote.id} />
+                                  <button
+                                    type="submit"
+                                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+                                  >
+                                    Reject — fee stands
+                                  </button>
+                                </form>
+                              )}
+                            </div>
                           )}
                           {!quote.lead_listed_at && quote.customer_phone && (
                             <form

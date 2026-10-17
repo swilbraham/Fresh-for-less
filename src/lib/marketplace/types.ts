@@ -180,6 +180,8 @@ export type QuoteRecord = {
   lead_sold_at: string | null;
   lead_credited_at: string | null;
   lead_settled_at: string | null;
+  lead_credit_requested_at?: string | null;
+  lead_credit_reason?: string;
   created_at: string;
   updated_at: string;
 };

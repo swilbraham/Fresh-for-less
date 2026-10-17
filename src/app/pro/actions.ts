@@ -12,6 +12,7 @@ import {
 import {
   acceptJob,
   buyLead,
+  requestLeadCredit,
   addBlackout,
   completeJob,
   createCleaner,
@@ -278,6 +279,18 @@ export async function buyLeadAction(data: FormData) {
   revalidatePath("/pro/dashboard");
   if (!result.ok) fail("/pro/dashboard", result.reason ?? "Couldn't buy that lead.");
   redirect("/pro/dashboard?lead=1");
+}
+
+/** Ask for a lead credit, reason required from the fixed list. */
+export async function requestLeadCreditAction(data: FormData) {
+  const cleaner = await requireCleaner();
+  const quoteId = Number(field(data, "quoteId", 12));
+  const reason = field(data, "reason", 30);
+
+  const result = await requestLeadCredit(quoteId, cleaner.id, reason);
+  revalidatePath("/pro/dashboard");
+  if (!result.ok) fail("/pro/dashboard", result.reason ?? "Couldn't send that.");
+  redirect("/pro/dashboard?creditRequested=1");
 }
 
 export async function declineJobAction(data: FormData) {

@@ -5237,6 +5237,8 @@ export async function listQuotes(limit = 100): Promise<QuoteRecord[]> {
             to_char(lead_credited_at, 'YYYY-MM-DD') AS lead_credited_at,
             to_char(lead_settled_at,  'YYYY-MM-DD') AS lead_settled_at,
             (SELECT c.name FROM cleaners c WHERE c.id = lead_sold_to) AS lead_sold_to_name,
+            lead_credit_reason,
+            to_char(lead_credit_requested_at, 'DD Mon HH24:MI') AS lead_credit_requested_at,
             to_char(expires_at, 'YYYY-MM-DD') AS expires_at,
             to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
             to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
@@ -5354,13 +5356,16 @@ export async function boughtLeadsForCleaner(cleanerId: number): Promise<
     lead_price_pence: number;
     sold_at: string;
     credited: boolean;
+    credit_requested: boolean;
+    lead_credit_reason: string;
   }[]
 > {
   return query(
     `SELECT id, outward, customer_name, customer_phone, items, total_pence,
-            lead_price_pence,
+            lead_price_pence, lead_credit_reason,
             to_char(lead_sold_at, 'DD Mon HH24:MI') AS sold_at,
-            (lead_credited_at IS NOT NULL) AS credited
+            (lead_credited_at IS NOT NULL) AS credited,
+            (lead_credit_requested_at IS NOT NULL) AS credit_requested
        FROM quotes
       WHERE lead_sold_to = $1
         AND lead_sold_at > now() - interval '30 days'
@@ -5435,6 +5440,98 @@ export async function buyLead(
   return { ok: true };
 }
 
+/**
+ * The only reasons a lead credit can be asked for. Deliberately precise:
+ * every one describes a defect in the LEAD, not a failure to convert it.
+ * "Spoke to them but they didn't book" is not on the list on purpose.
+ */
+export const LEAD_CREDIT_REASONS: Record<string, string> = {
+  "dead-number": "Number dead or unreachable — tried at least 3 times over 24 hours",
+  "wrong-person": "Wrong person — the number belongs to somebody else",
+  "never-asked": "Customer says they never asked for a quote",
+  "already-mine": "Already my customer — I had quoted or booked them before buying",
+};
+
+/**
+ * A buyer asks for their money back, with a reason off the fixed list. The
+ * office is texted and decides; nothing is credited automatically.
+ */
+export async function requestLeadCredit(
+  quoteId: number,
+  cleanerId: number,
+  reason: string
+): Promise<{ ok: boolean; reason?: string }> {
+  const label = LEAD_CREDIT_REASONS[reason];
+  if (!label) return { ok: false, reason: "Pick a reason from the list." };
+
+  const quote = await queryOne<QuoteRecord>(`SELECT * FROM quotes WHERE id = $1`, [
+    quoteId,
+  ]);
+  if (!quote || quote.lead_sold_to !== cleanerId) {
+    return { ok: false, reason: "That lead isn't yours." };
+  }
+  if (quote.lead_credited_at) return { ok: true };
+  if (quote.lead_credit_requested_at) {
+    return { ok: false, reason: "Already requested — the office is on it." };
+  }
+  const soldMs = Date.now() - new Date(quote.lead_sold_at ?? 0).getTime();
+  if (soldMs > 7 * 24 * 60 * 60 * 1000) {
+    return {
+      ok: false,
+      reason: "Credits need requesting within 7 days of buying the lead.",
+    };
+  }
+
+  await query(
+    `UPDATE quotes
+        SET lead_credit_requested_at = now(), lead_credit_reason = $2
+      WHERE id = $1`,
+    [quoteId, reason]
+  );
+
+  const cleaner = await getCleaner(cleanerId);
+  await notifyAdmin({
+    subject: `Lead credit requested — ${quote.outward}`,
+    smsBody:
+      `CREDIT REQUEST: ${gbpShort(quote.lead_price_pence)} lead in ${quote.outward} ` +
+      `(${quote.customer_name || "customer"}) from ${cleaner?.business_name || cleaner?.name}. ` +
+      `Reason: ${label}. Approve or reject: ${siteUrl()}/admin/quotes`,
+  });
+  return { ok: true };
+}
+
+/** The office disagrees: the lead stands, the buyer is told politely. */
+export async function rejectLeadCredit(
+  quoteId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const quote = await queryOne<QuoteRecord>(`SELECT * FROM quotes WHERE id = $1`, [
+    quoteId,
+  ]);
+  if (!quote?.lead_credit_requested_at) {
+    return { ok: false, reason: "No credit request on that lead." };
+  }
+  await query(
+    `UPDATE quotes SET lead_credit_requested_at = NULL WHERE id = $1`,
+    [quoteId]
+  );
+  if (quote.lead_sold_to) {
+    const cleaner = await getCleaner(quote.lead_sold_to);
+    if (cleaner) {
+      await notifyCleaner(cleaner, {
+        subject: `Lead credit — ${quote.outward}`,
+        body:
+          `${firstName(cleaner.name)}, we've looked at the credit request on the ` +
+          `${quote.outward} lead and the fee stands this time. If there's more to ` +
+          `it, reply here and we'll talk it through.`,
+        smsBody:
+          `Fresh For Less: we've reviewed the ${quote.outward} lead credit request ` +
+          `— the fee stands this time. Reply here if there's more to it.`,
+      });
+    }
+  }
+  return { ok: true };
+}
+
 /** A dud lead: fee wiped, buyer told. The office's one-button guarantee. */
 export async function creditLead(
   quoteId: number
@@ -5482,6 +5579,7 @@ export async function claimLeadFeesForText(limit = 20): Promise<
         SELECT id FROM quotes
          WHERE lead_sold_to IS NOT NULL
            AND lead_credited_at IS NULL
+           AND lead_credit_requested_at IS NULL
            AND lead_fee_texted_at IS NULL
            AND lead_sold_at <= now() - interval '1 hour'
            AND lead_sold_at > now() - interval '7 days'
@@ -5574,6 +5672,7 @@ export async function leadFeesOwed(): Promise<
        FROM quotes q JOIN cleaners c ON c.id = q.lead_sold_to
       WHERE q.lead_sold_to IS NOT NULL
         AND q.lead_credited_at IS NULL
+        AND q.lead_credit_requested_at IS NULL
         AND q.lead_settled_at IS NULL
       GROUP BY c.id, c.name
       ORDER BY owed_pence DESC`

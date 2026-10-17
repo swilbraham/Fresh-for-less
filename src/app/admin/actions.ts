@@ -46,6 +46,7 @@ import {
   holdJobForCleaner,
   listQuoteAsLead,
   creditLead,
+  rejectLeadCredit,
   settleLeadFees,
   offerJobToCleaners,
   releaseHold,
@@ -1104,6 +1105,17 @@ export async function creditLeadAction(data: FormData) {
     redirect(`/admin/quotes?error=${encodeURIComponent(result.reason ?? "Couldn't credit that.")}`);
   }
   redirect(`/admin/quotes?quoted=${encodeURIComponent("Lead credited — the cleaner has been told there's nothing to pay.")}`);
+}
+
+/** The office disagrees with a credit request: fee stands, buyer told. */
+export async function rejectLeadCreditAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const result = await rejectLeadCredit(Number(field(data, "id", 12)));
+  revalidatePath("/admin/quotes");
+  if (!result.ok) {
+    redirect(`/admin/quotes?error=${encodeURIComponent(result.reason ?? "Couldn't do that.")}`);
+  }
+  redirect(`/admin/quotes?quoted=${encodeURIComponent("Request rejected — the cleaner has been told the fee stands.")}`);
 }
 
 /** After the fees have been added to an invoice by hand, clear the tally. */

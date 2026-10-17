@@ -19,6 +19,7 @@ import type { Job } from "@/lib/marketplace/types";
 import {
   acceptJobAction,
   buyLeadAction,
+  requestLeadCreditAction,
   completeJobAction,
   declineJobAction,
   disputeJobAction,
@@ -74,6 +75,7 @@ export default async function DashboardPage({
   searchParams: Promise<{
     error?: string;
     lead?: string;
+    creditRequested?: string;
     accepted?: string;
     completed?: string;
     released?: string;
@@ -83,7 +85,8 @@ export default async function DashboardPage({
   const cleaner = await currentCleaner();
   if (!cleaner) redirect("/pro?next=/pro/dashboard");
 
-  const { error, lead, accepted, completed, released, disputed } = await searchParams;
+  const { error, lead, creditRequested, accepted, completed, released, disputed } =
+    await searchParams;
   const [offers, openJobs, upcoming, done, areas, invoices, leadsForSale, myLeads] = await Promise.all([
     listOffersForCleaner(cleaner.id),
     listOpenJobs(),
@@ -141,6 +144,13 @@ export default async function DashboardPage({
           <Alert tone="success">
             Lead bought — it&apos;s yours alone. The name and number are below
             and in a text we&apos;ve just sent you. Call while it&apos;s warm.
+          </Alert>
+        )}
+        {creditRequested && (
+          <Alert tone="info">
+            Credit request sent — the office will look at it and text you
+            either way. The fee stays off your invoice while it&apos;s being
+            decided.
           </Alert>
         )}
         {completed && (
@@ -369,9 +379,55 @@ export default async function DashboardPage({
                   <span className="text-xs text-slate-500">
                     {l.credited
                       ? "credited — nothing to pay"
-                      : `${gbp(l.lead_price_pence)} on your next invoice`}{" "}
+                      : l.credit_requested
+                        ? "credit requested — office deciding"
+                        : `${gbp(l.lead_price_pence)} on your next invoice`}{" "}
                     · {l.sold_at}
                   </span>
+                  {!l.credited && !l.credit_requested && (
+                    <details className="w-full">
+                      <summary className="cursor-pointer text-xs font-semibold text-slate-500 hover:text-red-600">
+                        Problem with this lead?
+                      </summary>
+                      <form
+                        action={requestLeadCreditAction}
+                        className="mt-2 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm"
+                      >
+                        <input type="hidden" name="quoteId" value={l.id} />
+                        <p className="font-semibold text-slate-700">
+                          Pick what&apos;s actually wrong with the lead:
+                        </p>
+                        {[
+                          ["dead-number", "Number dead or unreachable — I've tried at least 3 times over 24 hours"],
+                          ["wrong-person", "Wrong person — the number belongs to somebody else"],
+                          ["never-asked", "They say they never asked for a quote"],
+                          ["already-mine", "Already my customer — I'd quoted or booked them before buying"],
+                        ].map(([value, label]) => (
+                          <label key={value} className="flex items-start gap-2 text-slate-700">
+                            <input
+                              type="radio"
+                              name="reason"
+                              value={value}
+                              required
+                              className="mt-1 h-4 w-4 accent-primary-600"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                        <p className="text-xs text-slate-500">
+                          &ldquo;Spoke to them but they didn&apos;t book&rdquo; isn&apos;t
+                          one of the options on purpose — the lead is the
+                          introduction; winning the job is yours.
+                        </p>
+                        <button
+                          type="submit"
+                          className="rounded-xl border border-red-300 px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                        >
+                          Request credit
+                        </button>
+                      </form>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>
