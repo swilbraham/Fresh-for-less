@@ -74,8 +74,8 @@ export default function BookingFlow({
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("postcode");
-  const [leadName, setLeadName] = useState("");
-  const [leadPhone, setLeadPhone] = useState("");
+  const [leadName, setLeadName] = useState(initialDetails?.customerName ?? "");
+  const [leadPhone, setLeadPhone] = useState(initialDetails?.customerPhone ?? "");
   const [leadStatus, setLeadStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
   const [postcode, setPostcode] = useState(initialPostcode.toUpperCase());
   const [checking, setChecking] = useState(false);
@@ -268,6 +268,11 @@ export default function BookingFlow({
   useEffect(() => {
     if (autoChecked.current) return;
     if (initialPostcode.trim().length < 5) return;
+    // Straight to the prices only when we already know who they are (a
+    // resumed quote link). Anyone else keeps the prefilled postcode but
+    // still meets the name-and-mobile gate — skipping it left anonymous
+    // quotes on the admin list that nobody could follow up.
+    if (!initialDetails?.customerName || !initialDetails?.customerPhone) return;
     autoChecked.current = true;
     void runPostcodeCheck(initialPostcode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -309,16 +314,17 @@ export default function BookingFlow({
           subtotalPence: quote.subtotal_pence,
           totalPence: quote.total_pence,
           source,
-          customerName: leadName.trim(),
-          customerPhone: leadPhone.trim(),
+          customerName: (leadName || details.customerName).trim(),
+          customerPhone: (leadPhone || details.customerPhone).trim(),
         }),
       }).catch(() => {});
     }, 1500);
 
     return () => clearTimeout(timer);
-    // leadName/leadPhone ride along but shouldn't re-fire the log on keypress.
+    // Name/phone ride along but shouldn't re-fire the log on keypress — the
+    // step dependency syncs whatever was typed when they move on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coverage, postcode, quote, source]);
+  }, [coverage, postcode, quote, source, step]);
 
   /** "Text me this price" — saves the lead and sends one SMS with the figure. */
   async function textMyPrice() {
