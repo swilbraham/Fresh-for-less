@@ -6794,6 +6794,26 @@ export async function issueDiscountCode(
  * back through /book the exit-offer plumbing recognises it like any other
  * code. 48 hours keeps the nudge urgent without feeling like a trick.
  */
+/**
+ * Pull an unsold lead off the market — the texted cleaners' buy buttons stop
+ * working the instant this lands (buying checks lead_listed_at). A sold lead
+ * can't be cancelled; that's the buyer's contact now.
+ */
+export async function cancelLeadListing(
+  quoteId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const rows = await query<{ id: number }>(
+    `UPDATE quotes SET lead_price_pence = 0, lead_listed_at = NULL
+      WHERE id = $1 AND lead_listed_at IS NOT NULL AND lead_sold_to IS NULL
+      RETURNING id`,
+    [quoteId]
+  );
+  if (rows.length === 0) {
+    return { ok: false, reason: "That lead is already sold, or wasn't listed." };
+  }
+  return { ok: true };
+}
+
 export async function offerDiscountToQuote(
   quoteId: number,
   pct: number
@@ -6820,6 +6840,21 @@ export async function offerDiscountToQuote(
   if (quote.booked_ref) {
     return { ok: false, reason: "They already booked — nothing to chase." };
   }
+
+  // A sold lead belongs to its buyer — undercutting them with a discount
+  // text is exactly what the exclusivity promise rules out. An unsold
+  // listing just comes off the market and the discount goes instead.
+  const lead = await queryOne<{ lead_listed_at: string | null; lead_sold_to: number | null }>(
+    `SELECT lead_listed_at, lead_sold_to FROM quotes WHERE id = $1`,
+    [quoteId]
+  );
+  if (lead?.lead_sold_to) {
+    return {
+      ok: false,
+      reason: "This lead was sold — it's the buyer's customer now. Credit the lead first if it's a dud.",
+    };
+  }
+  if (lead?.lead_listed_at) await cancelLeadListing(quoteId);
 
   const mobile = toE164(quote.customer_phone);
   if (!mobile || !isMobile(quote.customer_phone)) {

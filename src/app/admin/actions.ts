@@ -45,6 +45,7 @@ import {
   getCleanerAreas,
   getJobByRef,
   holdJobForCleaner,
+  cancelLeadListing,
   listQuoteAsLead,
   creditLead,
   rejectLeadCredit,
@@ -1103,6 +1104,17 @@ export async function listLeadAction(data: FormData) {
       `Lead listed — ${result.alerted} covering cleaner${result.alerted === 1 ? "" : "s"} texted. First to buy gets it.`
     )}`
   );
+}
+
+/** Take an unsold lead off the market — nobody is texted about it. */
+export async function cancelLeadAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const result = await cancelLeadListing(Number(field(data, "id", 12)));
+  revalidatePath("/admin/quotes");
+  if (!result.ok) {
+    redirect(`/admin/quotes?error=${encodeURIComponent(result.reason ?? "Couldn't cancel that.")}`);
+  }
+  redirect(`/admin/quotes?quoted=${encodeURIComponent("Lead sale cancelled — it's yours to chase again. Nobody was told.")}`);
 }
 
 /** The guarantee button: dud lead, fee wiped, buyer told. */

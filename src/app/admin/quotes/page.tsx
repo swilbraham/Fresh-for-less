@@ -14,6 +14,7 @@ import QuoteBuilder from "@/components/marketplace/QuoteBuilder";
 import {
   createOfficeQuoteAction,
   creditLeadAction,
+  cancelLeadAction,
   listLeadAction,
   rejectLeadCreditAction,
   offerQuoteDiscountAction,
@@ -351,6 +352,17 @@ export default async function QuotesPage({
                               )}
                             </div>
                           )}
+                          {quote.lead_listed_at && !quote.lead_sold_to && (
+                            <form action={cancelLeadAction} className="mt-1">
+                              <input type="hidden" name="id" value={quote.id} />
+                              <button
+                                type="submit"
+                                className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-50"
+                              >
+                                Cancel lead sale
+                              </button>
+                            </form>
+                          )}
                           {!quote.lead_listed_at && quote.customer_phone && (
                             <form
                               action={listLeadAction}
@@ -372,7 +384,7 @@ export default async function QuotesPage({
                               </button>
                             </form>
                           )}
-                          {!quote.lead_listed_at && quote.customer_phone && (
+                          {!quote.lead_sold_to && quote.customer_phone && (
                             <form
                               action={offerQuoteDiscountAction}
                               className="mt-1 flex items-center gap-1"
@@ -393,7 +405,11 @@ export default async function QuotesPage({
                                 type="submit"
                                 className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-primary-700 transition hover:bg-primary-50"
                               >
-                                {quote.offer_sent_at ? "Text again" : "Text offer"}
+                                {quote.lead_listed_at
+                                  ? "Cancel sale & text offer"
+                                  : quote.offer_sent_at
+                                    ? "Text again"
+                                    : "Text offer"}
                               </button>
                             </form>
                           )}
