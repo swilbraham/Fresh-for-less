@@ -3173,6 +3173,31 @@ export async function textCustomer(
   return { ok: true };
 }
 
+/** A free-hand text to someone who priced up but hasn't booked. */
+export async function textQuoteCustomer(
+  quoteId: number,
+  body: string
+): Promise<{ ok: boolean; reason?: string; name?: string }> {
+  const quote = await queryOne<{ customer_name: string; customer_phone: string }>(
+    `SELECT customer_name, customer_phone FROM quotes WHERE id = $1`,
+    [quoteId]
+  );
+  if (!quote) return { ok: false, reason: "That quote no longer exists." };
+
+  const mobile = toE164(quote.customer_phone);
+  if (!mobile || !isMobile(quote.customer_phone)) {
+    return { ok: false, reason: "No textable mobile on this quote." };
+  }
+
+  await notify({
+    channel: "sms",
+    recipient: mobile,
+    subject: `Message to ${quote.customer_name || "quote lead"} (quote)`,
+    body,
+  });
+  return { ok: true, name: quote.customer_name };
+}
+
 /** Every message to or from one job's customer, oldest first. */
 export async function getCustomerThread(jobId: number): Promise<
   {

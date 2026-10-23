@@ -46,6 +46,7 @@ import {
   getJobByRef,
   holdJobForCleaner,
   cancelLeadListing,
+  textQuoteCustomer,
   listQuoteAsLead,
   creditLead,
   rejectLeadCredit,
@@ -1102,6 +1103,26 @@ export async function listLeadAction(data: FormData) {
   redirect(
     `/admin/quotes?quoted=${encodeURIComponent(
       `Lead listed — ${result.alerted} covering cleaner${result.alerted === 1 ? "" : "s"} texted. First to buy gets it.`
+    )}`
+  );
+}
+
+/** Text whoever asked for a quote — a plain message, no offer machinery. */
+export async function textQuoteCustomerAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const id = Number(field(data, "id", 12));
+  const body = field(data, "body", 600);
+  if (!body) {
+    redirect(`/admin/quotes?error=${encodeURIComponent("Write a message first.")}`);
+  }
+  const result = await textQuoteCustomer(id, body);
+  revalidatePath("/admin/quotes");
+  if (!result.ok) {
+    redirect(`/admin/quotes?error=${encodeURIComponent(result.reason ?? "Couldn't send that.")}`);
+  }
+  redirect(
+    `/admin/quotes?quoted=${encodeURIComponent(
+      `Text sent${result.name ? ` to ${result.name}` : ""} — replies land in Messages.`
     )}`
   );
 }

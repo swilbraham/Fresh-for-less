@@ -15,6 +15,7 @@ import {
   createOfficeQuoteAction,
   creditLeadAction,
   cancelLeadAction,
+  textQuoteCustomerAction,
   listLeadAction,
   rejectLeadCreditAction,
   offerQuoteDiscountAction,
@@ -412,6 +413,33 @@ export default async function QuotesPage({
                                     : "Text offer"}
                               </button>
                             </form>
+                          )}
+                          {!quote.lead_sold_to && quote.customer_phone && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-xs font-semibold text-primary-700">
+                                💬 Text {quote.customer_name.split(" ")[0] || "them"}
+                              </summary>
+                              <form
+                                action={textQuoteCustomerAction}
+                                className="mt-1 w-56 space-y-1"
+                              >
+                                <input type="hidden" name="id" value={quote.id} />
+                                <textarea
+                                  name="body"
+                                  required
+                                  rows={2}
+                                  maxLength={600}
+                                  placeholder="Your message…"
+                                  className="w-full whitespace-normal rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                                />
+                                <button
+                                  type="submit"
+                                  className="rounded-lg bg-primary-600 px-3 py-1 text-xs font-semibold text-white"
+                                >
+                                  Send
+                                </button>
+                              </form>
+                            </details>
                           )}
                         </div>
                       )}
