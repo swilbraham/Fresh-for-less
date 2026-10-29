@@ -217,7 +217,19 @@ export default async function InvoicePage({
                     {line.slot_date}
                   </td>
                   <td className="py-2 text-slate-700">
-                    {line.ref} · {line.postcode}
+                    {/* The office can open the job behind a line; a cleaner
+                        reading their own invoice has no admin to open. */}
+                    {admin ? (
+                      <Link
+                        href={`/admin/jobs/${line.ref}`}
+                        className="font-semibold text-primary-600 underline print:no-underline print:text-slate-700"
+                      >
+                        {line.ref}
+                      </Link>
+                    ) : (
+                      line.ref
+                    )}{" "}
+                    · {line.postcode}
                     <span className="block text-xs text-slate-500">
                       {line.customer_name}
                     </span>

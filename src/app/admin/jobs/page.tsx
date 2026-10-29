@@ -407,7 +407,14 @@ export default async function AdminJobsPage({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {job.cleaner_name ?? (
+                      {job.cleaner_name ? (
+                        <Link
+                          href={`/admin/cleaners?q=${encodeURIComponent(job.cleaner_name)}${job.cleaner_id ? `#cleaner-${job.cleaner_id}` : ""}`}
+                          className="font-semibold text-primary-600 underline"
+                        >
+                          {job.cleaner_name}
+                        </Link>
+                      ) : (
                         <span className="text-slate-400">
                           {job.offers} offered
                         </span>

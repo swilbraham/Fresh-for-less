@@ -386,6 +386,13 @@ export default async function AdminCleanersPage({
                       >
                         View their jobs
                       </Link>{" "}
+                      ·{" "}
+                      <Link
+                        href={`/admin/invoices?q=${encodeURIComponent(cleaner.name)}`}
+                        className="font-semibold text-primary-600 underline"
+                      >
+                        Their invoices
+                      </Link>{" "}
                       · Applied {cleaner.created_at} · {cleaner.jobs_done} job
                       {cleaner.jobs_done === 1 ? "" : "s"} completed
                     </p>

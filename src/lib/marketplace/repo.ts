@@ -7027,3 +7027,27 @@ export async function redeemDiscountCode(
 
   return { ok: true, discountPence: discount };
 }
+
+
+/**
+ * The quote a job came from, if it came from one.
+ *
+ * Lets the job page point back at what the customer was shown and what it was
+ * priced at — the first question whenever somebody rings up saying the figure
+ * is wrong.
+ */
+export async function getQuoteForJob(ref: string): Promise<QuoteRecord | null> {
+  return queryOne<QuoteRecord>(
+    `SELECT id, session_key, postcode, outward, covered, items,
+            subtotal_pence, total_pence, source, booked_ref,
+            token, customer_name, customer_phone, customer_email, override_pence,
+            to_char(expires_at, 'YYYY-MM-DD') AS expires_at,
+            to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
+       FROM quotes
+      WHERE booked_ref = $1
+      ORDER BY updated_at DESC
+      LIMIT 1`,
+    [ref.toUpperCase()]
+  );
+}

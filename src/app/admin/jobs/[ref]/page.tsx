@@ -11,6 +11,7 @@ import {
   getCleanerThread,
   netOfVatPence,
   getJobOffers,
+  getQuoteForJob,
   listCleaners,
   nearestCleaners,
 } from "@/lib/marketplace/repo";
@@ -99,7 +100,7 @@ export default async function AdminJobPage({
     !job.cleaner_id &&
     ["provisional", "unfilled", "offered"].includes(job.status);
 
-  const [offers, drops, cleaners, messages, invoiceRef, nearby] = await Promise.all([
+  const [offers, drops, cleaners, messages, invoiceRef, nearby, fromQuote] = await Promise.all([
     getJobOffers(job.id),
     getJobDrops(job.id),
     listCleaners("approved"),
@@ -108,6 +109,7 @@ export default async function AdminJobPage({
     unassigned || job.status === "accepted"
       ? nearestCleaners(job.outward, 999)
       : Promise.resolve([]),
+    getQuoteForJob(job.ref),
   ]);
 
   // Who to offer a message box for, and what's already been said on this job.
@@ -1006,11 +1008,49 @@ export default async function AdminJobPage({
                 </div>
               )}
 
-              {invoiceRef && (
-                <p className="mt-4 border-t border-slate-100 pt-4 text-xs text-slate-500">
-                  Commission is fixed — this job is on invoice{" "}
-                  <span className="font-semibold text-slate-700">{invoiceRef}</span>.
-                </p>
+              {(invoiceRef || fromQuote) && (
+                <div className="mt-4 space-y-1 border-t border-slate-100 pt-4 text-xs text-slate-500">
+                  {invoiceRef && (
+                    <p>
+                      Commission is fixed — this job is on invoice{" "}
+                      <Link
+                        href={`/pro/invoices/${invoiceRef}`}
+                        className="font-semibold text-primary-600 underline"
+                      >
+                        {invoiceRef}
+                      </Link>
+                      .
+                    </p>
+                  )}
+                  {fromQuote && (
+                    <p>
+                      {fromQuote.token ? (
+                        <>
+                          Booked from the quote{" "}
+                          <Link
+                            href={`/admin/quotes/${fromQuote.token}`}
+                            className="font-semibold text-primary-600 underline"
+                          >
+                            {fromQuote.token}
+                          </Link>{" "}
+                          ({gbp(fromQuote.total_pence)}
+                          {fromQuote.override_pence > 0 ? ", agreed on the call" : ""}).
+                        </>
+                      ) : (
+                        <>
+                          Priced on the website at {gbp(fromQuote.total_pence)} —{" "}
+                          <Link
+                            href="/admin/quotes"
+                            className="font-semibold text-primary-600 underline"
+                          >
+                            see the quote list
+                          </Link>
+                          .
+                        </>
+                      )}
+                    </p>
+                  )}
+                </div>
               )}
             </Card>
           </div>

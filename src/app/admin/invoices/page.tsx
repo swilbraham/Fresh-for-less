@@ -42,17 +42,26 @@ export default async function AdminInvoicesPage({
     saved?: string;
     created?: string;
     chased?: string;
+    q?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, created, chased } = await searchParams;
+  const { error, saved, created, chased, q } = await searchParams;
 
-  const [pending, invoices, concerns, cleaners] = await Promise.all([
+  const [pending, allInvoices, concerns, cleaners] = await Promise.all([
     listUninvoicedCommission(),
     listInvoices(),
     listCompletionConcerns(),
     listCleaners("approved"),
   ]);
+  // Arriving from a cleaner's card: show just theirs, with a way back to all.
+  const filter = (q ?? "").trim().toLowerCase();
+  const invoices = filter
+    ? allInvoices.filter((invoice) =>
+        invoice.cleaner_name.toLowerCase().includes(filter)
+      )
+    : allInvoices;
+
   const { start, end } = monthBounds();
 
   const pendingTotal = pending.reduce((sum, row) => sum + row.total_pence, 0);
@@ -275,6 +284,14 @@ export default async function AdminInvoicesPage({
         </Card>
 
         <Card title={`Invoices (${invoices.length})`} className="mt-8">
+          {filter && (
+            <p className="mt-2 rounded-xl bg-slate-50 px-4 py-2 text-sm text-slate-600">
+              Showing invoices for <strong>{q}</strong> ·{" "}
+              <Link href="/admin/invoices" className="font-semibold text-primary-600 underline">
+                show all
+              </Link>
+            </p>
+          )}
           {invoices.length === 0 ? (
             <p className="mt-4 text-sm text-slate-500">
               No invoices raised yet.
@@ -308,7 +325,12 @@ export default async function AdminInvoicesPage({
                         </Link>
                       </td>
                       <td className="py-2 text-slate-700">
-                        {invoice.cleaner_name}
+                        <Link
+                          href={`/admin/cleaners?q=${encodeURIComponent(invoice.cleaner_name)}`}
+                          className="text-primary-600 underline"
+                        >
+                          {invoice.cleaner_name}
+                        </Link>
                       </td>
                       <td className="py-2 whitespace-nowrap text-slate-600">
                         {invoice.period_start} → {invoice.period_end}
