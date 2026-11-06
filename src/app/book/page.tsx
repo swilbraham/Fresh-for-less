@@ -79,6 +79,31 @@ export default async function BookPage({
                 aria-hidden
                 className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,153,245,0.18),transparent_55%)]"
               />
+              {/* Festive, until Christmas: gentle snow + the XMAS10 line. */}
+              <style>{`
+                @keyframes bookSnow {
+                  0% { transform: translate3d(0, -6vh, 0); opacity: 0; }
+                  10% { opacity: 0.7; }
+                  100% { transform: translate3d(var(--drift), 110vh, 0); opacity: 0.25; }
+                }
+              `}</style>
+              <div aria-hidden className="pointer-events-none absolute inset-0">
+                {Array.from({ length: 14 }, (_, i) => (
+                  <span
+                    key={i}
+                    className="absolute top-0 select-none text-white/40"
+                    style={{
+                      left: `${(i * 37) % 100}%`,
+                      fontSize: `${8 + ((i * 7) % 9)}px`,
+                      animation: `bookSnow ${11 + ((i * 13) % 9)}s linear infinite`,
+                      animationDelay: `${-((i * 17) % 11)}s`,
+                      ["--drift" as string]: `${((i % 5) - 2) * 14}px`,
+                    }}
+                  >
+                    ❄
+                  </span>
+                ))}
+              </div>
               <div className="relative mx-auto max-w-3xl px-4 text-center">
                 <p className="text-sm font-semibold uppercase tracking-wide text-accent-400">
                   Carpet cleaning across the UK
@@ -90,6 +115,14 @@ export default async function BookPage({
                   No home visit, no haggling, nothing to pay upfront. Enter your
                   postcode, choose a slot, and we&apos;ll confirm a vetted local
                   cleaner.
+                </p>
+
+                <p className="mx-auto mt-5 inline-flex max-w-xl flex-wrap items-center justify-center gap-2 rounded-full border border-amber-300/40 bg-amber-400/10 px-5 py-2 text-sm font-semibold text-amber-300">
+                  🎄 Guest-ready before Christmas — 10% off with code{" "}
+                  <span className="rounded-md bg-amber-300 px-2 py-0.5 font-mono font-bold text-slate-900">
+                    XMAS10
+                  </span>{" "}
+                  at checkout
                 </p>
 
                 <p className="mt-6">
