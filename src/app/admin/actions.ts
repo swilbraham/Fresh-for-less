@@ -46,6 +46,7 @@ import {
   getJobByRef,
   holdJobForCleaner,
   cancelLeadListing,
+  raiseAllPrices,
   textQuoteCustomer,
   listQuoteAsLead,
   creditLead,
@@ -66,7 +67,7 @@ import {
   upsertAdSpend,
   setMetaSpend,
 } from "@/lib/marketplace/repo";
-import { penceFromInput, gbpShort } from "@/lib/marketplace/money";
+import { gbp, penceFromInput, gbpShort } from "@/lib/marketplace/money";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
 import {
   invalidCoverageMessage,
@@ -1103,6 +1104,23 @@ export async function listLeadAction(data: FormData) {
   redirect(
     `/admin/quotes?quoted=${encodeURIComponent(
       `Lead listed — ${result.alerted} covering cleaner${result.alerted === 1 ? "" : "s"} texted. First to buy gets it.`
+    )}`
+  );
+}
+
+/** One lever for the whole price list: items, bundles and minimum charge. */
+export async function raisePricesAction(data: FormData) {
+  await requireAdmin("/admin/prices");
+  const pct = Number(field(data, "pct", 6));
+  if (!Number.isFinite(pct) || pct === 0 || pct < -50 || pct > 100) {
+    redirect(`/admin/prices?error=${encodeURIComponent("Pick a percentage between -50 and 100.")}`);
+  }
+  const result = await raiseAllPrices(pct);
+  revalidatePath("/admin/prices");
+  revalidatePath("/book");
+  redirect(
+    `/admin/prices?saved=${encodeURIComponent(
+      `Every price ${pct > 0 ? "raised" : "lowered"} by ${Math.abs(pct)}% — ${result.items} items, ${result.bundles} bundle deal${result.bundles === 1 ? "" : "s"}, minimum charge now ${gbp(result.minimumPence)}.`
     )}`
   );
 }

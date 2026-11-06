@@ -109,6 +109,57 @@ export async function getSettings(): Promise<Settings> {
   return row;
 }
 
+/**
+ * Raise (or with a negative pct, lower) every list price in one move: items,
+ * bundle deals and the minimum charge, each rounded to the nearest pound.
+ * Bundle labels that quote their own price ("Any 3 areas for £99") are
+ * rewritten to match. Existing quotes and booked jobs keep their prices —
+ * they're snapshots of what the customer was actually shown.
+ */
+export async function raiseAllPrices(
+  pct: number
+): Promise<{ items: number; bundles: number; minimumPence: number }> {
+  const factor = 1 + pct / 100;
+
+  const items = await query<{ code: string }>(
+    `UPDATE price_items
+        SET unit_price_pence = GREATEST(100, ROUND(unit_price_pence * $1 / 100.0) * 100)
+      RETURNING code`,
+    [factor]
+  );
+
+  // Labels carry the old price in prose, so each bundle is updated
+  // individually with a text swap alongside the number change.
+  const bundles = await query<{ id: number; price_pence: number; label: string }>(
+    `SELECT id, price_pence, label FROM price_bundles`
+  );
+  for (const bundle of bundles) {
+    const oldPounds = Math.round(bundle.price_pence / 100);
+    const newPence = Math.max(100, Math.round((bundle.price_pence * factor) / 100) * 100);
+    const newPounds = Math.round(newPence / 100);
+    const label = bundle.label.replace(`£${oldPounds}`, `£${newPounds}`);
+    await query(
+      `UPDATE price_bundles SET price_pence = $2, label = $3 WHERE id = $1`,
+      [bundle.id, newPence, label]
+    );
+  }
+
+  const row = await queryOne<{ minimum_charge_pence: number }>(
+    `UPDATE settings
+        SET minimum_charge_pence = GREATEST(100, ROUND(minimum_charge_pence * $1 / 100.0) * 100),
+            updated_at = now()
+      WHERE id = 1
+      RETURNING minimum_charge_pence`,
+    [factor]
+  );
+
+  return {
+    items: items.length,
+    bundles: bundles.length,
+    minimumPence: row?.minimum_charge_pence ?? 0,
+  };
+}
+
 export async function updateSettings(input: {
   commissionPct: number;
   minimumChargePence: number;

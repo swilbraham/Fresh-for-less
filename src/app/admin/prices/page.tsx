@@ -9,6 +9,7 @@ import {
   deletePriceItemAction,
   removePriceItemAction,
   savePricesAction,
+  raisePricesAction,
 } from "../actions";
 import { Alert, Card } from "@/components/marketplace/shell";
 import ConfirmButton from "@/components/marketplace/ConfirmButton";
@@ -564,6 +565,38 @@ export default async function AdminPricesPage({
         </Card>
 
         {/* New item */}
+        <Card
+          title="Raise every price at once"
+          className="mt-8"
+          description="One move across the whole list — every item, every bundle deal (label included) and the minimum charge, each rounded to the nearest pound. Quotes already sent and jobs already booked keep their old price."
+        >
+          <form action={raisePricesAction} className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              Change by
+              <input
+                name="pct"
+                type="number"
+                defaultValue="20"
+                min={-50}
+                max={100}
+                className="w-20 rounded-xl border border-slate-300 px-3 py-2 text-right tabular-nums"
+              />
+              %
+            </label>
+            <ConfirmButton
+              action={raisePricesAction}
+              confirmText="Reprice the whole list? Every item, bundle and the minimum charge changes immediately for new quotes and bookings."
+              className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+            >
+              Apply to every price
+            </ConfirmButton>
+          </form>
+          <p className="mt-2 text-xs text-slate-500">
+            A negative number lowers them. There&apos;s no undo button — to
+            reverse a +20%, apply −16.7%.
+          </p>
+        </Card>
+
         <Card title="Add a new priced item" className="mt-8">
           <form action={addPriceItemAction} className="mt-4 grid gap-3 sm:grid-cols-3">
             <input
