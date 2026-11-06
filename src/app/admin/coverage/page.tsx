@@ -13,6 +13,8 @@ import CopyButton from "@/components/marketplace/CopyButton";
 import CoverageMap from "@/components/marketplace/CoverageMap";
 
 export const dynamic = "force-dynamic";
+// The map's first visit geocodes new districts; give it room.
+export const maxDuration = 60;
 
 export const metadata = {
   title: "Coverage",
@@ -50,10 +52,17 @@ export default async function CoveragePage() {
     metaPinClusters(),
   ]);
 
-  const geo = await getOutcodeGeo([
-    ...covered.map((a) => a.outward),
-    ...gaps.map((g) => g.outward),
-  ]);
+  // The map must never take the Coverage tab down with it: a geocoding
+  // wobble just means fewer dots this visit.
+  let geo = new Map<string, { lat: number; lng: number }>();
+  try {
+    geo = await getOutcodeGeo([
+      ...covered.map((a) => a.outward),
+      ...gaps.map((g) => g.outward),
+    ]);
+  } catch {
+    // Render without positions; the cache fills in on a later visit.
+  }
   const mapAreas = covered.flatMap((a) => {
     const at = geo.get(a.outward);
     return at

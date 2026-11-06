@@ -5210,12 +5210,14 @@ export async function getOutcodeGeo(
     }
   }
 
-  // First visit after new coverage: look the stragglers up, a few at a time.
-  const missing = wanted.filter((o) => !seen.has(o)).slice(0, 150);
-  const CHUNK = 10;
-  for (let i = 0; i < missing.length; i += CHUNK) {
+  // First visit after new coverage: look the stragglers up. One parallel
+  // round, hard-capped — every lookup carries its own 4s timeout, so this
+  // whole block is bounded at ~4s however many districts are new. Anything
+  // past the cap fills in on later visits.
+  const missing = wanted.filter((o) => !seen.has(o)).slice(0, 60);
+  {
     await Promise.all(
-      missing.slice(i, i + CHUNK).map(async (outward) => {
+      missing.map(async (outward) => {
         let lat: number | null = null;
         let lng: number | null = null;
         try {
