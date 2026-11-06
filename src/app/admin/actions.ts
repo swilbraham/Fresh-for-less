@@ -1120,7 +1120,7 @@ export async function raisePricesAction(data: FormData) {
   revalidatePath("/book");
   redirect(
     `/admin/prices?saved=${encodeURIComponent(
-      `Every price ${pct > 0 ? "raised" : "lowered"} by ${Math.abs(pct)}% — ${result.items} items, ${result.bundles} bundle deal${result.bundles === 1 ? "" : "s"}, minimum charge now ${gbp(result.minimumPence)}.`
+      `Every price ${pct > 0 ? "raised" : "lowered"} by ${Math.abs(pct)}% — ${result.items} items and ${result.bundles} bundle deal${result.bundles === 1 ? "" : "s"}. Minimum charge untouched (${gbp(result.minimumPence)}).`
     )}`
   );
 }

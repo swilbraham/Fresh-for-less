@@ -110,11 +110,12 @@ export async function getSettings(): Promise<Settings> {
 }
 
 /**
- * Raise (or with a negative pct, lower) every list price in one move: items,
- * bundle deals and the minimum charge, each rounded to the nearest pound.
- * Bundle labels that quote their own price ("Any 3 areas for £99") are
- * rewritten to match. Existing quotes and booked jobs keep their prices —
- * they're snapshots of what the customer was actually shown.
+ * Raise (or with a negative pct, lower) every list price in one move: items
+ * and bundle deals, rounded to the nearest pound. Bundle labels that quote
+ * their own price ("Any 3 areas for £99") are rewritten to match. The
+ * minimum charge is deliberately left alone — it's a floor, not a price,
+ * and it's edited by hand in Platform settings. Existing quotes and booked
+ * jobs keep their prices — they're snapshots of what the customer was shown.
  */
 export async function raiseAllPrices(
   pct: number
@@ -146,13 +147,7 @@ export async function raiseAllPrices(
   }
 
   const row = await queryOne<{ minimum_charge_pence: number }>(
-    `UPDATE settings
-        SET minimum_charge_pence =
-              GREATEST(100, (ROUND(minimum_charge_pence * $1::numeric / 100.0) * 100)::int),
-            updated_at = now()
-      WHERE id = 1
-      RETURNING minimum_charge_pence`,
-    [factor]
+    `SELECT minimum_charge_pence FROM settings WHERE id = 1`
   );
 
   return {

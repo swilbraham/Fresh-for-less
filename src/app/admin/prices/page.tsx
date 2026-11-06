@@ -568,7 +568,7 @@ export default async function AdminPricesPage({
         <Card
           title="Raise every price at once"
           className="mt-8"
-          description="One move across the whole list — every item, every bundle deal (label included) and the minimum charge, each rounded to the nearest pound. Quotes already sent and jobs already booked keep their old price."
+          description="One move across the whole list — every item and every bundle deal (label included), rounded to the nearest pound. The minimum charge is NOT touched — edit it in Platform settings above. Quotes already sent and jobs already booked keep their old price."
         >
           <form action={raisePricesAction} className="mt-3 flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">

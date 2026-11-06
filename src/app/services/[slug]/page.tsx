@@ -7,14 +7,14 @@ const services = [
     title: "Carpet Cleaning",
     metaTitle: "Professional Carpet Cleaning | Fresh For Less",
     metaDescription:
-      "Professional carpet deep cleaning — 3 rooms for £119, £108 minimum charge. Hot water extraction, stain removal, deodorising, and fast drying. Pet-safe products. Free quotes. Call 0330 043 4811.",
+      "Professional carpet deep cleaning — 3 rooms for £119, £90 minimum charge. Hot water extraction, stain removal, deodorising, and fast drying. Pet-safe products. Free quotes. Call 0330 043 4811.",
   },
   {
     slug: "upholstery-cleaning",
     title: "Upholstery Cleaning",
     metaTitle: "Upholstery Cleaning — Sofas, Chairs & More | Fresh For Less",
     metaDescription:
-      "Expert sofa and upholstery cleaning — sofas from £90, £108 minimum charge. Fabric and leather care, stain protection, pet hair removal. Free quotes. Call 0330 043 4811.",
+      "Expert sofa and upholstery cleaning — sofas from £90, £90 minimum charge. Fabric and leather care, stain protection, pet hair removal. Free quotes. Call 0330 043 4811.",
   },
   {
     slug: "end-of-tenancy",
@@ -35,14 +35,14 @@ const services = [
     title: "Stain Removal",
     metaTitle: "Specialist Stain Removal | Fresh For Less",
     metaDescription:
-      "Professional stain removal at £18 per stain, £108 minimum charge. Wine, coffee, ink, pet accidents, food spillages, and more. Expert treatment for stubborn stains. Call 0330 043 4811.",
+      "Professional stain removal at £18 per stain, £90 minimum charge. Wine, coffee, ink, pet accidents, food spillages, and more. Expert treatment for stubborn stains. Call 0330 043 4811.",
   },
   {
     slug: "pet-odour-treatment",
     title: "Pet Odour Treatment",
     metaTitle: "Pet Odour & Stain Removal Treatment | Fresh For Less",
     metaDescription:
-      "Professional pet odour treatment at £24 per room, £108 minimum charge. Enzyme-based odour neutralisation, urine stain removal, safe for pets and children. Call 0330 043 4811.",
+      "Professional pet odour treatment at £24 per room, £90 minimum charge. Enzyme-based odour neutralisation, urine stain removal, safe for pets and children. Call 0330 043 4811.",
   },
   {
     slug: "hard-floor-cleaning",
