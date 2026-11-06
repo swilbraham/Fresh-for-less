@@ -22,7 +22,12 @@ export async function POST(request: Request) {
   // yesterday, which is the whole point of printing it.
   const typed = String(payload.code ?? "").trim().toUpperCase().slice(0, 20);
   if (typed) {
-    const limit = await hitRateLimit("discount-check", typed, 20, 60 * 60);
+    // Keyed per visitor, not per code: a campaign code (XMAS10) is typed by
+    // everyone at once, and one keen customer mustn't lock it for the rest.
+    const ip =
+      (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ||
+      "unknown";
+    const limit = await hitRateLimit("discount-check", `${typed}:${ip}`, 20, 60 * 60);
     if (!limit.allowed) return NextResponse.json({ ok: false }, { status: 429 });
 
     const pct = await checkDiscountCode(typed);

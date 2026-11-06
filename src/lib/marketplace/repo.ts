@@ -6999,22 +6999,30 @@ export async function redeemDiscountCode(
   code: string,
   jobId: number
 ): Promise<{ ok: boolean; discountPence?: number }> {
-  const pct = await checkDiscountCode(code);
-  if (pct === null) return { ok: false };
+  const row = await queryOne<{ pct: number; reusable: boolean }>(
+    `SELECT pct, reusable FROM discount_codes
+      WHERE code = $1 AND used_at IS NULL AND expires_at > now()`,
+    [code.trim().toUpperCase()]
+  );
+  if (!row) return { ok: false };
 
   const job = await getJob(jobId);
   if (!job) return { ok: false };
 
-  const discount = Math.round((job.total_pence * pct) / 100);
+  const discount = Math.round((job.total_pence * row.pct) / 100);
   if (discount <= 0) return { ok: false };
 
-  const claimed = await query<{ code: string }>(
-    `UPDATE discount_codes SET used_at = now(), job_id = $2
-      WHERE code = $1 AND used_at IS NULL AND expires_at > now()
-      RETURNING code`,
-    [code.trim().toUpperCase(), jobId]
-  );
-  if (claimed.length === 0) return { ok: false };
+  // A personal code burns on use; a campaign code (reusable) lives on until
+  // it expires, so the claim-by-stamping step only applies to the former.
+  if (!row.reusable) {
+    const claimed = await query<{ code: string }>(
+      `UPDATE discount_codes SET used_at = now(), job_id = $2
+        WHERE code = $1 AND used_at IS NULL AND expires_at > now()
+        RETURNING code`,
+      [code.trim().toUpperCase(), jobId]
+    );
+    if (claimed.length === 0) return { ok: false };
+  }
 
   await query(
     `UPDATE jobs

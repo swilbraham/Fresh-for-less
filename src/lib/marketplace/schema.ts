@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 56;
+export const SCHEMA_VERSION = 57;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -388,6 +388,13 @@ export const STATEMENTS: string[] = [
      job_id      int REFERENCES jobs(id) ON DELETE SET NULL
    )`,
   `CREATE INDEX IF NOT EXISTS discount_codes_session ON discount_codes (session_key)`,
+  // Campaign codes: one code the whole world can use, as many times as it
+  // likes until it expires — unlike the single-use per-customer offers.
+  `ALTER TABLE discount_codes ADD COLUMN IF NOT EXISTS reusable boolean NOT NULL DEFAULT false`,
+  // The Christmas campaign code (/christmas page). Expires Christmas Eve.
+  `INSERT INTO discount_codes (code, pct, reusable, expires_at)
+   VALUES ('XMAS10', 10, true, '2026-12-24T23:59:59Z')
+   ON CONFLICT (code) DO NOTHING`,
 
   // What came off the job, kept separately so the books show discounting
   // rather than quietly lower prices.
