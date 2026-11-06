@@ -118,11 +118,11 @@ export default async function BookPage({
                 </p>
 
                 <p className="mx-auto mt-5 inline-flex max-w-xl flex-wrap items-center justify-center gap-2 rounded-full border border-amber-300/40 bg-amber-400/10 px-5 py-2 text-sm font-semibold text-amber-300">
-                  🎄 Guest-ready before Christmas — 10% off with code{" "}
+                  🎄 Christmas offer: 3 carpets cleaned for £150 — or 10% off
+                  anything with code{" "}
                   <span className="rounded-md bg-amber-300 px-2 py-0.5 font-mono font-bold text-slate-900">
                     XMAS10
-                  </span>{" "}
-                  at checkout
+                  </span>
                 </p>
 
                 <p className="mt-6">

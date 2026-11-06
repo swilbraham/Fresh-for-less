@@ -123,7 +123,8 @@ export async function raiseAllPrices(
 
   const items = await query<{ code: string }>(
     `UPDATE price_items
-        SET unit_price_pence = GREATEST(100, ROUND(unit_price_pence * $1 / 100.0) * 100)
+        SET unit_price_pence =
+              GREATEST(100, (ROUND(unit_price_pence * $1::numeric / 100.0) * 100)::int)
       RETURNING code`,
     [factor]
   );
@@ -146,7 +147,8 @@ export async function raiseAllPrices(
 
   const row = await queryOne<{ minimum_charge_pence: number }>(
     `UPDATE settings
-        SET minimum_charge_pence = GREATEST(100, ROUND(minimum_charge_pence * $1 / 100.0) * 100),
+        SET minimum_charge_pence =
+              GREATEST(100, (ROUND(minimum_charge_pence * $1::numeric / 100.0) * 100)::int),
             updated_at = now()
       WHERE id = 1
       RETURNING minimum_charge_pence`,

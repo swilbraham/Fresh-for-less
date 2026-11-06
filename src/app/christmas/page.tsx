@@ -68,7 +68,7 @@ export default function ChristmasPage() {
 
           <div className="relative mx-auto max-w-3xl px-4 text-center">
             <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary-300">
-              ✦ Christmas offer — 10% off online bookings
+              ✦ Christmas offer — 3 carpets cleaned for £150
             </p>
             <h1 className="mt-6 text-4xl font-black leading-tight text-white md:text-5xl">
               Guest-ready carpets
@@ -103,24 +103,26 @@ export default function ChristmasPage() {
         <section className="py-16 md:py-20">
           <div className="mx-auto max-w-5xl px-4">
             <div className="grid items-start gap-8 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8">
+              <div className="rounded-2xl border-2 border-primary-200 bg-slate-50 p-8">
                 <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
-                  The offer
+                  The Christmas offer
                 </p>
                 <p className="mt-3 text-4xl font-black text-slate-900">
-                  10% off
+                  3 carpets cleaned for £150
                   <span className="mt-1 block text-lg font-semibold text-slate-500">
-                    every online booking until Christmas Eve
+                    any three rooms or staircases — normally £162
                   </span>
                 </p>
                 <p className="mt-4 text-sm text-slate-600">
-                  Enter code{" "}
+                  Applied automatically on /book the moment your basket has
+                  three — nothing to type, nothing to pay upfront.
+                </p>
+                <p className="mt-3 text-sm text-slate-600">
+                  Booking something else? Code{" "}
                   <span className="rounded-lg bg-primary-50 px-2 py-1 font-mono font-bold text-primary-700">
                     XMAS10
                   </span>{" "}
-                  at the end of the booking form — it comes straight off the
-                  price, and there&rsquo;s still nothing to pay until the job is
-                  done.
+                  takes 10% off any online booking until Christmas Eve.
                 </p>
                 <Link
                   href="/book"
