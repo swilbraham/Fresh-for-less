@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 58;
+export const SCHEMA_VERSION = 59;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -391,6 +391,12 @@ export const STATEMENTS: string[] = [
   // Campaign codes: one code the whole world can use, as many times as it
   // likes until it expires — unlike the single-use per-customer offers.
   `ALTER TABLE discount_codes ADD COLUMN IF NOT EXISTS reusable boolean NOT NULL DEFAULT false`,
+  // The Christmas bundle: the reprice lever's first (crashed) run left the
+  // bundle at the pre-rise £99 while the pages advertise £150. Targeted and
+  // idempotent — once renamed it no longer matches.
+  `UPDATE price_bundles
+      SET price_pence = 15000, label = '3 carpets cleaned for £150'
+    WHERE label = 'Any 3 areas for £99' AND price_pence = 9900`,
   // XMAS10 retired 6 Nov 2026: December sells out on its own, and public
   // codes in peak season only discount people who'd book anyway. The chase
   // system's private single-use codes are unaffected.
