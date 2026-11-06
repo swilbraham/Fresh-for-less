@@ -4,9 +4,9 @@ import SiteHeader from "@/components/marketplace/SiteHeader";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "Christmas Carpet Cleaning — 10% Off Online Bookings",
+  title: "Christmas Carpet Cleaning — 3 Carpets for £150",
   description:
-    "Get your carpets and sofas guest-ready for Christmas. 10% off every online booking with code XMAS10 — instant fixed price, nothing to pay upfront, vetted local cleaners across the UK.",
+    "Get your carpets and sofas guest-ready for Christmas. 3 carpets cleaned for £150 — instant fixed price, nothing to pay upfront, vetted local cleaners across the UK. December books out fast.",
   alternates: { canonical: "/christmas" },
 };
 
@@ -117,13 +117,6 @@ export default function ChristmasPage() {
                   Applied automatically on /book the moment your basket has
                   three — nothing to type, nothing to pay upfront.
                 </p>
-                <p className="mt-3 text-sm text-slate-600">
-                  Booking something else? Code{" "}
-                  <span className="rounded-lg bg-primary-50 px-2 py-1 font-mono font-bold text-primary-700">
-                    XMAS10
-                  </span>{" "}
-                  takes 10% off any online booking until Christmas Eve.
-                </p>
                 <Link
                   href="/book"
                   className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-3 font-semibold text-white transition hover:bg-primary-700"
@@ -173,7 +166,7 @@ export default function ChristmasPage() {
                 href="/book"
                 className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-8 py-4 text-lg font-semibold text-white transition hover:bg-primary-700"
               >
-                Book before the rush — code XMAS10
+                Book before the rush — 3 carpets £150
               </Link>
               <p className="mt-4 text-sm text-slate-500">
                 Vetted local cleaners across the UK · Fully insured · Pay when
