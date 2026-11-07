@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 59;
+export const SCHEMA_VERSION = 60;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -402,6 +402,12 @@ export const STATEMENTS: string[] = [
   // system's private single-use codes are unaffected.
   `UPDATE discount_codes SET expires_at = now()
     WHERE code = 'XMAS10' AND reusable AND expires_at > now()`,
+  // A later 5% all-prices rise rounded the Christmas bundle up to £158, but
+  // the offer is advertised everywhere as £150 — pin it back. Targeted and
+  // idempotent: once repriced it no longer matches.
+  `UPDATE price_bundles
+      SET price_pence = 15000, label = '3 carpets cleaned for £150'
+    WHERE label = '3 carpets cleaned for £158' AND price_pence = 15800`,
 
   // What came off the job, kept separately so the books show discounting
   // rather than quietly lower prices.

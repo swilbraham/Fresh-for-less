@@ -110,7 +110,7 @@ export default function ChristmasPage() {
                 <p className="mt-3 text-4xl font-black text-slate-900">
                   3 carpets cleaned for £150
                   <span className="mt-1 block text-lg font-semibold text-slate-500">
-                    any three rooms or staircases — normally £162
+                    any three rooms or staircases — normally £177
                   </span>
                 </p>
                 <p className="mt-4 text-sm text-slate-600">
