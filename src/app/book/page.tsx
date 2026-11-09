@@ -15,12 +15,23 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Book Carpet Cleaning Online — Instant Fixed Price, UK-Wide",
-  description:
-    "Get an instant fixed price for carpet and upholstery cleaning anywhere in the UK. No home visit, no haggling, nothing to pay upfront — just enter your postcode, pick a slot, and a vetted local cleaner is confirmed.",
-  alternates: { canonical: "/book" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  if (settings.quote_mode) {
+    return {
+      title: "Get 3 Carpet Cleaning Quotes — Vetted Local Cleaners, UK-Wide",
+      description:
+        "Tell us what needs cleaning and up to 3 vetted local cleaners send you their best price by text. Compare, pick one, pay nothing upfront — carpet and upholstery cleaning anywhere in the UK.",
+      alternates: { canonical: "/book" },
+    };
+  }
+  return {
+    title: "Book Carpet Cleaning Online — Instant Fixed Price, UK-Wide",
+    description:
+      "Get an instant fixed price for carpet and upholstery cleaning anywhere in the UK. No home visit, no haggling, nothing to pay upfront — just enter your postcode, pick a slot, and a vetted local cleaner is confirmed.",
+    alternates: { canonical: "/book" },
+  };
+}
 
 export default async function BookPage({
   searchParams,

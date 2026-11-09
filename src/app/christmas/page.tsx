@@ -2,13 +2,27 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import SiteHeader from "@/components/marketplace/SiteHeader";
 import Footer from "@/components/Footer";
+import { getSettings } from "@/lib/marketplace/repo";
 
-export const metadata: Metadata = {
-  title: "Christmas Carpet Cleaning — 3 Carpets for £150",
-  description:
-    "Get your carpets and sofas guest-ready for Christmas. 3 carpets cleaned for £150 — instant fixed price, nothing to pay upfront, vetted local cleaners across the UK. December books out fast.",
-  alternates: { canonical: "/christmas" },
-};
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  if (settings.quote_mode) {
+    return {
+      title: "Christmas Carpet Cleaning — 3 Local Quotes in Hours",
+      description:
+        "Get your carpets and sofas guest-ready for Christmas. Tell us what needs cleaning and up to 3 vetted local cleaners send their best price — compare, pick one, pay nothing upfront. December books out fast.",
+      alternates: { canonical: "/christmas" },
+    };
+  }
+  return {
+    title: "Christmas Carpet Cleaning — 3 Carpets for £150",
+    description:
+      "Get your carpets and sofas guest-ready for Christmas. 3 carpets cleaned for £150 — instant fixed price, nothing to pay upfront, vetted local cleaners across the UK. December books out fast.",
+    alternates: { canonical: "/christmas" },
+  };
+}
 
 /** Deterministic snow so the server and client render the same flakes. */
 const SNOWFLAKES = Array.from({ length: 20 }, (_, i) => ({
@@ -20,10 +34,12 @@ const SNOWFLAKES = Array.from({ length: 20 }, (_, i) => ({
   drift: ((i % 5) - 2) * 16,
 }));
 
-const POINTS = [
+const POINTS = (quoteMode: boolean) => [
   ["Guest-ready before the big day", "Carpets, sofas and stairs brought back while you get on with everything else December asks of you."],
   ["Dry in hours, not days", "Hot-water extraction with proper equipment — furniture and tree back in place the same day."],
-  ["Instant fixed price", "Pick your rooms online and see the exact price in seconds. No home visit, no haggling."],
+  quoteMode
+    ? ["Three prices, no ring-around", "Tell us once what needs cleaning and up to three vetted local cleaners send their best price. You pick."]
+    : ["Instant fixed price", "Pick your rooms online and see the exact price in seconds. No home visit, no haggling."],
   ["Nothing to pay upfront", "A vetted local cleaner is confirmed for your slot; you pay when the work is done."],
 ];
 
@@ -34,7 +50,9 @@ const SPOTS = [
   ["Chocolate & sticky fingers", "Sofas and armchairs refreshed"],
 ];
 
-export default function ChristmasPage() {
+export default async function ChristmasPage() {
+  const settings = await getSettings();
+  const quoteMode = settings.quote_mode;
   return (
     <>
       <SiteHeader />
@@ -68,7 +86,9 @@ export default function ChristmasPage() {
 
           <div className="relative mx-auto max-w-3xl px-4 text-center">
             <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary-300">
-              ✦ Christmas offer — 3 carpets cleaned for £150
+              {quoteMode
+                ? "✦ Christmas — 3 quotes from local cleaners, you pick"
+                : "✦ Christmas offer — 3 carpets cleaned for £150"}
             </p>
             <h1 className="mt-6 text-4xl font-black leading-tight text-white md:text-5xl">
               Guest-ready carpets
@@ -76,15 +96,17 @@ export default function ChristmasPage() {
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-lg text-slate-300">
               The family&rsquo;s coming and the carpets have had a year of life
-              on them. Get an instant price, pick a slot, and a vetted local
-              cleaner has the house ready for the big day.
+              on them.{" "}
+              {quoteMode
+                ? "Tell us what needs cleaning, compare quotes from vetted local cleaners, and the house is ready for the big day."
+                : "Get an instant price, pick a slot, and a vetted local cleaner has the house ready for the big day."}
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/book"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-8 py-4 text-lg font-semibold text-white transition hover:bg-primary-700 sm:w-auto"
               >
-                Get my instant price →
+                {quoteMode ? "Get my 3 free quotes →" : "Get my instant price →"}
               </Link>
               <a
                 href="tel:03300434811"
@@ -104,29 +126,56 @@ export default function ChristmasPage() {
           <div className="mx-auto max-w-5xl px-4">
             <div className="grid items-start gap-8 md:grid-cols-2">
               <div className="rounded-2xl border-2 border-primary-200 bg-slate-50 p-8">
-                <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
-                  The Christmas offer
-                </p>
-                <p className="mt-3 text-4xl font-black text-slate-900">
-                  3 carpets cleaned for £150
-                  <span className="mt-1 block text-lg font-semibold text-slate-500">
-                    any three rooms or staircases — normally £177
-                  </span>
-                </p>
-                <p className="mt-4 text-sm text-slate-600">
-                  Applied automatically on /book the moment your basket has
-                  three — nothing to type, nothing to pay upfront.
-                </p>
-                <Link
-                  href="/book"
-                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-3 font-semibold text-white transition hover:bg-primary-700"
-                >
-                  Price my clean →
-                </Link>
+                {quoteMode ? (
+                  <>
+                    <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
+                      How it works this Christmas
+                    </p>
+                    <p className="mt-3 text-4xl font-black text-slate-900">
+                      3 local quotes, one quick form
+                      <span className="mt-1 block text-lg font-semibold text-slate-500">
+                        tell us what needs cleaning — vetted cleaners near you
+                        text their best price
+                      </span>
+                    </p>
+                    <p className="mt-4 text-sm text-slate-600">
+                      Compare your quotes, pick the one you like, and pay
+                      nothing until the work is done.
+                    </p>
+                    <Link
+                      href="/book"
+                      className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-3 font-semibold text-white transition hover:bg-primary-700"
+                    >
+                      Get my quotes →
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
+                      The Christmas offer
+                    </p>
+                    <p className="mt-3 text-4xl font-black text-slate-900">
+                      3 carpets cleaned for £150
+                      <span className="mt-1 block text-lg font-semibold text-slate-500">
+                        any three rooms or staircases — normally £177
+                      </span>
+                    </p>
+                    <p className="mt-4 text-sm text-slate-600">
+                      Applied automatically on /book the moment your basket has
+                      three — nothing to type, nothing to pay upfront.
+                    </p>
+                    <Link
+                      href="/book"
+                      className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-6 py-3 font-semibold text-white transition hover:bg-primary-700"
+                    >
+                      Price my clean →
+                    </Link>
+                  </>
+                )}
               </div>
 
               <ul className="space-y-3">
-                {POINTS.map(([title, body]) => (
+                {POINTS(quoteMode).map(([title, body]) => (
                   <li
                     key={title}
                     className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
@@ -166,7 +215,9 @@ export default function ChristmasPage() {
                 href="/book"
                 className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-8 py-4 text-lg font-semibold text-white transition hover:bg-primary-700"
               >
-                Book before the rush — 3 carpets £150
+                {quoteMode
+                  ? "Book before the rush — get my 3 quotes"
+                  : "Book before the rush — 3 carpets £150"}
               </Link>
               <p className="mt-4 text-sm text-slate-500">
                 Vetted local cleaners across the UK · Fully insured · Pay when

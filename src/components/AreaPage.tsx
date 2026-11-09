@@ -210,7 +210,7 @@ export default function AreaPage({ slug }: { slug: string }) {
   const localFaqs = [
     {
       q: `How much does carpet cleaning cost in ${area.name}?`,
-      a: `Carpet cleaning in ${area.name} is £45 a room, with a £90 minimum charge. Our most popular option is any 3 areas for £99 — rooms or a staircase, your choice. You see the full fixed price before you book, so there is nothing to pay on the day you did not agree to.`,
+      a: `The price depends on what needs cleaning — tell us your rooms, stairs and sofas online and you'll have your price in about a minute, with a £90 minimum charge on every job. You see the full price before anything is booked, so there is nothing to pay on the day you did not agree to.`,
     },
     {
       q: `Do you cover ${postcode || area.name} postcodes?`,
