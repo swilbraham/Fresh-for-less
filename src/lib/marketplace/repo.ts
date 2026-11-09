@@ -5907,6 +5907,29 @@ export async function quoteStats(days = 7): Promise<{
   return row ?? { quotes: 0, booked: 0, quoted_pence: 0, booked_pence: 0 };
 }
 
+/**
+ * Conversion for one window, offset back in time, keyed on when the quote was
+ * CREATED — so "this week vs last week" compares the quotes each price level
+ * actually produced, unlike quoteStats, whose updated_at window moves
+ * whenever a quote books or is edited.
+ */
+export async function quoteConversion(
+  days = 7,
+  offsetDays = 0
+): Promise<{ quotes: number; booked: number }> {
+  const span = String(Math.min(Math.max(days, 1), 365));
+  const offset = String(Math.min(Math.max(offsetDays, 0), 365));
+  const row = await queryOne<{ quotes: number; booked: number }>(
+    `SELECT count(*)::int                                 AS quotes,
+            count(*) FILTER (WHERE booked_ref <> '')::int AS booked
+       FROM quotes
+      WHERE created_at >  now() - (($1::int + $2::int) || ' days')::interval
+        AND created_at <= now() - ($2 || ' days')::interval`,
+    [span, offset]
+  );
+  return row ?? { quotes: 0, booked: 0 };
+}
+
 
 /**
  * Ask the whole network whether they know anyone covering an area we don't.

@@ -9,6 +9,7 @@ import {
   leadSalesStats,
   listQuotes,
   quoteStats,
+  quoteConversion,
 } from "@/lib/marketplace/repo";
 import QuoteBuilder from "@/components/marketplace/QuoteBuilder";
 import {
@@ -47,19 +48,37 @@ export default async function QuotesPage({
   if (!(await isAdmin())) redirect("/admin");
 
   const { error, quoted, offered } = await searchParams;
-  const [quotes, week, month, year, items, bundles, settings, leadFees, leadStats] =
-    await Promise.all([
-      listQuotes(150),
-      quoteStats(7),
-      quoteStats(30),
-      quoteStats(365),
-      getPriceItems(true),
-      getBundles(true),
-      getSettings(),
-      leadFeesOwed(),
-      leadSalesStats(),
-    ]);
+  const [
+    quotes,
+    week,
+    month,
+    year,
+    items,
+    bundles,
+    settings,
+    leadFees,
+    leadStats,
+    convNow,
+    convPrev,
+  ] = await Promise.all([
+    listQuotes(150),
+    quoteStats(7),
+    quoteStats(30),
+    quoteStats(365),
+    getPriceItems(true),
+    getBundles(true),
+    getSettings(),
+    leadFeesOwed(),
+    leadSalesStats(),
+    quoteConversion(7, 0),
+    quoteConversion(7, 7),
+  ]);
   const rate = week.quotes > 0 ? Math.round((week.booked / week.quotes) * 100) : 0;
+  const rateNow =
+    convNow.quotes > 0 ? Math.round((convNow.booked / convNow.quotes) * 100) : 0;
+  const ratePrev =
+    convPrev.quotes > 0 ? Math.round((convPrev.booked / convPrev.quotes) * 100) : 0;
+  const convDelta = rateNow - ratePrev;
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
@@ -161,6 +180,44 @@ export default async function QuotesPage({
             </p>
           </div>
         ))}
+      </div>
+
+      {/* Conversion watch: quotes CREATED in each 7-day window, so a price
+          change shows up here within days instead of as a vague feeling. */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Quote → booking conversion
+        </p>
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+          <p className="text-2xl font-bold tabular-nums text-slate-900">
+            {rateNow}%{" "}
+            <span className="text-sm font-semibold text-slate-500">
+              this week ({convNow.booked}/{convNow.quotes})
+            </span>
+          </p>
+          <p className="text-2xl font-bold tabular-nums text-slate-400">
+            {ratePrev}%{" "}
+            <span className="text-sm font-semibold text-slate-400">
+              last week ({convPrev.booked}/{convPrev.quotes})
+            </span>
+          </p>
+          {convNow.quotes > 0 && convPrev.quotes > 0 && convDelta !== 0 && (
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                convDelta > 0
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {convDelta > 0 ? "▲" : "▼"} {Math.abs(convDelta)} pts
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          Counted by when the quote was created, so each week reflects the
+          prices that were live at the time. Check here a few days after any
+          price change.
+        </p>
       </div>
 
       {/* Rolling totals — always the last 30/365 days, not calendar months. */}

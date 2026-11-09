@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 60;
+export const SCHEMA_VERSION = 61;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -408,6 +408,22 @@ export const STATEMENTS: string[] = [
   `UPDATE price_bundles
       SET price_pence = 15000, label = '3 carpets cleaned for £150'
     WHERE label = '3 carpets cleaned for £158' AND price_pence = 15800`,
+  // Roll back the 9 Nov +5% rise: conversions fell after two rises in a week,
+  // and at ~15% commission the extra pennies never cover a single lost
+  // booking. Each row only matches at its +5% value, so the rollback is
+  // idempotent and never clobbers a later manual edit.
+  `UPDATE price_items AS p
+      SET unit_price_pence = v.target
+     FROM (VALUES
+            ('room', 5900, 5600), ('stairs', 5900, 5600), ('armchair', 5900, 5600),
+            ('landing', 2000, 1900), ('hall', 2000, 1900),
+            ('rug', 4000, 3800), ('rug_large', 5300, 5000),
+            ('sofa2', 9900, 9400), ('sofa3', 13800, 13100),
+            ('sofa_corner', 15800, 15000), ('sofa_corner_large', 20000, 19000),
+            ('footstool', 3300, 3100), ('dining_chair', 1600, 1500),
+            ('stain', 2600, 2500), ('pet', 2600, 2500)
+          ) AS v(code, current, target)
+    WHERE p.code = v.code AND p.unit_price_pence = v.current`,
 
   // What came off the job, kept separately so the books show discounting
   // rather than quietly lower prices.
