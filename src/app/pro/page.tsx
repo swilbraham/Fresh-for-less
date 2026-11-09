@@ -26,12 +26,23 @@ import NjordApproved from "@/components/marketplace/NjordApproved";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Carpet cleaner jobs — join the network",
-  description:
-    "Independent carpet cleaners: register your postcode coverage and availability, and get pre-priced local jobs sent straight to you. No lead fees — a simple commission on completed work.",
-  alternates: { canonical: "/pro" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  if (settings.quote_mode) {
+    return {
+      title: "Carpet cleaner jobs — quote at your own prices",
+      description:
+        "Independent carpet cleaners: register your postcode coverage, get local quote requests by text, and price every job yourself. Free to quote — commission only on work you win.",
+      alternates: { canonical: "/pro" },
+    };
+  }
+  return {
+    title: "Carpet cleaner jobs — join the network",
+    description:
+      "Independent carpet cleaners: register your postcode coverage and availability, and get pre-priced local jobs sent straight to you. No lead fees — a simple commission on completed work.",
+    alternates: { canonical: "/pro" },
+  };
+}
 
 export default async function ProPage({
   searchParams,
@@ -48,7 +59,14 @@ export default async function ProPage({
     getBundles(true),
   ]);
 
-  const commissionPct = Number(settings.commission_pct);
+  const quoteMode = settings.quote_mode;
+  const commissionPct = quoteMode
+    ? Number(settings.quote_commission_pct)
+    : Number(settings.commission_pct);
+  // A worked quote-mode example: what a cleaner keeps from a £140 job.
+  const exampleQuotePence = 14000;
+  const exampleKeepPence =
+    exampleQuotePence - Math.round((exampleQuotePence * commissionPct) / 100);
   const quoteOpts = {
     minimumChargePence: settings.minimum_charge_pence,
     commissionPct,
@@ -81,28 +99,35 @@ export default async function ProPage({
             For carpet cleaners
           </p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 sm:text-4xl">
-            Fill your diary with priced local work
+            {quoteMode
+              ? "Win local work at your own prices"
+              : "Fill your diary with priced local work"}
           </h1>
           <p className="mt-4 text-slate-600">
-            Customers get an instant fixed price from our national price list and
-            book a slot. The job goes straight out to every vetted cleaner
-            covering that postcode — first one to accept keeps it.
+            {quoteMode
+              ? "Customers tell us what needs cleaning; the request is texted to every vetted cleaner covering that postcode. You send your own price — the first three quotes are shown, the customer picks one, and the job lands in your diary at the figure you set."
+              : "Customers get an instant fixed price from our national price list and book a slot. The job goes straight out to every vetted cleaner covering that postcode — first one to accept keeps it."}
           </p>
 
           <ul className="mt-6 space-y-4">
             {[
               [
-                "No lead fees, no bidding",
-                `You pay ${Number(settings.commission_pct)}% commission on completed jobs only. ${COMMISSION_TERMS_SHORT} Nothing for quotes that go nowhere.`,
+                quoteMode ? "Free to quote, no lead fees" : "No lead fees, no bidding",
+                `You pay ${commissionPct}% commission on completed jobs only. ${COMMISSION_TERMS_SHORT} Nothing for quotes that go nowhere.`,
               ],
               [
                 "You control your patch",
                 "Register the postcode areas you cover and the half-days you work. You only ever see jobs you can actually do.",
               ],
-              [
-                "Priced before it reaches you",
-                "Every job arrives with the price already agreed with the customer, so there's nothing to quote or negotiate.",
-              ],
+              quoteMode
+                ? [
+                    "You set the price",
+                    "Every request shows exactly what needs cleaning, plus the customer's notes. You price it — your patch, your rates, your margins.",
+                  ]
+                : [
+                    "Priced before it reaches you",
+                    "Every job arrives with the price already agreed with the customer, so there's nothing to quote or negotiate.",
+                  ],
               [
                 "Paid on the day",
                 "The customer pays you direct, cash or card. We invoice your commission separately.",
@@ -124,6 +149,24 @@ export default async function ProPage({
             <NjordApproved audience="cleaner" />
           </div>
 
+          {quoteMode ? (
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-slate-900">
+                What you&apos;d earn
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                You quote every job yourself, so your prices are your own. The
+                only cost is {commissionPct}% commission when a job you won
+                completes — quote {gbp(exampleQuotePence)} and you keep{" "}
+                {gbp(exampleKeepPence)}, and you knew both figures before you
+                priced it.
+              </p>
+              <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                <strong className="text-slate-800">How you get paid.</strong>{" "}
+                {COMMISSION_TERMS_LONG}
+              </p>
+            </div>
+          ) : (
           <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900">
               What you&apos;d earn
@@ -188,6 +231,7 @@ export default async function ProPage({
               )}
             </details>
           </div>
+          )}
 
           <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900">
@@ -211,10 +255,15 @@ export default async function ProPage({
                   "Never leave a customer waiting",
                   "If you can't make it, hand the job back — even an hour before. Running late is recoverable; not turning up at all is not. A no-show means suspension, not a warning.",
                 ],
-                [
-                  "Honour the price",
-                  "The customer has been given a fixed price with no home visit. Charging extra on the doorstep breaks the promise the whole thing is built on.",
-                ],
+                quoteMode
+                  ? [
+                      "Honour the price",
+                      "The customer booked at the figure you quoted, with no home visit. Charging extra on the doorstep breaks the promise the whole thing is built on.",
+                    ]
+                  : [
+                      "Honour the price",
+                      "The customer has been given a fixed price with no home visit. Charging extra on the doorstep breaks the promise the whole thing is built on.",
+                    ],
                 [
                   "Keep your insurance current",
                   "Public liability cover has to stay valid. We'll ask before it expires.",
