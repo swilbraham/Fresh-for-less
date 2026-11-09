@@ -23,6 +23,8 @@ import type {
   Quote,
   QuoteLine,
   QuoteRecord,
+  QuoteRequest,
+  QuoteResponse,
   Settings,
   SlotWindow,
   ProfitDay,
@@ -102,7 +104,8 @@ export async function getSettings(): Promise<Settings> {
             payee_name, payee_account, payee_sort_code, payee_address,
             payment_terms_days, legal_footer,
             admin_mobile, admin_sms_enabled,
-            auto_offer_enabled, auto_offer_pct, auto_offer_min_pence
+            auto_offer_enabled, auto_offer_pct, auto_offer_min_pence,
+            quote_mode, quote_commission_pct
        FROM settings WHERE id = 1`
   );
   if (!row) throw new Error("Marketplace settings row is missing.");
@@ -176,6 +179,8 @@ export async function updateSettings(input: {
   autoOfferEnabled: boolean;
   autoOfferPct: number;
   autoOfferMinPence: number;
+  quoteMode: boolean;
+  quoteCommissionPct: number;
 }): Promise<void> {
   await query(
     `UPDATE settings
@@ -189,6 +194,7 @@ export async function updateSettings(input: {
             admin_mobile = $14, admin_sms_enabled = $15,
             auto_offer_enabled = $16, auto_offer_pct = $17,
             auto_offer_min_pence = $18,
+            quote_mode = $19, quote_commission_pct = $20,
             updated_at = now()
       WHERE id = 1`,
     [
@@ -210,6 +216,8 @@ export async function updateSettings(input: {
       input.autoOfferEnabled,
       input.autoOfferPct,
       input.autoOfferMinPence,
+      input.quoteMode,
+      input.quoteCommissionPct,
     ]
   );
 }
@@ -617,6 +625,12 @@ export type BookingInput = {
    * both quote the figure that was actually agreed.
    */
   agreedPence?: number | null;
+  /**
+   * A commission rate for this job only — quote-request jobs carry their own
+   * rate so the instant-price rate can move without touching them. The job
+   * stores whatever rate it was created with, as always.
+   */
+  commissionPctOverride?: number | null;
 };
 
 export type BookingResult = {
@@ -652,9 +666,14 @@ export async function createBooking(
       : null;
   const totalPence = agreed ?? quote.total_pence;
   const listPence = agreed ? quote.total_pence : 0;
-  const commissionPence = agreed
-    ? Math.round((agreed * Number(quote.commission_pct)) / 100)
-    : quote.commission_pence;
+  const commissionPct =
+    input.commissionPctOverride != null && Number.isFinite(input.commissionPctOverride)
+      ? Math.round(input.commissionPctOverride * 100) / 100
+      : Number(quote.commission_pct);
+  const commissionPence =
+    agreed || input.commissionPctOverride != null
+      ? Math.round((totalPence * commissionPct) / 100)
+      : quote.commission_pence;
 
   // No cleaner covers this postcode yet. Take the booking anyway — a job with
   // a date, an address and a price is far better than a name on a list, both
@@ -692,7 +711,7 @@ export async function createBooking(
           quote.subtotal_pence,
           totalPence,
           listPence,
-          quote.commission_pct,
+          commissionPct,
           commissionPence,
           initialStatus,
           input.termsAccepted ?? false,
@@ -7130,5 +7149,410 @@ export async function getQuoteForJob(ref: string): Promise<QuoteRecord | null> {
       ORDER BY updated_at DESC
       LIMIT 1`,
     [ref.toUpperCase()]
+  );
+}
+
+// ---------------------------------------------------------- quote requests --
+//
+// Quote-request mode: the customer says what needs cleaning without seeing a
+// price; up to three covering cleaners reply with their own figure; the
+// customer picks one and the request locks. The accepted price books through
+// createBooking with the quote-request commission rate, so invoicing works
+// exactly as it does for every other job.
+
+export const MAX_QUOTE_RESPONSES = 3;
+
+/** How long cleaners can respond before a request stops being shown. */
+const QUOTE_REQUEST_OPEN_DAYS = 14;
+
+function describeRequestItems(items: QuoteRequest["items"]): string {
+  return items.map((l) => `${l.qty}x ${l.label}`).join(", ") || "a clean";
+}
+
+export async function createQuoteRequest(input: {
+  postcode: string;
+  basket: Basket;
+  notes: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  source?: string;
+}): Promise<{ ok: true; token: string } | { ok: false; reason: string }> {
+  const postcode = normalisePostcode(input.postcode);
+  if (!postcode) return { ok: false, reason: "That postcode doesn't look right." };
+  const outward = outwardOf(postcode)!;
+
+  if (!isMobile(input.customerPhone)) {
+    return { ok: false, reason: "We need a mobile number to text your quotes to." };
+  }
+
+  // Snapshot the items from the live list: labels on the request stay readable
+  // even if the office renames something later.
+  const priceItems = await getPriceItems(true);
+  const lines: QuoteRequest["items"] = [];
+  for (const item of priceItems) {
+    const qty = Math.floor(Number(input.basket[item.code] ?? 0));
+    if (qty > 0) lines.push({ code: item.code, qty: Math.min(qty, item.max_qty), label: item.label });
+  }
+  if (lines.length === 0) {
+    return { ok: false, reason: "Choose at least one item to clean." };
+  }
+
+  const covered = await hasCoverage(outward);
+  const token = makeRef("R").toLowerCase().replace("-", "");
+
+  const row = await queryOne<{ id: number }>(
+    `INSERT INTO quote_requests
+       (token, postcode, outward, covered, items, notes,
+        customer_name, customer_phone, customer_email, source)
+     VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10)
+     RETURNING id`,
+    [
+      token,
+      postcode,
+      outward,
+      covered,
+      JSON.stringify(lines),
+      input.notes,
+      input.customerName,
+      input.customerPhone,
+      input.customerEmail,
+      input.source ?? "",
+    ]
+  );
+  if (!row) return { ok: false, reason: "Something went wrong — please try again." };
+
+  const items = describeRequestItems(lines);
+
+  if (covered) {
+    // Fan out to everyone covering the outward. The description names the
+    // work and the area but never the customer's contact details — those
+    // belong to whichever cleaner the customer picks.
+    const covering = await approvedCleanersCovering([outward]);
+    for (const c of covering) {
+      const cleaner = await getCleaner(c.id);
+      if (!cleaner || cleaner.paused_at) continue;
+      await notifyCleaner(cleaner, {
+        subject: `Quote request in ${outward} — first ${MAX_QUOTE_RESPONSES} prices in`,
+        body:
+          `${firstName(cleaner.name)}, a customer in ${outward} wants a price for ` +
+          `${items}.\n\n` +
+          `Send yours from the dashboard — only the first ${MAX_QUOTE_RESPONSES} ` +
+          `cleaners to price it are shown to the customer, and they book the one ` +
+          `they like.\n\n${siteUrl()}/pro/dashboard`,
+        smsBody:
+          `FFL quote request: ${outward} — ${items}. First ` +
+          `${MAX_QUOTE_RESPONSES} prices in get shown. Quote it: ` +
+          `${siteUrl()}/pro/dashboard`,
+      });
+    }
+  }
+
+  await notifyAdmin({
+    subject: `Quote request — ${outward} (${items})`,
+    smsBody:
+      `QUOTE REQUEST: ${outward} — ${items} from ${input.customerName}. ` +
+      (covered
+        ? `Cleaners covering the area have been told.`
+        : `NO COVERAGE — handle from /admin/quotes.`),
+  });
+
+  await notifyCustomer(
+    { customer_email: input.customerEmail, customer_phone: input.customerPhone },
+    {
+      subject: "Your quote request is with local cleaners",
+      body:
+        `Thanks ${firstName(input.customerName, "there")} — your request for ${items} ` +
+        `is with vetted local cleaners now. Up to ${MAX_QUOTE_RESPONSES} will send ` +
+        `you their price by text; compare them and book the one you like:\n\n` +
+        `${siteUrl()}/quotes/${token}`,
+      smsBody:
+        `Fresh For Less: thanks ${firstName(input.customerName, "there")}! Up to ` +
+        `${MAX_QUOTE_RESPONSES} local cleaners will text you their price for ` +
+        `${items}. Compare & book: ${siteUrl()}/quotes/${token}`,
+    }
+  );
+
+  return { ok: true, token };
+}
+
+/** Open requests in this cleaner's patch that they can still quote. */
+export async function quoteRequestsForCleaner(cleanerId: number): Promise<
+  (QuoteRequest & { response_count: number })[]
+> {
+  return query<QuoteRequest & { response_count: number }>(
+    `SELECT r.id, r.token, r.postcode, r.outward, r.covered, r.items, r.notes,
+            r.customer_name, r.customer_phone, r.customer_email,
+            r.status, r.accepted_response_id, r.booked_ref, r.source,
+            to_char(r.created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            to_char(r.updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at,
+            (SELECT count(*)::int FROM quote_responses x WHERE x.request_id = r.id)
+              AS response_count
+       FROM quote_requests r
+      WHERE r.status = 'open'
+        AND r.created_at > now() - interval '${QUOTE_REQUEST_OPEN_DAYS} days'
+        AND r.outward IN (SELECT outward FROM cleaner_areas WHERE cleaner_id = $1)
+        AND NOT EXISTS (
+              SELECT 1 FROM quote_responses x
+               WHERE x.request_id = r.id AND x.cleaner_id = $1)
+        AND (SELECT count(*) FROM quote_responses x WHERE x.request_id = r.id)
+              < ${MAX_QUOTE_RESPONSES}
+      ORDER BY r.created_at DESC`,
+    [cleanerId]
+  );
+}
+
+/**
+ * One cleaner's price for one request. First three in win a place; the
+ * conditional insert is the race — two cleaners quoting the last slot at the
+ * same moment can't both get in.
+ */
+export async function respondToQuoteRequest(
+  requestId: number,
+  cleanerId: number,
+  pricePence: number,
+  message: string
+): Promise<{ ok: boolean; reason?: string }> {
+  const cleaner = await getCleaner(cleanerId);
+  if (!cleaner || cleaner.status !== "approved") {
+    return { ok: false, reason: "Your account can't send quotes at the moment." };
+  }
+  if (cleaner.paused_at) return { ok: false, reason: "Your account is paused." };
+  if (!Number.isFinite(pricePence) || pricePence < 2000 || pricePence > 500000) {
+    return { ok: false, reason: "Price the job between £20 and £5,000." };
+  }
+
+  const inserted = await query<{ id: number }>(
+    `INSERT INTO quote_responses (request_id, cleaner_id, price_pence, message)
+     SELECT $1, $2, $3, $4
+      WHERE (SELECT status FROM quote_requests WHERE id = $1) = 'open'
+        AND (SELECT count(*) FROM quote_responses WHERE request_id = $1)
+              < ${MAX_QUOTE_RESPONSES}
+        AND EXISTS (
+              SELECT 1 FROM cleaner_areas
+               WHERE cleaner_id = $2
+                 AND outward = (SELECT outward FROM quote_requests WHERE id = $1))
+     ON CONFLICT (request_id, cleaner_id) DO NOTHING
+     RETURNING id`,
+    [requestId, cleanerId, Math.round(pricePence), message.slice(0, 300)]
+  );
+  if (inserted.length === 0) {
+    return {
+      ok: false,
+      reason:
+        "That request is closed, already has its three quotes, or you've quoted it already.",
+    };
+  }
+
+  const request = await queryOne<QuoteRequest>(
+    `SELECT * FROM quote_requests WHERE id = $1`,
+    [requestId]
+  );
+  if (request) {
+    const who = cleaner.business_name || cleaner.name;
+    const note = message.trim() ? ` "${message.trim().slice(0, 120)}"` : "";
+    await notifyCustomer(request, {
+      subject: `Your quote from ${who} — ${gbpShort(pricePence)}`,
+      body:
+        `${who} has quoted ${gbpShort(pricePence)} for ` +
+        `${describeRequestItems(request.items)}.${note}\n\n` +
+        `Compare your quotes and book the one you like:\n` +
+        `${siteUrl()}/quotes/${request.token}`,
+      smsBody:
+        `Fresh For Less: ${who} quoted ${gbpShort(pricePence)} for your clean.` +
+        `${note} Compare & book: ${siteUrl()}/quotes/${request.token}`,
+    });
+  }
+
+  return { ok: true };
+}
+
+/** The customer's view: the request plus every response, cleaner named. */
+export async function getQuoteRequestByToken(token: string): Promise<
+  | (QuoteRequest & {
+      responses: (QuoteResponse & { cleaner_name: string })[];
+    })
+  | null
+> {
+  const request = await queryOne<QuoteRequest>(
+    `SELECT id, token, postcode, outward, covered, items, notes,
+            customer_name, customer_phone, customer_email,
+            status, accepted_response_id, booked_ref, source,
+            to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            to_char(updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at
+       FROM quote_requests
+      WHERE token = $1`,
+    [token.trim().toLowerCase()]
+  );
+  if (!request) return null;
+  const responses = await query<QuoteResponse & { cleaner_name: string }>(
+    `SELECT x.id, x.request_id, x.cleaner_id, x.price_pence, x.message,
+            to_char(x.created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            coalesce(nullif(c.business_name, ''), c.name) AS cleaner_name
+       FROM quote_responses x
+       JOIN cleaners c ON c.id = x.cleaner_id
+      WHERE x.request_id = $1
+      ORDER BY x.price_pence ASC, x.created_at ASC`,
+    [request.id]
+  );
+  return { ...request, responses };
+}
+
+/**
+ * The customer picks a quote. First acceptance wins and locks the request —
+ * the other cleaners can no longer respond, and they're told it's gone.
+ */
+export async function acceptQuoteResponse(
+  token: string,
+  responseId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const won = await query<{ id: number }>(
+    `UPDATE quote_requests r
+        SET status = 'accepted', accepted_response_id = $2, updated_at = now()
+      WHERE r.token = $1 AND r.status = 'open'
+        AND EXISTS (SELECT 1 FROM quote_responses x
+                     WHERE x.id = $2 AND x.request_id = r.id)
+      RETURNING r.id`,
+    [token.trim().toLowerCase(), responseId]
+  );
+  if (won.length === 0) {
+    return { ok: false, reason: "That request has already been decided." };
+  }
+  const requestId = won[0].id;
+
+  const [request, responses] = await Promise.all([
+    queryOne<QuoteRequest>(`SELECT * FROM quote_requests WHERE id = $1`, [requestId]),
+    query<QuoteResponse>(
+      `SELECT * FROM quote_responses WHERE request_id = $1`,
+      [requestId]
+    ),
+  ]);
+  if (request) {
+    for (const response of responses) {
+      const cleaner = await getCleaner(response.cleaner_id);
+      if (!cleaner) continue;
+      if (response.id === responseId) {
+        await notifyCleaner(cleaner, {
+          subject: `Your quote won — ${request.outward}, ${gbpShort(response.price_pence)}`,
+          body:
+            `${firstName(cleaner.name)}, ${request.customer_name || "the customer"} ` +
+            `chose your quote of ${gbpShort(response.price_pence)} for ` +
+            `${describeRequestItems(request.items)} in ${request.outward}.\n\n` +
+            `They're picking a date now — the job lands in your diary the moment ` +
+            `they confirm, with the address and their number.`,
+          smsBody:
+            `FFL: your quote of ${gbpShort(response.price_pence)} in ` +
+            `${request.outward} WON. The customer is picking a date — the job ` +
+            `will appear in your diary once confirmed.`,
+        });
+      } else {
+        await notifyCleaner(cleaner, {
+          subject: `Quote request in ${request.outward} — gone this time`,
+          body:
+            `${firstName(cleaner.name)}, the customer in ${request.outward} went ` +
+            `with another quote this time. Thanks for pricing it — the next one ` +
+            `is a clean slate.`,
+        });
+      }
+    }
+    await notifyAdmin({
+      subject: `Quote accepted — ${request.outward}`,
+      smsBody:
+        `QUOTE ACCEPTED: ${request.outward} ${describeRequestItems(request.items)} — ` +
+        `waiting for the customer to pick a date.`,
+    });
+  }
+  return { ok: true };
+}
+
+/**
+ * The accepted quote becomes a real booking: created at the cleaner's price,
+ * assigned straight to them (no broadcast — the job is already spoken for),
+ * and carrying the quote-request commission rate so the invoice run bills it
+ * like any other job.
+ */
+export async function bookQuoteRequest(
+  token: string,
+  details: {
+    addressLine: string;
+    town: string;
+    slotDate: string;
+    slotWindow: SlotWindow;
+    parking: string;
+    termsAccepted: boolean;
+  }
+): Promise<{ ok: true; ref: string } | { ok: false; reason: string }> {
+  const request = await getQuoteRequestByToken(token);
+  if (!request) return { ok: false, reason: "That quote link doesn't exist." };
+  if (request.booked_ref) return { ok: false, reason: "Already booked." };
+  if (request.status !== "accepted" || !request.accepted_response_id) {
+    return { ok: false, reason: "Choose a quote first." };
+  }
+  const response = request.responses.find((x) => x.id === request.accepted_response_id);
+  if (!response) return { ok: false, reason: "That quote is no longer available." };
+
+  const settings = await getSettings();
+  const basket: Basket = {};
+  for (const line of request.items) basket[line.code] = line.qty;
+
+  const { job } = await createBooking({
+    basket,
+    customerName: request.customer_name,
+    customerEmail: request.customer_email,
+    customerPhone: request.customer_phone,
+    addressLine: details.addressLine,
+    town: details.town,
+    postcode: request.postcode,
+    slotDate: details.slotDate,
+    slotWindow: details.slotWindow,
+    notes: request.notes,
+    parking: details.parking,
+    termsAccepted: details.termsAccepted,
+    source: request.source || "quote-request",
+    skipBroadcast: true,
+    agreedPence: response.price_pence,
+    commissionPctOverride: Number(settings.quote_commission_pct),
+  });
+
+  const assigned = await assignJob(job.id, response.cleaner_id);
+  if (!assigned.ok) {
+    // The job exists but couldn't be pinned to the winner (approval changed
+    // under us). Leave it for the office rather than failing the customer.
+    await notifyAdmin({
+      subject: `Quote-request job ${job.ref} needs assigning`,
+      smsBody:
+        `Job ${job.ref} (quote request, ${request.outward}) booked but could not ` +
+        `be assigned: ${assigned.reason ?? "unknown"}. Assign it from /admin.`,
+    });
+  }
+
+  await query(
+    `UPDATE quote_requests
+        SET status = 'booked', booked_ref = $2, updated_at = now()
+      WHERE id = $1`,
+    [request.id, job.ref]
+  );
+
+  return { ok: true, ref: job.ref };
+}
+
+/** The office view — newest first, with how many prices each request drew. */
+export async function listQuoteRequests(limit = 50): Promise<
+  (QuoteRequest & { response_count: number; accepted_pence: number | null })[]
+> {
+  return query<QuoteRequest & { response_count: number; accepted_pence: number | null }>(
+    `SELECT r.id, r.token, r.postcode, r.outward, r.covered, r.items, r.notes,
+            r.customer_name, r.customer_phone, r.customer_email,
+            r.status, r.accepted_response_id, r.booked_ref, r.source,
+            to_char(r.created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            to_char(r.updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at,
+            (SELECT count(*)::int FROM quote_responses x WHERE x.request_id = r.id)
+              AS response_count,
+            (SELECT x.price_pence FROM quote_responses x
+              WHERE x.id = r.accepted_response_id) AS accepted_pence
+       FROM quote_requests r
+      ORDER BY r.created_at DESC
+      LIMIT $1`,
+    [limit]
   );
 }

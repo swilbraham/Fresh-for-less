@@ -165,6 +165,15 @@ export async function savePricesAction(data: FormData) {
     fail("/admin/prices", "Stain guard must be between 0 and 100 percent.");
   }
 
+  const quoteCommissionPct = Number(field(data, "quoteCommissionPct", 6));
+  if (
+    !Number.isFinite(quoteCommissionPct) ||
+    quoteCommissionPct < 0 ||
+    quoteCommissionPct > 90
+  ) {
+    fail("/admin/prices", "Quote-job commission must be between 0 and 90 percent.");
+  }
+
   await updateSettings({
     commissionPct,
     minimumChargePence,
@@ -191,6 +200,8 @@ export async function savePricesAction(data: FormData) {
       0,
       Math.round((Number(field(data, "autoOfferMin", 8)) || 0) * 100)
     ),
+    quoteMode: data.get("quoteMode") === "on",
+    quoteCommissionPct,
   });
 
   for (const item of await getPriceItems()) {

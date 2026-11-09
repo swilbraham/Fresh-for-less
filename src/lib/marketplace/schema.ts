@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 61;
+export const SCHEMA_VERSION = 62;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -228,6 +228,50 @@ export const STATEMENTS: string[] = [
   // office has no way of knowing a booking landed.
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS admin_mobile      text NOT NULL DEFAULT ''`,
   `ALTER TABLE settings ADD COLUMN IF NOT EXISTS admin_sms_enabled boolean NOT NULL DEFAULT true`,
+
+  // Quote-request mode: /book stops showing prices; the customer says what
+  // needs cleaning and up to three covering cleaners reply with their own
+  // price through the dashboard. Commission on those jobs has its own rate,
+  // so the instant-price rate can move without touching this one.
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS quote_mode boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE settings ADD COLUMN IF NOT EXISTS quote_commission_pct numeric(5,2) NOT NULL DEFAULT 20.00`,
+
+  // A customer's request for prices. No figure of ours anywhere on it — the
+  // price arrives from the cleaners. Locked the moment one response is
+  // accepted; booked_ref ties it to the job the winner gets.
+  `CREATE TABLE IF NOT EXISTS quote_requests (
+     id            serial PRIMARY KEY,
+     token         text NOT NULL UNIQUE,
+     postcode      text NOT NULL,
+     outward       text NOT NULL,
+     covered       boolean NOT NULL DEFAULT false,
+     items         jsonb NOT NULL DEFAULT '[]'::jsonb,
+     notes         text NOT NULL DEFAULT '',
+     customer_name  text NOT NULL DEFAULT '',
+     customer_phone text NOT NULL DEFAULT '',
+     customer_email text NOT NULL DEFAULT '',
+     status        text NOT NULL DEFAULT 'open',
+     accepted_response_id int,
+     booked_ref    text NOT NULL DEFAULT '',
+     source        text NOT NULL DEFAULT '',
+     created_at    timestamptz NOT NULL DEFAULT now(),
+     updated_at    timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS quote_requests_status ON quote_requests (status, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS quote_requests_outward ON quote_requests (outward)`,
+
+  // One cleaner's price for one request. The unique pair stops double quoting;
+  // the three-per-request cap is enforced at insert time in the repo.
+  `CREATE TABLE IF NOT EXISTS quote_responses (
+     id          serial PRIMARY KEY,
+     request_id  int NOT NULL,
+     cleaner_id  int NOT NULL,
+     price_pence int NOT NULL,
+     message     text NOT NULL DEFAULT '',
+     created_at  timestamptz NOT NULL DEFAULT now(),
+     UNIQUE (request_id, cleaner_id)
+   )`,
+  `CREATE INDEX IF NOT EXISTS quote_responses_request ON quote_responses (request_id)`,
 
   // A cleaner walking away from an accepted job is the thing most likely to
   // cost a customer, so it gets its own record. Notice given is stored at the

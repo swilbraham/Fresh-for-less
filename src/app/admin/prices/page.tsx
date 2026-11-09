@@ -229,6 +229,42 @@ export default async function AdminPricesPage({
                 </div>
               </div>
 
+              <div className="sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="quoteMode"
+                    defaultChecked={settings.quote_mode}
+                    className="mt-1 h-5 w-5 rounded border-slate-300 accent-amber-600"
+                  />
+                  <span>
+                    <span className="font-semibold text-slate-800">
+                      Quote-request mode — no prices on /book
+                    </span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Customers say what needs cleaning (no price shown); up to
+                      three cleaners covering the postcode send their own price
+                      from the dashboard; the customer compares and books one.
+                      The winning job is created at the cleaner&apos;s price and
+                      billed at the rate below. Untick to go back to instant
+                      prices — nothing is lost either way.
+                    </span>
+                  </span>
+                </label>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                  <label className="flex items-center gap-2">
+                    Commission on quote-request jobs
+                    <input
+                      name="quoteCommissionPct"
+                      inputMode="decimal"
+                      defaultValue={String(Number(settings.quote_commission_pct))}
+                      className="w-20 rounded-xl border border-slate-300 px-3 py-2 tabular-nums"
+                    />
+                    %
+                  </label>
+                </div>
+              </div>
+
               <div className="sm:col-span-2 rounded-xl border border-primary-200 bg-primary-50/40 p-4">
                 <label className="flex cursor-pointer items-start gap-3">
                   <input

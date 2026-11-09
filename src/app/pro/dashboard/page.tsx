@@ -9,6 +9,8 @@ import {
   listJobsForCleaner,
   listOffersForCleaner,
   listOpenJobs,
+  quoteRequestsForCleaner,
+  MAX_QUOTE_RESPONSES,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import {
@@ -19,6 +21,7 @@ import type { Job } from "@/lib/marketplace/types";
 import {
   acceptJobAction,
   buyLeadAction,
+  respondToQuoteRequestAction,
   requestLeadCreditAction,
   completeJobAction,
   declineJobAction,
@@ -78,6 +81,7 @@ export default async function DashboardPage({
     creditRequested?: string;
     accepted?: string;
     completed?: string;
+    quoted?: string;
     released?: string;
     disputed?: string;
   }>;
@@ -85,9 +89,9 @@ export default async function DashboardPage({
   const cleaner = await currentCleaner();
   if (!cleaner) redirect("/pro?next=/pro/dashboard");
 
-  const { error, lead, creditRequested, accepted, completed, released, disputed } =
+  const { error, lead, creditRequested, accepted, completed, released, disputed, quoted } =
     await searchParams;
-  const [offers, openJobs, upcoming, done, areas, invoices, leadsForSale, myLeads] = await Promise.all([
+  const [offers, openJobs, upcoming, done, areas, invoices, leadsForSale, myLeads, quoteRequests] = await Promise.all([
     listOffersForCleaner(cleaner.id),
     listOpenJobs(),
     listJobsForCleaner(cleaner.id, ["accepted"]),
@@ -96,6 +100,7 @@ export default async function DashboardPage({
     listInvoices(cleaner.id),
     leadsForCleaner(cleaner.id),
     boughtLeadsForCleaner(cleaner.id),
+    quoteRequestsForCleaner(cleaner.id),
   ]);
 
   // The board is everything unclaimed that is not already sitting in their own
@@ -140,6 +145,12 @@ export default async function DashboardPage({
       <div className="mx-auto max-w-5xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {accepted && <Alert tone="success">Job accepted — it&apos;s yours.</Alert>}
+        {quoted && (
+          <Alert tone="success">
+            Quote sent — the customer has it by text. If they pick you, the job
+            lands here with the address and their number.
+          </Alert>
+        )}
         {lead && (
           <Alert tone="success">
             Lead bought — it&apos;s yours alone. The name and number are below
@@ -309,6 +320,74 @@ export default async function DashboardPage({
             </ul>
           )}
         </Card>
+
+        {/* Quote requests: customers waiting for prices in this patch */}
+        {!cleaner.paused_at && quoteRequests.length > 0 && (
+          <Card
+            title={`Quote requests in your patch (${quoteRequests.length})`}
+            description={`Customers who've told us what needs cleaning and are waiting for prices. The first ${MAX_QUOTE_RESPONSES} cleaners to quote are shown to the customer — they book the one they like, and the job lands in your diary at YOUR price. No fee to quote; commission only if you win and the job books.`}
+            className="mb-6"
+          >
+            <ul className="mt-4 space-y-3">
+              {quoteRequests.map((request) => (
+                <li
+                  key={request.id}
+                  className="rounded-xl border border-sky-200 bg-sky-50/40 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-bold text-slate-900">
+                        {request.outward} ·{" "}
+                        {(request.items ?? [])
+                          .map((line) => `${line.qty}× ${line.label}`)
+                          .join(", ") || "Carpet clean"}
+                      </p>
+                      {request.notes && (
+                        <p className="mt-1 text-sm text-slate-600">
+                          &ldquo;{request.notes}&rdquo;
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-slate-400">
+                        asked {request.created_at} ·{" "}
+                        {request.response_count === 0
+                          ? "no quotes yet — be first"
+                          : `${request.response_count} of ${MAX_QUOTE_RESPONSES} quotes in`}
+                      </p>
+                    </div>
+                  </div>
+                  <form
+                    action={respondToQuoteRequestAction}
+                    className="mt-3 flex flex-wrap items-center gap-2"
+                  >
+                    <input type="hidden" name="requestId" value={request.id} />
+                    <label className="flex items-center gap-1 font-semibold text-slate-700">
+                      £
+                      <input
+                        name="pricePounds"
+                        required
+                        inputMode="decimal"
+                        placeholder="Your price"
+                        className="w-28 rounded-xl border border-slate-300 px-3 py-2 tabular-nums"
+                      />
+                    </label>
+                    <input
+                      name="message"
+                      maxLength={300}
+                      placeholder="Optional note to the customer (what's included, when you could come…)"
+                      className="min-w-[200px] flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <SubmitButton
+                      pendingLabel="Sending…"
+                      className="rounded-xl bg-sky-600 px-5 py-2.5 font-semibold text-white transition hover:bg-sky-700"
+                    >
+                      Send my quote
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         {/* Exclusive leads: priced-up customers who didn't book */}
         {!cleaner.paused_at && leadsForSale.length > 0 && (

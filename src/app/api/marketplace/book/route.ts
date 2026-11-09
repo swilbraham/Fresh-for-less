@@ -3,6 +3,7 @@ import {
   createBooking,
   findRecentDuplicate,
   markQuoteBooked,
+  getQuoteByToken,
 } from "@/lib/marketplace/repo";
 import { normalisePostcode } from "@/lib/marketplace/postcode";
 import { hitRateLimit } from "@/lib/marketplace/rate-limit";
@@ -112,6 +113,24 @@ export async function POST(request: Request) {
     );
   }
 
+  // A quote the office sent carries an agreed price. Without this lookup the
+  // booking is re-priced at list — the customer was promised one figure and
+  // charged another. Only an office token can carry an override; a web
+  // basket's session key never does.
+  const quoteKey = text(payload.quoteKey, 60);
+  let agreedPence: number | null = null;
+  if (quoteKey) {
+    const sent = await getQuoteByToken(quoteKey);
+    if (
+      sent &&
+      !sent.booked_ref &&
+      sent.override_pence > 0 &&
+      (!sent.expires_at || new Date(`${sent.expires_at}T23:59:59`) >= new Date())
+    ) {
+      agreedPence = sent.override_pence;
+    }
+  }
+
   try {
     // The price is recalculated server-side here — the browser's total is only
     // ever a display value.
@@ -133,13 +152,14 @@ export async function POST(request: Request) {
       termsAccepted: true,
       source: text(payload.source, 40),
       discountCode: text(payload.discountCode, 20),
+      agreedPence,
     });
 
     // The quote this booking came from, so the list separates the ones that
 
     // converted from the ones that walked away.
 
-    await markQuoteBooked(text(payload.quoteKey, 60), job.ref);
+    await markQuoteBooked(quoteKey, job.ref);
 
 
     return NextResponse.json({

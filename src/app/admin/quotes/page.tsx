@@ -10,6 +10,7 @@ import {
   listQuotes,
   quoteStats,
   quoteConversion,
+  listQuoteRequests,
 } from "@/lib/marketplace/repo";
 import QuoteBuilder from "@/components/marketplace/QuoteBuilder";
 import {
@@ -60,6 +61,7 @@ export default async function QuotesPage({
     leadStats,
     convNow,
     convPrev,
+    quoteRequests,
   ] = await Promise.all([
     listQuotes(150),
     quoteStats(7),
@@ -72,6 +74,7 @@ export default async function QuotesPage({
     leadSalesStats(),
     quoteConversion(7, 0),
     quoteConversion(7, 7),
+    listQuoteRequests(30),
   ]);
   const rate = week.quotes > 0 ? Math.round((week.booked / week.quotes) * 100) : 0;
   const rateNow =
@@ -266,6 +269,72 @@ export default async function QuotesPage({
           </div>
         ))}
       </div>
+
+      {quoteRequests.length > 0 && (
+        <Card
+          title={`Quote requests (${quoteRequests.length})`}
+          description="Quote-request mode: what customers asked for, how many cleaners priced it, and what happened. Cleaners quote from their dashboard; the customer picks one and books."
+        >
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="py-2 font-semibold">When</th>
+                  <th className="py-2 font-semibold">Customer</th>
+                  <th className="py-2 font-semibold">Wants</th>
+                  <th className="py-2 font-semibold">Quotes</th>
+                  <th className="py-2 font-semibold">Outcome</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {quoteRequests.map((r) => (
+                  <tr key={r.id} className="align-top">
+                    <td className="py-2 text-slate-500">{r.created_at}</td>
+                    <td className="py-2">
+                      <p className="font-semibold text-slate-800">
+                        {r.customer_name || "—"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {r.customer_phone} · {r.postcode}
+                        {r.covered ? "" : " · NOT COVERED"}
+                      </p>
+                    </td>
+                    <td className="py-2 text-slate-600">
+                      {(r.items ?? [])
+                        .map((line) => `${line.qty}× ${line.label}`)
+                        .join(", ")}
+                      {r.notes ? (
+                        <p className="text-xs text-slate-400">“{r.notes}”</p>
+                      ) : null}
+                    </td>
+                    <td className="py-2 tabular-nums text-slate-700">
+                      {r.response_count}
+                    </td>
+                    <td className="py-2">
+                      {r.status === "booked" ? (
+                        <span className="font-semibold text-green-700">
+                          Booked {r.booked_ref}
+                          {r.accepted_pence
+                            ? ` — ${gbp(r.accepted_pence)}`
+                            : ""}
+                        </span>
+                      ) : r.status === "accepted" ? (
+                        <span className="font-semibold text-primary-700">
+                          Accepted{r.accepted_pence ? ` ${gbp(r.accepted_pence)}` : ""} — picking a date
+                        </span>
+                      ) : r.status === "closed" ? (
+                        <span className="text-slate-500">Closed</span>
+                      ) : (
+                        <span className="text-amber-700">Waiting on quotes</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <Card title="Latest quotes">
         {quotes.length === 0 ? (

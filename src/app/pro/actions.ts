@@ -31,7 +31,9 @@ import {
   updateCleanerProfile,
   getCleanerPasswordHash,
   notify,
+  respondToQuoteRequest,
 } from "@/lib/marketplace/repo";
+import { penceFromInput } from "@/lib/marketplace/money";
 import {
   invalidCoverageMessage,
   parseOutwardList,
@@ -265,6 +267,26 @@ export async function acceptJobAction(data: FormData) {
   revalidatePath("/pro/dashboard");
   if (!result.ok) fail("/pro/dashboard", result.reason ?? "Couldn't accept that job.");
   redirect("/pro/dashboard?accepted=1");
+}
+
+/**
+ * One cleaner's price for one quote request. First three in get shown to the
+ * customer; the repo enforces the cap and the no-double-quoting rule.
+ */
+export async function respondToQuoteRequestAction(data: FormData) {
+  const cleaner = await requireCleaner();
+  const requestId = Number(field(data, "requestId", 12));
+  const pricePence = penceFromInput(field(data, "pricePounds", 12));
+  const message = field(data, "message", 300);
+
+  if (pricePence === null) {
+    fail("/pro/dashboard", "Give your price as a figure, like 120 or 120.50.");
+  }
+
+  const result = await respondToQuoteRequest(requestId, cleaner.id, pricePence, message);
+  revalidatePath("/pro/dashboard");
+  if (!result.ok) fail("/pro/dashboard", result.reason ?? "Couldn't send that quote.");
+  redirect("/pro/dashboard?quoted=1");
 }
 
 /**

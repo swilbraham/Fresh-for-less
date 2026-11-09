@@ -27,6 +27,41 @@ export type Settings = {
   auto_offer_enabled: boolean;
   auto_offer_pct: number;
   auto_offer_min_pence: number;
+  /** When on, /book collects a quote request instead of showing prices. */
+  quote_mode: boolean;
+  /** Commission on jobs won through quote requests, separate from the list rate. */
+  quote_commission_pct: string | number;
+};
+
+/** A customer's request for prices — no figure of ours on it anywhere. */
+export type QuoteRequest = {
+  id: number;
+  token: string;
+  postcode: string;
+  outward: string;
+  covered: boolean;
+  items: { code: string; qty: number; label: string }[];
+  notes: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  /** open → accepted (a response chosen) → booked; or closed by the office. */
+  status: "open" | "accepted" | "booked" | "closed";
+  accepted_response_id: number | null;
+  booked_ref: string;
+  source: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/** One cleaner's price for one request. */
+export type QuoteResponse = {
+  id: number;
+  request_id: number;
+  cleaner_id: number;
+  price_pence: number;
+  message: string;
+  created_at: string;
 };
 
 export type PriceItem = {
