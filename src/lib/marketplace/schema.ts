@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 62;
+export const SCHEMA_VERSION = 63;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -468,6 +468,10 @@ export const STATEMENTS: string[] = [
             ('stain', 2600, 2500), ('pet', 2600, 2500)
           ) AS v(code, current, target)
     WHERE p.code = v.code AND p.unit_price_pence = v.current`,
+  // 9 Nov: switch quote-request mode ON — Simon's admin save didn't stick, so
+  // the mode goes live here instead. One-shot: this array only replays on a
+  // version bump, so the /admin/prices tickbox stays in control afterwards.
+  `UPDATE settings SET quote_mode = true WHERE id = 1`,
 
   // What came off the job, kept separately so the books show discounting
   // rather than quietly lower prices.
