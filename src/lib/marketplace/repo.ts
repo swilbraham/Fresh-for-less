@@ -7703,3 +7703,55 @@ export async function closeQuoteRequest(
   }
   return { ok: true };
 }
+
+/**
+ * Every price a cleaner has put on a quote request — the whole 3-quote
+ * process in one list, winners and losers together, so the spread on a job
+ * and who prices high or low are both visible at a glance.
+ */
+export async function listQuoteResponses(limit = 200): Promise<
+  {
+    id: number;
+    request_id: number;
+    created_at: string;
+    price_pence: number;
+    message: string;
+    cleaner_id: number;
+    cleaner_name: string;
+    cleaner_phone: string;
+    customer_name: string;
+    customer_phone: string;
+    postcode: string;
+    outward: string;
+    token: string;
+    items: QuoteRequest["items"];
+    request_status: string;
+    booked_ref: string | null;
+    won: boolean;
+    rank: number;
+    of: number;
+  }[]
+> {
+  return query(
+    `SELECT x.id, x.request_id, x.price_pence, x.message,
+            to_char(x.created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            x.cleaner_id,
+            coalesce(nullif(c.business_name, ''), c.name) AS cleaner_name,
+            c.phone AS cleaner_phone,
+            r.customer_name, r.customer_phone, r.postcode, r.outward, r.token,
+            r.items, r.status AS request_status, r.booked_ref,
+            (r.accepted_response_id = x.id) AS won,
+            (SELECT count(*)::int FROM quote_responses y
+              WHERE y.request_id = x.request_id
+                AND (y.price_pence < x.price_pence
+                     OR (y.price_pence = x.price_pence AND y.id <= x.id))) AS rank,
+            (SELECT count(*)::int FROM quote_responses y
+              WHERE y.request_id = x.request_id) AS of
+       FROM quote_responses x
+       JOIN quote_requests r ON r.id = x.request_id
+       JOIN cleaners c       ON c.id = x.cleaner_id
+      ORDER BY x.created_at DESC
+      LIMIT $1`,
+    [limit]
+  );
+}

@@ -12,6 +12,7 @@ import {
   quoteConversion,
   listQuoteRequests,
   quoteResponsesForRequests,
+  listQuoteResponses,
   nearestCleaners,
   listCleaners,
   MAX_QUOTE_RESPONSES,
@@ -95,6 +96,16 @@ export default async function QuotesPage({
   // each area still waiting, and the full cleaner list for the odd case where
   // the one on the phone is nowhere near.
   const responses = await quoteResponsesForRequests(quoteRequests.map((r) => r.id));
+  const cleanerQuotes = await listQuoteResponses(200);
+  const decided = cleanerQuotes.filter((x) => x.won);
+  const cheapestWon = decided.filter((x) => x.rank === 1).length;
+  const avgQuote =
+    cleanerQuotes.length > 0
+      ? Math.round(
+          cleanerQuotes.reduce((sum, x) => sum + x.price_pence, 0) /
+            cleanerQuotes.length
+        )
+      : 0;
   const openRequests = quoteRequests.filter((r) => r.status === "open");
   const cleaners = openRequests.length > 0 ? await listCleaners("approved") : [];
   const nearestByRequest = new Map<number, NearbyCleaner[]>();
@@ -507,6 +518,122 @@ export default async function QuotesPage({
           </div>
         </Card>
       )}
+
+      <Card
+        title={`Cleaner quotes (${cleanerQuotes.length})`}
+        description="Every price a cleaner has put on a quote request — the 3-quote process in full, winners and losers together. Useful for who prices high, who prices low, and how wide the spread is on the same job."
+      >
+        {cleanerQuotes.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">
+            No cleaner has quoted a request yet.
+          </p>
+        ) : (
+          <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Average quote
+                </p>
+                <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                  {gbp(avgQuote)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Quotes that won
+                </p>
+                <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                  {decided.length}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Cheapest one chosen
+                </p>
+                <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">
+                  {decided.length === 0
+                    ? "—"
+                    : `${cheapestWon} of ${decided.length}`}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Price isn&rsquo;t always what wins it
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[820px] text-sm">
+                <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="py-2 font-semibold">When</th>
+                    <th className="py-2 font-semibold">Customer</th>
+                    <th className="py-2 font-semibold">Wants</th>
+                    <th className="py-2 font-semibold">Cleaner</th>
+                    <th className="py-2 text-right font-semibold">Quoted</th>
+                    <th className="py-2 font-semibold">Outcome</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {cleanerQuotes.map((x) => (
+                    <tr key={x.id} className="align-top">
+                      <td className="py-2 text-slate-500">{x.created_at}</td>
+                      <td className="py-2">
+                        <Link
+                          className="font-semibold text-primary-700 underline"
+                          href={`/admin/quotes#request-${x.request_id}`}
+                        >
+                          {x.customer_name || "No name"}
+                        </Link>
+                        <p className="text-xs text-slate-500">{x.postcode}</p>
+                      </td>
+                      <td className="py-2 text-slate-600">
+                        {(x.items ?? [])
+                          .map((line) => `${line.qty}× ${line.label}`)
+                          .join(", ") || "—"}
+                        {x.message ? (
+                          <p className="text-xs text-slate-400">“{x.message}”</p>
+                        ) : null}
+                      </td>
+                      <td className="py-2">
+                        <Link
+                          className="text-slate-800 underline"
+                          href={`/admin/cleaners#cleaner-${x.cleaner_id}`}
+                        >
+                          {x.cleaner_name}
+                        </Link>
+                      </td>
+                      <td className="py-2 text-right font-semibold tabular-nums text-slate-900">
+                        {gbp(x.price_pence)}
+                        <p className="text-xs font-normal text-slate-500">
+                          {x.of > 1 ? `${x.rank} of ${x.of}` : "only quote"}
+                        </p>
+                      </td>
+                      <td className="py-2">
+                        {x.won && x.booked_ref ? (
+                          <Link
+                            className="font-semibold text-green-700 underline"
+                            href={`/admin/jobs/${x.booked_ref}`}
+                          >
+                            Won — booked {x.booked_ref}
+                          </Link>
+                        ) : x.won ? (
+                          <span className="font-semibold text-primary-700">
+                            Chosen — picking a date
+                          </span>
+                        ) : x.request_status === "open" ? (
+                          <span className="text-amber-700">Still open</span>
+                        ) : (
+                          <span className="text-slate-500">Lost</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </Card>
 
       <Card title="Latest quotes">
         {quotes.length === 0 ? (
