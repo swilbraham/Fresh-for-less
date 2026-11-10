@@ -9,6 +9,13 @@ import { useMemo, useState } from "react";
  * with no price to reveal there is nothing to stage.
  */
 
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void;
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
 type Item = {
   code: string;
   label: string;
@@ -131,6 +138,26 @@ export default function QuoteRequestFlow({
         setError(data.error ?? "Something went wrong — please try again.");
       } else {
         setSentToken(String(data.token ?? ""));
+        /**
+         * The money event (Schedule) only fires days later, when the customer
+         * picks a quote and books. Without this, a campaign optimising on
+         * conversions sees almost nothing and buys the cheapest clicks it can
+         * find, so the request itself is reported as the Lead.
+         */
+        if (typeof window.fbq === "function") {
+          window.fbq("track", "Lead", {
+            content_name: "Quote request",
+            content_category: picked > 0 ? `${picked} items` : "quote",
+            currency: "GBP",
+          });
+        }
+        if (typeof window.gtag === "function") {
+          window.gtag("event", "generate_lead", {
+            event_category: "quote_request",
+            value: 0,
+            currency: "GBP",
+          });
+        }
       }
     } catch {
       setError("Something went wrong — please try again.");
