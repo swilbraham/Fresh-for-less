@@ -11,7 +11,13 @@ import {
   quoteStats,
   quoteConversion,
   listQuoteRequests,
+  quoteResponsesForRequests,
+  nearestCleaners,
+  listCleaners,
+  MAX_QUOTE_RESPONSES,
 } from "@/lib/marketplace/repo";
+import { driveMinutes } from "@/lib/marketplace/geo";
+import type { NearbyCleaner } from "@/lib/marketplace/repo";
 import QuoteBuilder from "@/components/marketplace/QuoteBuilder";
 import {
   createOfficeQuoteAction,
@@ -22,6 +28,9 @@ import {
   rejectLeadCreditAction,
   offerQuoteDiscountAction,
   settleLeadFeesAction,
+  addOfficeQuoteAction,
+  resendQuoteLinkAction,
+  closeQuoteRequestAction,
 } from "@/app/admin/actions";
 import { gbpShort } from "@/lib/marketplace/money";
 import { gbp } from "@/lib/marketplace/money";
@@ -44,11 +53,16 @@ export const metadata = {
 export default async function QuotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; quoted?: string; offered?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    quoted?: string;
+    offered?: string;
+    added?: string;
+  }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
 
-  const { error, quoted, offered } = await searchParams;
+  const { error, quoted, offered, added } = await searchParams;
   const [
     quotes,
     week,
@@ -76,6 +90,17 @@ export default async function QuotesPage({
     quoteConversion(7, 7),
     listQuoteRequests(30),
   ]);
+
+  // Everything the ring-round needs: who has quoted so far, who is nearest to
+  // each area still waiting, and the full cleaner list for the odd case where
+  // the one on the phone is nowhere near.
+  const responses = await quoteResponsesForRequests(quoteRequests.map((r) => r.id));
+  const openRequests = quoteRequests.filter((r) => r.status === "open");
+  const cleaners = openRequests.length > 0 ? await listCleaners("approved") : [];
+  const nearestByRequest = new Map<number, NearbyCleaner[]>();
+  for (const request of openRequests.slice(0, 12)) {
+    nearestByRequest.set(request.id, await nearestCleaners(request.outward, 5));
+  }
   const rate = week.quotes > 0 ? Math.round((week.booked / week.quotes) * 100) : 0;
   const rateNow =
     convNow.quotes > 0 ? Math.round((convNow.booked / convNow.quotes) * 100) : 0;
@@ -101,6 +126,11 @@ export default async function QuotesPage({
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
+        </div>
+      )}
+      {added && (
+        <div className="rounded-xl border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-accent-900">
+          {added}
         </div>
       )}
       {quoted && (
@@ -273,65 +303,207 @@ export default async function QuotesPage({
       {quoteRequests.length > 0 && (
         <Card
           title={`Quote requests (${quoteRequests.length})`}
-          description="Quote-request mode: what customers asked for, how many cleaners priced it, and what happened. Cleaners quote from their dashboard; the customer picks one and books."
+          description={`Quote-request mode: cleaners who cover the area quote from their own dashboard. Where nobody covers it, ring round below and put their price in yourself — the customer can't tell the difference, and up to ${MAX_QUOTE_RESPONSES} quotes fit on each request.`}
         >
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="py-2 font-semibold">When</th>
-                  <th className="py-2 font-semibold">Customer</th>
-                  <th className="py-2 font-semibold">Wants</th>
-                  <th className="py-2 font-semibold">Quotes</th>
-                  <th className="py-2 font-semibold">Outcome</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {quoteRequests.map((r) => (
-                  <tr key={r.id} className="align-top">
-                    <td className="py-2 text-slate-500">{r.created_at}</td>
-                    <td className="py-2">
-                      <p className="font-semibold text-slate-800">
-                        {r.customer_name || "—"}
+          <div className="mt-4 space-y-4">
+            {quoteRequests.map((r) => {
+              const mine = responses.filter((x) => x.request_id === r.id);
+              const nearby = nearestByRequest.get(r.id) ?? [];
+              const full = mine.length >= MAX_QUOTE_RESPONSES;
+              return (
+                <div
+                  key={r.id}
+                  id={`request-${r.id}`}
+                  className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {r.customer_name || "No name"}{" "}
+                        <span className="font-normal text-slate-500">
+                          · {r.postcode}
+                        </span>
                       </p>
                       <p className="text-xs text-slate-500">
-                        {r.customer_phone} · {r.postcode}
-                        {r.covered ? "" : " · NOT COVERED"}
+                        {r.created_at} ·{" "}
+                        <a className="underline" href={`tel:${r.customer_phone}`}>
+                          {r.customer_phone}
+                        </a>
+                        {r.covered ? "" : " · nobody covers this area"}
                       </p>
-                    </td>
-                    <td className="py-2 text-slate-600">
-                      {(r.items ?? [])
-                        .map((line) => `${line.qty}× ${line.label}`)
-                        .join(", ")}
+                      <p className="mt-2 text-sm text-slate-700">
+                        {(r.items ?? [])
+                          .map((line) => `${line.qty}× ${line.label}`)
+                          .join(", ") || "—"}
+                      </p>
                       {r.notes ? (
-                        <p className="text-xs text-slate-400">“{r.notes}”</p>
+                        <p className="text-xs text-slate-500">“{r.notes}”</p>
                       ) : null}
-                    </td>
-                    <td className="py-2 tabular-nums text-slate-700">
-                      {r.response_count}
-                    </td>
-                    <td className="py-2">
+                    </div>
+                    <div className="text-right">
                       {r.status === "booked" ? (
-                        <span className="font-semibold text-green-700">
+                        <span className="text-sm font-semibold text-green-700">
                           Booked {r.booked_ref}
-                          {r.accepted_pence
-                            ? ` — ${gbp(r.accepted_pence)}`
-                            : ""}
+                          {r.accepted_pence ? ` — ${gbp(r.accepted_pence)}` : ""}
                         </span>
                       ) : r.status === "accepted" ? (
-                        <span className="font-semibold text-primary-700">
-                          Accepted{r.accepted_pence ? ` ${gbp(r.accepted_pence)}` : ""} — picking a date
+                        <span className="text-sm font-semibold text-primary-700">
+                          Accepted
+                          {r.accepted_pence ? ` ${gbp(r.accepted_pence)}` : ""} —
+                          picking a date
                         </span>
                       ) : r.status === "closed" ? (
-                        <span className="text-slate-500">Closed</span>
+                        <span className="text-sm text-slate-500">Closed</span>
                       ) : (
-                        <span className="text-amber-700">Waiting on quotes</span>
+                        <span className="text-sm font-semibold text-amber-700">
+                          {mine.length} of {MAX_QUOTE_RESPONSES} quotes in
+                        </span>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <p className="mt-1 text-xs">
+                        <Link
+                          className="text-primary-700 underline"
+                          href={`/quotes/${r.token}`}
+                        >
+                          See the customer&rsquo;s page
+                        </Link>
+                      </p>
+                    </div>
+                  </div>
+
+                  {mine.length > 0 && (
+                    <ul className="mt-3 space-y-1 text-sm text-slate-700">
+                      {mine.map((x) => (
+                        <li key={x.id}>
+                          <span className="font-semibold tabular-nums">
+                            {gbp(x.price_pence)}
+                          </span>{" "}
+                          — {x.cleaner_name}
+                          {x.message ? (
+                            <span className="text-slate-500"> “{x.message}”</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {r.status === "open" && (
+                    <div className="mt-4 space-y-3 border-t border-slate-200 pt-3">
+                      {nearby.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Nearest cleaners to {r.outward}
+                          </p>
+                          <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-700">
+                            {nearby.map((c) => (
+                              <li key={c.id}>
+                                <a className="underline" href={`tel:${c.phone}`}>
+                                  {c.business_name || c.name}
+                                </a>{" "}
+                                <span className="text-xs text-slate-500">
+                                  {c.covers
+                                    ? "covers it"
+                                    : c.miles === null
+                                      ? "distance unknown"
+                                      : `${Math.round(c.miles)} mi · ~${driveMinutes(c.miles)} min`}
+                                  {c.paused ? " · paused" : ""}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {full ? (
+                        <p className="text-sm text-slate-600">
+                          Three quotes are in — the customer picks from here.
+                        </p>
+                      ) : (
+                        <form
+                          action={addOfficeQuoteAction}
+                          className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_auto]"
+                        >
+                          <input type="hidden" name="requestId" value={r.id} />
+                          <select
+                            name="cleanerId"
+                            required
+                            defaultValue=""
+                            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                          >
+                            <option value="" disabled>
+                              Which cleaner gave you the price?
+                            </option>
+                            {(nearby.length > 0 ? nearby : []).map((c) => (
+                              <option key={`near-${c.id}`} value={c.id}>
+                                {c.business_name || c.name}
+                                {c.miles === null
+                                  ? ""
+                                  : ` — ${Math.round(c.miles)} mi`}
+                              </option>
+                            ))}
+                            {cleaners
+                              .filter((c) => !nearby.some((n) => n.id === c.id))
+                              .map((c) => (
+                                <option key={`all-${c.id}`} value={c.id}>
+                                  {c.business_name || c.name}
+                                </option>
+                              ))}
+                          </select>
+                          <input
+                            name="price"
+                            inputMode="decimal"
+                            placeholder="£ price"
+                            required
+                            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white"
+                          >
+                            Add quote
+                          </button>
+                          <input
+                            name="message"
+                            placeholder="Anything they said — “can do Thursday”"
+                            className="rounded-xl border border-slate-300 px-3 py-2 text-sm sm:col-span-3"
+                          />
+                          <div className="flex flex-wrap gap-4 text-xs text-slate-600 sm:col-span-3">
+                            <label className="flex items-center gap-2">
+                              <input type="checkbox" name="addArea" defaultChecked />
+                              Add {r.outward} to their coverage
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input type="checkbox" name="quiet" />
+                              Don&rsquo;t text the customer — I&rsquo;ll tell them
+                            </label>
+                          </div>
+                        </form>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        <form action={resendQuoteLinkAction}>
+                          <input type="hidden" name="requestId" value={r.id} />
+                          <button
+                            type="submit"
+                            className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+                          >
+                            Send the link again
+                          </button>
+                        </form>
+                        <form action={closeQuoteRequestAction}>
+                          <input type="hidden" name="requestId" value={r.id} />
+                          <button
+                            type="submit"
+                            className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+                          >
+                            Close request
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}

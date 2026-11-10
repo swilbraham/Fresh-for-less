@@ -7556,3 +7556,150 @@ export async function listQuoteRequests(limit = 50): Promise<
     [limit]
   );
 }
+
+/** Every quote on a set of requests, so the admin list can show the prices. */
+export async function quoteResponsesForRequests(
+  requestIds: number[]
+): Promise<(QuoteResponse & { cleaner_name: string; cleaner_phone: string })[]> {
+  if (requestIds.length === 0) return [];
+  return query<QuoteResponse & { cleaner_name: string; cleaner_phone: string }>(
+    `SELECT x.id, x.request_id, x.cleaner_id, x.price_pence, x.message,
+            to_char(x.created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
+            coalesce(nullif(c.business_name, ''), c.name) AS cleaner_name,
+            c.phone AS cleaner_phone
+       FROM quote_responses x
+       JOIN cleaners c ON c.id = x.cleaner_id
+      WHERE x.request_id = ANY($1::int[])
+      ORDER BY x.price_pence ASC, x.created_at ASC`,
+    [requestIds]
+  );
+}
+
+/**
+ * A quote the office took over the phone, filed under the cleaner who gave it.
+ *
+ * Identical to a cleaner's own response on the customer's comparison page —
+ * deliberately, because to the customer it IS that cleaner's price. What it
+ * skips is the coverage check: the whole reason to ring round is a postcode
+ * nobody has registered yet. The three-quote cap and the open-request check
+ * still bite, so this can't quietly overfill or revive a decided request.
+ */
+export async function officeQuoteResponse(input: {
+  requestId: number;
+  cleanerId: number;
+  pricePence: number;
+  message?: string;
+  addArea?: boolean;
+  tellCustomer?: boolean;
+}): Promise<{ ok: boolean; reason?: string }> {
+  if (
+    !Number.isFinite(input.pricePence) ||
+    input.pricePence < 2000 ||
+    input.pricePence > 500000
+  ) {
+    return { ok: false, reason: "Price the job between £20 and £5,000." };
+  }
+
+  const cleaner = await getCleaner(input.cleanerId);
+  if (!cleaner) return { ok: false, reason: "Pick the cleaner who gave you the price." };
+
+  const request = await queryOne<QuoteRequest>(
+    `SELECT * FROM quote_requests WHERE id = $1`,
+    [input.requestId]
+  );
+  if (!request) return { ok: false, reason: "That request no longer exists." };
+  if (request.status !== "open") {
+    return { ok: false, reason: "That request has already been decided." };
+  }
+
+  if (input.addArea && request.outward) {
+    await query(
+      `INSERT INTO cleaner_areas (cleaner_id, outward) VALUES ($1,$2)
+       ON CONFLICT DO NOTHING`,
+      [input.cleanerId, request.outward]
+    );
+  }
+
+  const message = (input.message ?? "").trim().slice(0, 300);
+  const inserted = await query<{ id: number }>(
+    `INSERT INTO quote_responses (request_id, cleaner_id, price_pence, message)
+     SELECT $1, $2, $3, $4
+      WHERE (SELECT status FROM quote_requests WHERE id = $1) = 'open'
+        AND (SELECT count(*) FROM quote_responses WHERE request_id = $1)
+              < ${MAX_QUOTE_RESPONSES}
+     ON CONFLICT (request_id, cleaner_id) DO NOTHING
+     RETURNING id`,
+    [input.requestId, input.cleanerId, Math.round(input.pricePence), message]
+  );
+  if (inserted.length === 0) {
+    return {
+      ok: false,
+      reason: `That request is closed, already has its ${MAX_QUOTE_RESPONSES} quotes, or that cleaner has quoted it already.`,
+    };
+  }
+
+  if (input.tellCustomer !== false) {
+    const who = cleaner.business_name || cleaner.name;
+    const note = message ? ` "${message.slice(0, 120)}"` : "";
+    await notifyCustomer(request, {
+      subject: `Your quote from ${who} — ${gbpShort(input.pricePence)}`,
+      body:
+        `${who} has quoted ${gbpShort(input.pricePence)} for ` +
+        `${describeRequestItems(request.items)}.${note}\n\n` +
+        `Compare your quotes and book the one you like:\n` +
+        `${siteUrl()}/quotes/${request.token}`,
+      smsBody:
+        `Fresh For Less: ${who} quoted ${gbpShort(input.pricePence)} for your clean.` +
+        `${note} Compare & book: ${siteUrl()}/quotes/${request.token}`,
+    });
+  }
+
+  return { ok: true };
+}
+
+/** Text or email the customer their comparison link again. */
+export async function resendQuoteRequestLink(
+  requestId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const request = await queryOne<QuoteRequest>(
+    `SELECT * FROM quote_requests WHERE id = $1`,
+    [requestId]
+  );
+  if (!request) return { ok: false, reason: "That request no longer exists." };
+
+  const prices = await query<{ price_pence: number }>(
+    `SELECT price_pence FROM quote_responses WHERE request_id = $1
+      ORDER BY price_pence ASC`,
+    [requestId]
+  );
+  const summary =
+    prices.length === 0
+      ? `We're still collecting prices for ${describeRequestItems(request.items)}.`
+      : prices.length === 1
+        ? `You have one quote so far — ${gbpShort(prices[0].price_pence)}.`
+        : `You have ${prices.length} quotes — from ${gbpShort(prices[0].price_pence)}.`;
+
+  await notifyCustomer(request, {
+    subject: "Your Fresh For Less quotes",
+    body:
+      `${firstName(request.customer_name, "Hi")} — ${summary}\n\n` +
+      `Compare them and book the one you like:\n${siteUrl()}/quotes/${request.token}`,
+    smsBody: `Fresh For Less: ${summary} Compare & book: ${siteUrl()}/quotes/${request.token}`,
+  });
+  return { ok: true };
+}
+
+/** Shut a request down — nothing more can be quoted against it. */
+export async function closeQuoteRequest(
+  requestId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const closed = await query<{ id: number }>(
+    `UPDATE quote_requests SET status = 'closed', updated_at = now()
+      WHERE id = $1 AND status = 'open' RETURNING id`,
+    [requestId]
+  );
+  if (closed.length === 0) {
+    return { ok: false, reason: "That request isn't open." };
+  }
+  return { ok: true };
+}

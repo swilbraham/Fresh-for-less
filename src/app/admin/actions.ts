@@ -93,6 +93,9 @@ import {
   setAvailability,
   setCleanerAreas,
   updateCleanerProfile,
+  officeQuoteResponse,
+  resendQuoteRequestLink,
+  closeQuoteRequest,
 } from "@/lib/marketplace/repo";
 
 function field(data: FormData, name: string, max = 200): string {
@@ -1789,4 +1792,62 @@ export async function createPhoneBookingAction(data: FormData) {
     );
   }
   redirect(`/admin/jobs/${result!.job.ref}${assignment ? "?assigned=1" : ""}`);
+}
+
+// ------------------------------------------------------- quote requests --
+
+/**
+ * A price the office took over the phone, filed under the cleaner who gave
+ * it. This is how an area with no registered cleaner still ends up with a
+ * real quote on the customer's comparison page.
+ */
+export async function addOfficeQuoteAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const requestId = Number(field(data, "requestId", 12));
+  const cleanerId = Number(field(data, "cleanerId", 12));
+  const pounds = Number(field(data, "price", 10).replace(/[^0-9.]/g, ""));
+  const message = field(data, "message", 300);
+  const addArea = field(data, "addArea", 5) === "on";
+  const tellCustomer = field(data, "quiet", 5) !== "on";
+
+  if (!cleanerId) fail("/admin/quotes", "Pick the cleaner who gave you the price.");
+  if (!Number.isFinite(pounds) || pounds <= 0) {
+    fail("/admin/quotes", "Put the price they quoted in.");
+  }
+
+  const result = await officeQuoteResponse({
+    requestId,
+    cleanerId,
+    pricePence: Math.round(pounds * 100),
+    message,
+    addArea,
+    tellCustomer,
+  });
+  revalidatePath("/admin/quotes");
+  if (!result.ok) fail("/admin/quotes", result.reason ?? "Couldn't add that quote.");
+  redirect(
+    `/admin/quotes?added=${encodeURIComponent(
+      tellCustomer
+        ? `Quote added and texted to the customer.`
+        : `Quote added. The customer wasn't told — send them the link yourself.`
+    )}#request-${requestId}`
+  );
+}
+
+export async function resendQuoteLinkAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const requestId = Number(field(data, "requestId", 12));
+  const result = await resendQuoteRequestLink(requestId);
+  revalidatePath("/admin/quotes");
+  if (!result.ok) fail("/admin/quotes", result.reason ?? "Couldn't send that link.");
+  redirect(`/admin/quotes?added=${encodeURIComponent("Comparison link sent again.")}#request-${requestId}`);
+}
+
+export async function closeQuoteRequestAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const requestId = Number(field(data, "requestId", 12));
+  const result = await closeQuoteRequest(requestId);
+  revalidatePath("/admin/quotes");
+  if (!result.ok) fail("/admin/quotes", result.reason ?? "Couldn't close that request.");
+  redirect(`/admin/quotes?added=${encodeURIComponent("Request closed.")}`);
 }
