@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import AdminNavBar from "./AdminNavBar";
 
 export function Alert({
   tone = "error",
@@ -25,15 +26,19 @@ export function Card({
   description,
   children,
   className = "",
+  id,
 }: {
   title?: string;
   description?: string;
   children: ReactNode;
   className?: string;
+  /** Set when a page is long enough to need jump links. */
+  id?: string;
 }) {
   return (
     <section
-      className={`rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${className}`}
+      id={id}
+      className={`scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${className}`}
     >
       {title && <h2 className="text-lg font-bold text-slate-900">{title}</h2>}
       {description && (
@@ -166,38 +171,7 @@ export function ProNav({ name }: { name: string }) {
 }
 
 export function AdminNav() {
-  const links = [
-    { href: "/admin", label: "Overview" },
-    { href: "/admin/prices", label: "Prices & commission" },
-    { href: "/admin/cleaners", label: "Cleaners" },
-    { href: "/admin/coverage", label: "Coverage" },
-    { href: "/admin/jobs", label: "Jobs" },
-    { href: "/admin/diary", label: "Diary" },
-    { href: "/admin/leads", label: "Enquiries" },
-    { href: "/admin/training", label: "Training" },
-    { href: "/admin/messages", label: "Messages" },
-    { href: "/admin/quotes", label: "Quotes" },
-    { href: "/admin/invoices", label: "Commission invoices" },
-    { href: "/admin/finances", label: "Finances" },
-    { href: "/admin/profit", label: "Profit" },
-    { href: "/admin/square", label: "Square" },
-  ];
-  return (
-    <nav className="border-b border-slate-800 bg-slate-900 text-white">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-        <span className="font-bold">Marketplace admin</span>
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="text-sm font-semibold text-slate-300 hover:text-white"
-          >
-            {link.label}
-          </Link>
-        ))}
-      </div>
-    </nav>
-  );
+  return <AdminNavBar />;
 }
 
 export function StatusPill({ status }: { status: string }) {

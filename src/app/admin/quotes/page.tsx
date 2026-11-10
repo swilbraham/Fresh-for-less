@@ -124,9 +124,26 @@ export default async function QuotesPage({
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Quotes</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Every basket that reached a price on /book. Anyone who left a mobile
-          is a lead: text them a discount below and the code works at checkout.
+          The 3-quote process end to end: what customers asked for, what
+          cleaners priced it at, and what happened next.
         </p>
+        <nav className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-primary-700">
+          <a className="underline" href="#requests">
+            Quote requests
+          </a>
+          <a className="underline" href="#cleaner-quotes">
+            Cleaner quotes
+          </a>
+          <a className="underline" href="#phone">
+            Quote over the phone
+          </a>
+          <a className="underline" href="#calculator">
+            Price calculator history
+          </a>
+          <a className="underline" href="#lead-fees">
+            Lead fees
+          </a>
+        </nav>
       </div>
 
       {offered && (
@@ -151,6 +168,7 @@ export default async function QuotesPage({
       )}
 
       <Card
+        id="phone"
         title="Quote someone over the phone"
         description="Take their name, number and postcode, tick what needs doing, and they get a text with the price and a button that books it — already filled in."
       >
@@ -313,6 +331,7 @@ export default async function QuotesPage({
 
       {quoteRequests.length > 0 && (
         <Card
+          id="requests"
           title={`Quote requests (${quoteRequests.length})`}
           description={`Quote-request mode: cleaners who cover the area quote from their own dashboard. Where nobody covers it, ring round below and put their price in yourself — the customer can't tell the difference, and up to ${MAX_QUOTE_RESPONSES} quotes fit on each request.`}
         >
@@ -520,6 +539,7 @@ export default async function QuotesPage({
       )}
 
       <Card
+        id="cleaner-quotes"
         title={`Cleaner quotes (${cleanerQuotes.length})`}
         description="Every price a cleaner has put on a quote request — the 3-quote process in full, winners and losers together. Useful for who prices high, who prices low, and how wide the spread is on the same job."
       >
@@ -635,7 +655,11 @@ export default async function QuotesPage({
         )}
       </Card>
 
-      <Card title="Latest quotes">
+      <Card
+        id="calculator"
+        title="Website price calculator"
+        description="Baskets that reached a price on /book. In quote-request mode the site no longer shows prices, so this is history from fixed-price mode — kept because anyone here who left a mobile is still a lead worth a discount text."
+      >
         {quotes.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">
             Nothing yet. A quote appears here as soon as somebody picks their
@@ -879,6 +903,7 @@ export default async function QuotesPage({
 
       {leadFees.length > 0 && (
         <Card
+          id="lead-fees"
           title="Lead fees to invoice"
           description="Sold leads not yet billed. Add the amount to the cleaner's next commission invoice (a manual invoice works too), then mark it invoiced here."
         >

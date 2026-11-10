@@ -227,7 +227,10 @@ export default async function AdminPage({
           </Card>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <h2 className="mt-8 text-xs font-bold uppercase tracking-widest text-slate-500">
+          The numbers
+        </h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Stat
             label="Awaiting vetting"
             value={String(stats.cleaners_pending)}
@@ -296,11 +299,26 @@ export default async function AdminPage({
           </Card>
         )}
 
-        <Card
-          title="Notification log"
-          description="Every message the platform generated, to cleaners and customers. Texts need the TWILIO_* variables set; emails need RESEND_API_KEY and MARKETPLACE_FROM_EMAIL. Anything marked as logged only was recorded but not delivered."
-          className="mt-8"
-        >
+        <h2 className="mt-10 text-xs font-bold uppercase tracking-widest text-slate-500">
+          Records
+        </h2>
+
+        <Card className="mt-3">
+          <details>
+            <summary className="cursor-pointer list-none">
+              <span className="text-lg font-bold text-slate-900">
+                Notification log
+              </span>
+              <span className="ml-2 text-sm text-slate-500">
+                ({notifications.length} shown — click to open)
+              </span>
+              <p className="mt-1 text-sm text-slate-500">
+                Every message the platform generated, to cleaners and customers.
+                Texts need the TWILIO_* variables set; emails need
+                RESEND_API_KEY and MARKETPLACE_FROM_EMAIL. Anything marked as
+                logged only was recorded but not delivered.
+              </p>
+            </summary>
           {notifications.length === 0 ? (
             <p className="mt-4 text-sm text-slate-500">Nothing sent yet.</p>
           ) : (
@@ -341,13 +359,21 @@ export default async function AdminPage({
               </table>
             </div>
           )}
+          </details>
         </Card>
 
-        <Card
-          title="Download your data"
-          description="Your own copy, in a format a spreadsheet or accountant can read. Worth doing monthly — these files contain customer names, addresses and phone numbers, so keep them somewhere private."
-          className="mt-8"
-        >
+        <Card className="mt-4">
+          <details>
+            <summary className="cursor-pointer list-none">
+              <span className="text-lg font-bold text-slate-900">
+                Download your data
+              </span>
+              <p className="mt-1 text-sm text-slate-500">
+                Your own copy, in a format a spreadsheet or accountant can read.
+                Worth doing monthly — these files contain customer names,
+                addresses and phone numbers, so keep them somewhere private.
+              </p>
+            </summary>
           <div className="mt-4 flex flex-wrap gap-3">
             {[
               { type: "finance", label: "Finance by month" },
@@ -365,6 +391,7 @@ export default async function AdminPage({
               </a>
             ))}
           </div>
+          </details>
         </Card>
 
         <form action={adminLogoutAction} className="mt-8">
@@ -393,7 +420,7 @@ function Stat({
 }) {
   const body = (
     <div
-      className={`rounded-2xl border p-5 shadow-sm transition ${
+      className={`rounded-2xl border p-4 shadow-sm transition ${
         highlight
           ? "border-amber-300 bg-amber-50"
           : "border-slate-200 bg-white hover:border-primary-300"
@@ -402,7 +429,7 @@ function Stat({
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </p>
-      <p className="mt-1 text-2xl font-bold text-slate-900 tabular-nums">
+      <p className="mt-1 text-xl font-bold text-slate-900 tabular-nums">
         {value}
       </p>
     </div>
