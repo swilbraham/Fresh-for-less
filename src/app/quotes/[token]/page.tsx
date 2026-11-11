@@ -99,7 +99,10 @@ export default async function QuotesPage({
 
           {/* Accepted but not booked: pick the date. */}
           {!isBooked && request.status === "accepted" && accepted && (
-            <div className="mt-6 rounded-2xl border-2 border-primary-200 bg-white p-6">
+            <div
+              id="book"
+              className="mt-6 scroll-mt-4 rounded-2xl border-2 border-primary-200 bg-white p-6"
+            >
               <p className="text-sm font-semibold uppercase tracking-wide text-primary-600">
                 Your chosen quote
               </p>

@@ -7468,10 +7468,10 @@ export async function acceptQuoteResponse(
           `${firstName(request.customer_name, "Hi")} — you've chosen ${who} at ` +
           `${gbpShort(winner.price_pence)}.\n\n` +
           `One last step: pick the day and half-day that suits you and the job ` +
-          `is booked in.\n${siteUrl()}/quotes/${request.token}`,
+          `is booked in.\n${siteUrl()}/quotes/${request.token}#book`,
         smsBody:
           `Fresh For Less: you've chosen ${who} at ${gbpShort(winner.price_pence)}. ` +
-          `Book your appointment here: ${siteUrl()}/quotes/${request.token}`,
+          `Book your appointment here: ${siteUrl()}/quotes/${request.token}#book`,
       });
     }
 
@@ -7818,10 +7818,10 @@ export async function chaseQuoteBooking(
       `${firstName(request.customer_name, "Hi")} — you chose ${who}${price} for ` +
       `${describeRequestItems(request.items)}, but the date hasn't been picked ` +
       `yet, so it isn't in the diary.\n\n` +
-      `Pick a day that suits and you're done:\n${siteUrl()}/quotes/${request.token}`,
+      `Pick a day that suits and you're done:\n${siteUrl()}/quotes/${request.token}#book`,
     smsBody:
       `Fresh For Less: you've chosen ${who}${price} but haven't picked a date ` +
-      `yet. Book your appointment here: ${siteUrl()}/quotes/${request.token}`,
+      `yet. Book your appointment here: ${siteUrl()}/quotes/${request.token}#book`,
   });
 
   await query(
