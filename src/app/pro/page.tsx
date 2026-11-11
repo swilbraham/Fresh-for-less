@@ -105,7 +105,7 @@ export default async function ProPage({
           </h1>
           <p className="mt-4 text-slate-600">
             {quoteMode
-              ? "Customers tell us what needs cleaning; the request is texted to every vetted cleaner covering that postcode. You send your own price — the first three quotes are shown, the customer picks one, and the job lands in your diary at the figure you set."
+              ? "Customers tell us what needs cleaning; the request is texted to every vetted cleaner covering that postcode. You send your own price — the first three quotes are shown and the customer picks one. Win it and you get their name and number to ring, agree a day and sort payment between you; you then confirm the appointment on your dashboard and it's in the diary at the figure you set."
               : "Customers get an instant fixed price from our national price list and book a slot. The job goes straight out to every vetted cleaner covering that postcode — first one to accept keeps it."}
           </p>
 
@@ -128,10 +128,15 @@ export default async function ProPage({
                     "Priced before it reaches you",
                     "Every job arrives with the price already agreed with the customer, so there's nothing to quote or negotiate.",
                   ],
-              [
-                "Paid on the day",
-                "The customer pays you direct, cash or card. We invoice your commission separately.",
-              ],
+              quoteMode
+                ? [
+                    "Win it and it's yours to arrange",
+                    "The moment the customer picks your quote you get their name and number. Ring them, agree the day and how they're paying you — then confirm the appointment on your dashboard so it's booked.",
+                  ]
+                : [
+                    "Paid on the day",
+                    "The customer pays you direct, cash or card. We invoice your commission separately.",
+                  ],
             ].map(([title, body]) => (
               <li key={title} className="flex gap-3">
                 <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-100 text-sm font-bold text-accent-700">
@@ -272,10 +277,23 @@ export default async function ProPage({
                   "Collect the full amount",
                   "Take the whole price from the customer on the day. Commission is invoiced separately, never deducted at your end.",
                 ],
-                [
-                  "Work the slot the customer chose",
-                  "The customer picks their own date and half-day when they book. That is the appointment you are accepting — it is not an opening position to negotiate when you ring them.",
-                ],
+                ...(quoteMode
+                  ? [
+                      [
+                        "Confirm the appointment on your dashboard",
+                        "Winning a quote is not a booking. Once you've spoken to the customer and agreed a day, put it in on your dashboard — that is what puts the job in your diary, confirms it to the customer and gets the commission invoiced correctly. A job that never gets confirmed is one nobody can see is covered.",
+                      ],
+                    ]
+                  : []),
+                quoteMode
+                  ? [
+                      "Keep the day you agreed",
+                      "The day and half-day you settle on the phone is the appointment, and it's what the customer gets confirmed in writing. Moving it afterwards is on you to arrange with them, and to put right on your dashboard.",
+                    ]
+                  : [
+                      "Work the slot the customer chose",
+                      "The customer picks their own date and half-day when they book. That is the appointment you are accepting — it is not an opening position to negotiate when you ring them.",
+                    ],
                 [
                   "The customer is ours, not the job's",
                   "Customers booked through Fresh For Less stay Fresh For Less customers. Taking repeat or referred work from them off the platform, or passing them your own details to book direct, ends the arrangement.",

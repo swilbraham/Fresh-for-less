@@ -1885,3 +1885,38 @@ export async function remindCleanerToBookAction(data: FormData) {
     )}`
   );
 }
+
+/**
+ * Take a job off its cleaner and offer it straight back out, saying nothing
+ * to anybody. The customer keeps their slot, their price and their peace of
+ * mind; the cleaner who lost it is told by Simon, not by a text.
+ */
+export async function quietReassignJobAction(data: FormData) {
+  const ref = field(data, "ref", 20);
+  await requireAdmin(`/admin/jobs/${ref}`);
+  const back = `/admin/jobs/${ref}`;
+
+  const job = await getJobByRef(ref.toUpperCase());
+  if (!job) {
+    redirect(`${back}?error=${encodeURIComponent("That job no longer exists.")}`);
+  }
+
+  const result = await releaseJob({
+    jobId: job!.id,
+    by: "admin",
+    reason: field(data, "reason", 300) || "Moved by the office",
+    quiet: true,
+    offerOut: true,
+  });
+  revalidatePath(back);
+  if (!result.ok) {
+    redirect(`${back}?error=${encodeURIComponent(result.reason ?? "Couldn't re-offer that job.")}`);
+  }
+  redirect(
+    `${back}?transferred=${encodeURIComponent(
+      `Taken off quietly and offered to ${result.offered} cleaner${
+        result.offered === 1 ? "" : "s"
+      }. Nobody was told it changed hands — the customer's slot and price stand, and the next cleaner to accept gets it as a normal job.`
+    )}`
+  );
+}

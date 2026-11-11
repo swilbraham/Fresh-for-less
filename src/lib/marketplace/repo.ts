@@ -4615,6 +4615,14 @@ export async function releaseJob(input: {
    * normally go out would contradict the conversation they are about to have.
    */
   quiet?: boolean;
+  /**
+   * With quiet: still offer the job back out to the network, but say nothing
+   * to the customer or the cleaner who lost it. For the case the quiet
+   * transfer doesn't cover — a cleaner who has messed the office about, where
+   * the job must move but nobody needs telling it ever wobbled. To the other
+   * cleaners it reads as an ordinary job coming up.
+   */
+  offerOut?: boolean;
 }): Promise<ReleaseResult> {
   const job = await getJob(input.jobId);
   if (!job || job.cleaner_id === null) {
@@ -4644,19 +4652,20 @@ export async function releaseJob(input: {
   );
   await query(`DELETE FROM job_offers WHERE job_id = $1`, [input.jobId]);
 
-  const offered = input.quiet
-    ? 0
-    : await broadcastJob(
-        input.jobId,
-        job.outward,
-        job.slot_date,
-        job.slot_window
-      );
+  const offered =
+    input.quiet && !input.offerOut
+      ? 0
+      : await broadcastJob(
+          input.jobId,
+          job.outward,
+          job.slot_date,
+          job.slot_window
+        );
 
   if (input.quiet) {
     // The drop is still recorded above: history has to be true even when
     // nobody is told. Only the messages are suppressed.
-    return { ok: true, offered: 0, late };
+    return { ok: true, offered, late };
   }
 
   const when = `${job.slot_date} (${job.slot_window.toUpperCase()})`;

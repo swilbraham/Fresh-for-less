@@ -35,6 +35,7 @@ import {
   holdJobAction,
   offerJobToCleanersAction,
   releaseHoldAction,
+  quietReassignJobAction,
   rebroadcastJobAction,
   remindCustomerAction,
   transferJobAction,
@@ -754,6 +755,20 @@ export default async function AdminJobPage({
                       <button type="submit" className="font-semibold text-primary-600 underline">
                         Take off this cleaner &amp; re-offer
                       </button>
+                    </form>
+                  )}
+                  {job.status === "accepted" && (
+                    <form action={quietReassignJobAction}>
+                      <input type="hidden" name="ref" value={job.ref} />
+                      <button type="submit" className="font-semibold text-primary-600 underline">
+                        Take off quietly &amp; re-offer
+                      </button>
+                      <span className="mt-1 block max-w-md text-xs text-slate-500">
+                        Same thing without the messages: the customer keeps
+                        their slot and price and is told nothing, the cleaner
+                        losing it hears it from you, and to everyone else it
+                        looks like an ordinary job coming up.
+                      </span>
                     </form>
                   )}
                   {job.cleaner_id && job.status === "accepted" && (
