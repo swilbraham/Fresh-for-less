@@ -8145,3 +8145,62 @@ export async function withdrawAcceptedQuote(
 
   return { ok: true, cleaner: who, left };
 }
+
+
+/**
+ * Push open requests out a second time to cleaners who haven't priced them.
+ *
+ * The first text lands whenever the customer happens to ask — often mid-job,
+ * when a cleaner has no hands free. One quote on a 3-quote page looks thin
+ * and converts badly, so anything still short of its three prices gets one
+ * more push the next time the sweep runs. Once only: a third text about the
+ * same job is how a network learns to ignore texts.
+ */
+export async function pushOpenQuoteRequests(): Promise<{ pushed: number }> {
+  const waiting = await query<QuoteRequest>(
+    `SELECT * FROM quote_requests r
+      WHERE r.status = 'open'
+        AND r.requote_pushed_at IS NULL
+        AND r.created_at > now() - interval '${QUOTE_REQUEST_OPEN_DAYS} days'
+        AND r.created_at < now() - interval '4 hours'
+        AND (SELECT count(*) FROM quote_responses x WHERE x.request_id = r.id)
+              < ${MAX_QUOTE_RESPONSES}
+      ORDER BY r.created_at ASC
+      LIMIT 25`
+  );
+
+  let pushed = 0;
+  for (const request of waiting) {
+    const covering = await approvedCleanersCovering([request.outward]);
+    let told = 0;
+    for (const c of covering) {
+      const pro = await getCleaner(c.id);
+      if (!pro || pro.paused_at) continue;
+      const already = await queryOne<{ id: number }>(
+        `SELECT id FROM quote_responses WHERE request_id = $1 AND cleaner_id = $2`,
+        [request.id, c.id]
+      );
+      if (already) continue;
+      await notifyCleaner(pro, {
+        subject: `Still open for prices — ${request.outward}`,
+        body:
+          `${firstName(pro.name)}, the ${describeRequestItems(request.items)} job ` +
+          `in ${request.outward} still hasn't had its ` +
+          `${MAX_QUOTE_RESPONSES} prices, so there's room for yours.\n\n` +
+          `${request.notes ? `They said: "${request.notes}"\n\n` : ""}` +
+          `Price it from your dashboard:\n${siteUrl()}/pro/dashboard`,
+        smsBody:
+          `FFL: ${request.outward} (${describeRequestItems(request.items)}) is ` +
+          `still open for prices. Quote it: ${siteUrl()}/pro/dashboard`,
+      });
+      told += 1;
+    }
+    await query(
+      `UPDATE quote_requests SET requote_pushed_at = now() WHERE id = $1`,
+      [request.id]
+    );
+    if (told > 0) pushed += 1;
+  }
+
+  return { pushed };
+}

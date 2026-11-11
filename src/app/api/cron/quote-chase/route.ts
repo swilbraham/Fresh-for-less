@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { chaseQuoteBookings } from "@/lib/marketplace/repo";
+import {
+  chaseQuoteBookings,
+  pushOpenQuoteRequests,
+} from "@/lib/marketplace/repo";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -22,5 +25,8 @@ export async function GET(request: Request) {
   }
 
   const result = await chaseQuoteBookings();
-  return NextResponse.json({ ok: true, ...result });
+  // Same sweep, the other half of the problem: requests that never drew
+  // their three prices in the first place.
+  const pushes = await pushOpenQuoteRequests();
+  return NextResponse.json({ ok: true, ...result, ...pushes });
 }
