@@ -357,25 +357,57 @@ export default async function DashboardPage({
                   </div>
                   <form
                     action={respondToQuoteRequestAction}
-                    className="mt-3 flex flex-wrap items-center gap-2"
+                    className="mt-3 space-y-2"
                   >
                     <input type="hidden" name="requestId" value={request.id} />
-                    <label className="flex items-center gap-1 font-semibold text-slate-700">
-                      £
-                      <input
-                        name="pricePounds"
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-1 font-semibold text-slate-700">
+                        £
+                        <input
+                          name="pricePounds"
+                          required
+                          inputMode="decimal"
+                          placeholder="Your price"
+                          className="w-28 rounded-xl border border-slate-300 px-3 py-2 tabular-nums"
+                        />
+                      </label>
+                      <p className="text-xs text-slate-500">
+                        Your price, your margin — we add nothing to it.
+                      </p>
+                    </div>
+                    {/*
+                      A bare number next to two other bare numbers is a race to
+                      the bottom, and the cheapest quote is not the one that
+                      usually wins. This is the only place a cleaner gets to say
+                      why they are worth the price, so it asks properly rather
+                      than offering an optional box most people skipped.
+                    */}
+                    <div>
+                      <label
+                        htmlFor={`message-${request.id}`}
+                        className="block text-sm font-bold text-slate-800"
+                      >
+                        Why you? The customer reads this next to the other
+                        prices
+                      </label>
+                      <p className="text-xs text-slate-500">
+                        Two lines sells a job. Years at it, insured, what
+                        machine you use, what the price includes, how soon you
+                        could come, guarantee if you give one. Don&rsquo;t
+                        leave it blank — a price on its own only competes on
+                        being cheap.
+                      </p>
+                      <textarea
+                        id={`message-${request.id}`}
+                        name="message"
                         required
-                        inputMode="decimal"
-                        placeholder="Your price"
-                        className="w-28 rounded-xl border border-slate-300 px-3 py-2 tabular-nums"
+                        minLength={40}
+                        maxLength={300}
+                        rows={3}
+                        placeholder="e.g. 12 years doing this, fully insured, truck-mounted machine so your carpets are dry in 2-3 hours. Price covers pre-spray, deep clean and deodoriser. Could do Thursday morning if that suits."
+                        className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                       />
-                    </label>
-                    <input
-                      name="message"
-                      maxLength={300}
-                      placeholder="Optional note to the customer (what's included, when you could come…)"
-                      className="min-w-[200px] flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                    />
+                    </div>
                     <SubmitButton
                       pendingLabel="Sending…"
                       className="rounded-xl bg-sky-600 px-5 py-2.5 font-semibold text-white transition hover:bg-sky-700"

@@ -282,6 +282,13 @@ export async function respondToQuoteRequestAction(data: FormData) {
   if (pricePence === null) {
     fail("/pro/dashboard", "Give your price as a figure, like 120 or 120.50.");
   }
+  // A price with nothing beside it can only win on being the cheapest.
+  if (message.length < 20) {
+    fail(
+      "/pro/dashboard",
+      "Add a line or two on why you — experience, insurance, what the price covers, when you could come. It's shown to the customer next to the other quotes and it's what wins the job.",
+    );
+  }
 
   const result = await respondToQuoteRequest(requestId, cleaner.id, pricePence, message);
   revalidatePath("/pro/dashboard");
