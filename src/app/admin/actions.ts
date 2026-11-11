@@ -97,6 +97,7 @@ import {
   resendQuoteRequestLink,
   closeQuoteRequest,
   chaseQuoteBooking,
+  remindCleanerToBook,
 } from "@/lib/marketplace/repo";
 
 function field(data: FormData, name: string, max = 200): string {
@@ -1865,6 +1866,22 @@ export async function chaseQuoteBookingAction(data: FormData) {
   redirect(
     `/admin/quotes?added=${encodeURIComponent(
       "Sent — they've been texted the link to pick a date. The notification log on the overview shows whether it went out."
+    )}`
+  );
+}
+
+/** Send the winning cleaner the customer's details and the booking link. */
+export async function remindCleanerToBookAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const requestId = Number(field(data, "requestId", 12));
+  const result = await remindCleanerToBook(requestId);
+  revalidatePath("/admin/quotes");
+  if (!result.ok) {
+    fail("/admin/quotes", result.reason ?? "Couldn't send that to the cleaner.");
+  }
+  redirect(
+    `/admin/quotes?added=${encodeURIComponent(
+      "Sent the cleaner the customer's details and the link to put the date in."
     )}`
   );
 }

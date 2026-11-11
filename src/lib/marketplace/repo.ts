@@ -7876,10 +7876,10 @@ export async function chaseQuoteBookings(): Promise<{
       WHERE status = 'accepted'
         AND booked_ref = ''
         AND booking_chases < 2
-        AND accepted_at < now() - interval '3 hours'
+        AND coalesce(accepted_at, updated_at) < now() - interval '3 hours'
         AND (booking_chased_at IS NULL
              OR booking_chased_at < now() - interval '20 hours')
-      ORDER BY accepted_at ASC
+      ORDER BY coalesce(accepted_at, updated_at) ASC
       LIMIT 50`
   );
   let chased = 0;
@@ -7895,8 +7895,8 @@ export async function chaseQuoteBookings(): Promise<{
       WHERE r.status = 'accepted'
         AND r.booked_ref = ''
         AND r.cleaner_chased_at IS NULL
-        AND r.accepted_at < now() - interval '24 hours'
-      ORDER BY r.accepted_at ASC
+        AND coalesce(r.accepted_at, r.updated_at) < now() - interval '24 hours'
+      ORDER BY coalesce(r.accepted_at, r.updated_at) ASC
       LIMIT 50`
   );
   let cleanersReminded = 0;
@@ -7983,14 +7983,14 @@ export async function wonQuotesAwaitingDate(cleanerId: number): Promise<
   return query(
     `SELECT r.id, r.token, r.postcode, r.outward, r.items, r.notes,
             r.customer_name, r.customer_phone, x.price_pence,
-            to_char(r.accepted_at AT TIME ZONE 'Europe/London',
+            to_char(coalesce(r.accepted_at, r.updated_at) AT TIME ZONE 'Europe/London',
                     'YYYY-MM-DD HH24:MI') AS accepted_at
        FROM quote_requests r
        JOIN quote_responses x ON x.id = r.accepted_response_id
       WHERE r.status = 'accepted'
         AND r.booked_ref = ''
         AND x.cleaner_id = $1
-      ORDER BY r.accepted_at DESC NULLS LAST`,
+      ORDER BY coalesce(r.accepted_at, r.updated_at) DESC`,
     [cleanerId]
   );
 }

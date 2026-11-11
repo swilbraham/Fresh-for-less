@@ -33,6 +33,7 @@ import {
   resendQuoteLinkAction,
   closeQuoteRequestAction,
   chaseQuoteBookingAction,
+  remindCleanerToBookAction,
 } from "@/app/admin/actions";
 import { gbpShort } from "@/lib/marketplace/money";
 import { gbp } from "@/lib/marketplace/money";
@@ -438,6 +439,15 @@ export default async function QuotesPage({
                           className="rounded-xl bg-primary-600 px-4 py-1.5 text-xs font-semibold text-white"
                         >
                           Text them to book
+                        </button>
+                      </form>
+                      <form action={remindCleanerToBookAction}>
+                        <input type="hidden" name="requestId" value={r.id} />
+                        <button
+                          type="submit"
+                          className="rounded-xl border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700"
+                        >
+                          Send the cleaner their details
                         </button>
                       </form>
                       <a
