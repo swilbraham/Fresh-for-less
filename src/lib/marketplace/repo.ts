@@ -8083,6 +8083,29 @@ export async function withdrawAcceptedQuote(
     });
   }
 
+  // The cleaners who quoted and lost were told it was gone. They are back in
+  // the running now, and nobody else is going to tell them.
+  const stillStanding = await query<QuoteResponse>(
+    `SELECT * FROM quote_responses WHERE request_id = $1`,
+    [requestId]
+  );
+  for (const other of stillStanding) {
+    const pro = await getCleaner(other.cleaner_id);
+    if (!pro) continue;
+    await notifyCleaner(pro, {
+      subject: `Back in the running — ${request.outward}, ${gbpShort(other.price_pence)}`,
+      body:
+        `${firstName(pro.name)}, the customer's first choice for ` +
+        `${describeRequestItems(request.items)} in ${request.outward} has fallen ` +
+        `through, so your quote of ${gbpShort(other.price_pence)} is live again ` +
+        `and they're choosing afresh.\n\nNothing to do — we'll tell you if ` +
+        `they pick you this time.`,
+      smsBody:
+        `FFL: the ${request.outward} customer's first choice fell through — your ` +
+        `${gbpShort(other.price_pence)} quote is back in the running.`,
+    });
+  }
+
   let offered = 0;
   if (options.rebroadcast !== false) {
     const covering = await approvedCleanersCovering([request.outward]);
