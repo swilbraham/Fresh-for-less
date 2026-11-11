@@ -1413,9 +1413,10 @@ export async function setCleanerPausedAction(data: FormData) {
   const id = Number(field(data, "id", 12));
   const paused = field(data, "paused", 5) === "1";
   await setCleanerPaused(id, paused);
-  revalidatePath(`/admin/cleaners/${id}`);
   revalidatePath("/admin/cleaners");
-  redirect(`/admin/cleaners/${id}?paused=${paused ? "1" : "0"}`);
+  // There is no per-cleaner page: this used to redirect to one, so pausing
+  // worked but landed on a 404 and read as a dead button.
+  redirect(`/admin/cleaners?paused=${paused ? "1" : "0"}#cleaner-${id}`);
 }
 
 /**
