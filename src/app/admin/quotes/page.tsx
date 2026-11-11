@@ -419,10 +419,18 @@ export default async function QuotesPage({
 
                   {r.status === "accepted" && (
                     <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3">
-                      <p className="text-sm text-slate-600">
-                        Chosen their cleaner but hasn&rsquo;t picked a date —
-                        no date, no clean, no commission.
-                      </p>
+                      <div className="text-sm text-slate-600">
+                        <p>
+                          Chosen their cleaner but hasn&rsquo;t picked a date —
+                          no date, no clean, no commission.
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {r.booking_chased_at
+                            ? `Last texted ${r.booking_chased_at} · ${r.booking_chases} of 2 automatic nudges used`
+                            : "Not nudged yet"}
+                          {r.customer_email ? "" : " · no email on file"}
+                        </p>
+                      </div>
                       <form action={chaseQuoteBookingAction}>
                         <input type="hidden" name="requestId" value={r.id} />
                         <button

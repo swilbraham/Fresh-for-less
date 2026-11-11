@@ -7558,12 +7558,27 @@ export async function bookQuoteRequest(
 
 /** The office view — newest first, with how many prices each request drew. */
 export async function listQuoteRequests(limit = 50): Promise<
-  (QuoteRequest & { response_count: number; accepted_pence: number | null })[]
+  (QuoteRequest & {
+    response_count: number;
+    accepted_pence: number | null;
+    booking_chases: number;
+    booking_chased_at: string | null;
+  })[]
 > {
-  return query<QuoteRequest & { response_count: number; accepted_pence: number | null }>(
+  return query<
+    QuoteRequest & {
+      response_count: number;
+      accepted_pence: number | null;
+      booking_chases: number;
+      booking_chased_at: string | null;
+    }
+  >(
     `SELECT r.id, r.token, r.postcode, r.outward, r.covered, r.items, r.notes,
             r.customer_name, r.customer_phone, r.customer_email,
             r.status, r.accepted_response_id, r.booked_ref, r.source,
+            coalesce(r.booking_chases, 0) AS booking_chases,
+            to_char(r.booking_chased_at AT TIME ZONE 'Europe/London',
+                    'YYYY-MM-DD HH24:MI') AS booking_chased_at,
             to_char(r.created_at, 'YYYY-MM-DD HH24:MI') AS created_at,
             to_char(r.updated_at, 'YYYY-MM-DD HH24:MI') AS updated_at,
             (SELECT count(*)::int FROM quote_responses x WHERE x.request_id = r.id)

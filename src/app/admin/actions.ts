@@ -1860,9 +1860,11 @@ export async function chaseQuoteBookingAction(data: FormData) {
   const result = await chaseQuoteBooking(requestId);
   revalidatePath("/admin/quotes");
   if (!result.ok) fail("/admin/quotes", result.reason ?? "Couldn't send that nudge.");
+  // No #anchor: jumping to the row scrolls the confirmation off the top of
+  // the page, which reads as the button having done nothing.
   redirect(
     `/admin/quotes?added=${encodeURIComponent(
-      "Texted them the link to pick a date."
-    )}#request-${requestId}`
+      "Sent — they've been texted the link to pick a date. The notification log on the overview shows whether it went out."
+    )}`
   );
 }
