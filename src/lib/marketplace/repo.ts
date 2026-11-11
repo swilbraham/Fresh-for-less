@@ -7433,18 +7433,28 @@ export async function acceptQuoteResponse(
       const cleaner = await getCleaner(response.cleaner_id);
       if (!cleaner) continue;
       if (response.id === responseId) {
+        // The customer has chosen; the hold-back on contact details has done
+        // its job. Waiting for them to come back and pick a date loses work
+        // that is already won, so the cleaner gets the number and rings.
         await notifyCleaner(cleaner, {
           subject: `Your quote won — ${request.outward}, ${gbpShort(response.price_pence)}`,
           body:
             `${firstName(cleaner.name)}, ${request.customer_name || "the customer"} ` +
             `chose your quote of ${gbpShort(response.price_pence)} for ` +
             `${describeRequestItems(request.items)} in ${request.outward}.\n\n` +
-            `They're picking a date now — the job lands in your diary the moment ` +
-            `they confirm, with the address and their number.`,
+            `Give them a ring and agree a day:\n` +
+            `${request.customer_name || "Customer"} — ${request.customer_phone}\n` +
+            `Area: ${request.postcode}\n` +
+            `${request.notes ? `They said: "${request.notes}"\n` : ""}` +
+            `\nThe job only reaches your diary once the date is in, so book it ` +
+            `here while you're on the phone — address, day and half-day:\n` +
+            `${siteUrl()}/quotes/${request.token}#book\n\n` +
+            `Commission is due on this one as normal, whoever puts the date in.`,
           smsBody:
             `FFL: your quote of ${gbpShort(response.price_pence)} in ` +
-            `${request.outward} WON. The customer is picking a date — the job ` +
-            `will appear in your diary once confirmed.`,
+            `${request.outward} WON. Ring ${request.customer_name || "the customer"} ` +
+            `on ${request.customer_phone} and book the day in here: ` +
+            `${siteUrl()}/quotes/${request.token}#book`,
         });
       } else {
         await notifyCleaner(cleaner, {
@@ -7873,4 +7883,41 @@ export async function chaseQuoteBookings(): Promise<{ chased: number }> {
     if (result.ok) chased += 1;
   }
   return { chased };
+}
+
+
+/**
+ * Quotes this cleaner has won where the customer still hasn't picked a date.
+ *
+ * Work that is already won and sitting still. The cleaner has the number by
+ * now, so the dashboard shows it with the link that turns the call into a
+ * booking.
+ */
+export async function wonQuotesAwaitingDate(cleanerId: number): Promise<
+  {
+    id: number;
+    token: string;
+    postcode: string;
+    outward: string;
+    items: QuoteRequest["items"];
+    notes: string;
+    customer_name: string;
+    customer_phone: string;
+    price_pence: number;
+    accepted_at: string | null;
+  }[]
+> {
+  return query(
+    `SELECT r.id, r.token, r.postcode, r.outward, r.items, r.notes,
+            r.customer_name, r.customer_phone, x.price_pence,
+            to_char(r.accepted_at AT TIME ZONE 'Europe/London',
+                    'YYYY-MM-DD HH24:MI') AS accepted_at
+       FROM quote_requests r
+       JOIN quote_responses x ON x.id = r.accepted_response_id
+      WHERE r.status = 'accepted'
+        AND r.booked_ref = ''
+        AND x.cleaner_id = $1
+      ORDER BY r.accepted_at DESC NULLS LAST`,
+    [cleanerId]
+  );
 }

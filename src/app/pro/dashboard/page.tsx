@@ -10,6 +10,7 @@ import {
   listOffersForCleaner,
   listOpenJobs,
   quoteRequestsForCleaner,
+  wonQuotesAwaitingDate,
   MAX_QUOTE_RESPONSES,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
@@ -91,7 +92,7 @@ export default async function DashboardPage({
 
   const { error, lead, creditRequested, accepted, completed, released, disputed, quoted } =
     await searchParams;
-  const [offers, openJobs, upcoming, done, areas, invoices, leadsForSale, myLeads, quoteRequests] = await Promise.all([
+  const [offers, openJobs, upcoming, done, areas, invoices, leadsForSale, myLeads, quoteRequests, wonQuotes] = await Promise.all([
     listOffersForCleaner(cleaner.id),
     listOpenJobs(),
     listJobsForCleaner(cleaner.id, ["accepted"]),
@@ -101,6 +102,7 @@ export default async function DashboardPage({
     leadsForCleaner(cleaner.id),
     boughtLeadsForCleaner(cleaner.id),
     quoteRequestsForCleaner(cleaner.id),
+    wonQuotesAwaitingDate(cleaner.id),
   ]);
 
   // The board is everything unclaimed that is not already sitting in their own
@@ -322,6 +324,63 @@ export default async function DashboardPage({
         </Card>
 
         {/* Quote requests: customers waiting for prices in this patch */}
+        {wonQuotes.length > 0 && (
+          <Card
+            title={`You won these — ring and book the day (${wonQuotes.length})`}
+            description="The customer picked your quote. It only reaches your diary once a date is in, so give them a ring, agree a day and put it in with the link. Your price stands; commission is the same whoever fills the form."
+            className="mb-6"
+          >
+            <ul className="mt-4 space-y-3">
+              {wonQuotes.map((won) => (
+                <li
+                  key={won.id}
+                  className="rounded-xl border border-accent-200 bg-accent-50/50 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-900">
+                        {won.customer_name || "Customer"} · {won.postcode}
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        {(won.items ?? [])
+                          .map((line) => `${line.qty}× ${line.label}`)
+                          .join(", ") || "Carpet clean"}
+                      </p>
+                      {won.notes && (
+                        <p className="mt-1 text-sm text-slate-600">
+                          &ldquo;{won.notes}&rdquo;
+                        </p>
+                      )}
+                      <a
+                        href={`tel:${won.customer_phone}`}
+                        className="mt-1 inline-block text-sm font-semibold text-primary-600 underline"
+                      >
+                        {won.customer_phone}
+                      </a>
+                      {won.accepted_at && (
+                        <p className="text-xs text-slate-400">
+                          chosen {won.accepted_at}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold tabular-nums text-slate-900">
+                        {gbp(won.price_pence)}
+                      </p>
+                      <a
+                        href={`/quotes/${won.token}#book`}
+                        className="mt-2 inline-block rounded-xl bg-accent-600 px-4 py-2 text-sm font-semibold text-white"
+                      >
+                        Book the day in
+                      </a>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
         {!cleaner.paused_at && quoteRequests.length > 0 && (
           <Card
             title={`Quote requests in your patch (${quoteRequests.length})`}
