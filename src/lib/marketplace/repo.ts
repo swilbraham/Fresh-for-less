@@ -7408,7 +7408,8 @@ export async function acceptQuoteResponse(
 ): Promise<{ ok: boolean; reason?: string }> {
   const won = await query<{ id: number }>(
     `UPDATE quote_requests r
-        SET status = 'accepted', accepted_response_id = $2, updated_at = now()
+        SET status = 'accepted', accepted_response_id = $2,
+            accepted_at = now(), updated_at = now()
       WHERE r.token = $1 AND r.status = 'open'
         AND EXISTS (SELECT 1 FROM quote_responses x
                      WHERE x.id = $2 AND x.request_id = r.id)
@@ -7455,6 +7456,25 @@ export async function acceptQuoteResponse(
         });
       }
     }
+    // The job is not a job until they pick a date, and nobody is paid until
+    // it is cleaned — so the moment they choose, they get the link back.
+    const winner = responses.find((x) => x.id === responseId);
+    const winningCleaner = winner ? await getCleaner(winner.cleaner_id) : null;
+    if (winner && winningCleaner) {
+      const who = winningCleaner.business_name || winningCleaner.name;
+      await notifyCustomer(request, {
+        subject: `You've chosen ${who} — pick your date`,
+        body:
+          `${firstName(request.customer_name, "Hi")} — you've chosen ${who} at ` +
+          `${gbpShort(winner.price_pence)}.\n\n` +
+          `One last step: pick the day and half-day that suits you and the job ` +
+          `is booked in.\n${siteUrl()}/quotes/${request.token}`,
+        smsBody:
+          `Fresh For Less: you've chosen ${who} at ${gbpShort(winner.price_pence)}. ` +
+          `Book your appointment here: ${siteUrl()}/quotes/${request.token}`,
+      });
+    }
+
     await notifyAdmin({
       subject: `Quote accepted — ${request.outward}`,
       smsBody:
@@ -7754,4 +7774,88 @@ export async function listQuoteResponses(limit = 200): Promise<
       LIMIT $1`,
     [limit]
   );
+}
+
+
+/**
+ * Nudge a customer who chose a quote and then never picked a date.
+ *
+ * This is the gap where the money sits: the cleaner has won the work, the
+ * customer has decided, and nobody is paid until a date exists. Manual from
+ * /admin/quotes, or by the chaser below.
+ */
+export async function chaseQuoteBooking(
+  requestId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const request = await queryOne<QuoteRequest & { accepted_pence: number | null }>(
+    `SELECT r.*, (SELECT x.price_pence FROM quote_responses x
+                   WHERE x.id = r.accepted_response_id) AS accepted_pence
+       FROM quote_requests r WHERE r.id = $1`,
+    [requestId]
+  );
+  if (!request) return { ok: false, reason: "That request no longer exists." };
+  if (request.status !== "accepted") {
+    return {
+      ok: false,
+      reason:
+        request.status === "booked"
+          ? "That one is already booked in."
+          : "Nobody has been chosen on that request yet.",
+    };
+  }
+
+  const accepted = await queryOne<{ cleaner_id: number }>(
+    `SELECT cleaner_id FROM quote_responses WHERE id = $1`,
+    [request.accepted_response_id]
+  );
+  const cleaner = accepted ? await getCleaner(accepted.cleaner_id) : null;
+  const who = cleaner ? cleaner.business_name || cleaner.name : "your cleaner";
+  const price = request.accepted_pence ? ` at ${gbpShort(request.accepted_pence)}` : "";
+
+  await notifyCustomer(request, {
+    subject: `Finish booking ${who}`,
+    body:
+      `${firstName(request.customer_name, "Hi")} — you chose ${who}${price} for ` +
+      `${describeRequestItems(request.items)}, but the date hasn't been picked ` +
+      `yet, so it isn't in the diary.\n\n` +
+      `Pick a day that suits and you're done:\n${siteUrl()}/quotes/${request.token}`,
+    smsBody:
+      `Fresh For Less: you've chosen ${who}${price} but haven't picked a date ` +
+      `yet. Book your appointment here: ${siteUrl()}/quotes/${request.token}`,
+  });
+
+  await query(
+    `UPDATE quote_requests
+        SET booking_chased_at = now(), booking_chases = booking_chases + 1
+      WHERE id = $1`,
+    [requestId]
+  );
+  return { ok: true };
+}
+
+/**
+ * The daily sweep: everyone who chose a cleaner and stopped.
+ *
+ * Two nudges at most, the first a few hours after they chose (long enough
+ * that it doesn't land while they're still on the page), the second a day
+ * later. After that it's a phone call, not another text.
+ */
+export async function chaseQuoteBookings(): Promise<{ chased: number }> {
+  const waiting = await query<{ id: number }>(
+    `SELECT id FROM quote_requests
+      WHERE status = 'accepted'
+        AND booked_ref = ''
+        AND booking_chases < 2
+        AND accepted_at < now() - interval '3 hours'
+        AND (booking_chased_at IS NULL
+             OR booking_chased_at < now() - interval '20 hours')
+      ORDER BY accepted_at ASC
+      LIMIT 50`
+  );
+  let chased = 0;
+  for (const row of waiting) {
+    const result = await chaseQuoteBooking(row.id);
+    if (result.ok) chased += 1;
+  }
+  return { chased };
 }

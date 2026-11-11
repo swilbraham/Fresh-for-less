@@ -32,6 +32,7 @@ import {
   addOfficeQuoteAction,
   resendQuoteLinkAction,
   closeQuoteRequestAction,
+  chaseQuoteBookingAction,
 } from "@/app/admin/actions";
 import { gbpShort } from "@/lib/marketplace/money";
 import { gbp } from "@/lib/marketplace/money";
@@ -414,6 +415,30 @@ export default async function QuotesPage({
                         </li>
                       ))}
                     </ul>
+                  )}
+
+                  {r.status === "accepted" && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3">
+                      <p className="text-sm text-slate-600">
+                        Chosen their cleaner but hasn&rsquo;t picked a date —
+                        no date, no clean, no commission.
+                      </p>
+                      <form action={chaseQuoteBookingAction}>
+                        <input type="hidden" name="requestId" value={r.id} />
+                        <button
+                          type="submit"
+                          className="rounded-xl bg-primary-600 px-4 py-1.5 text-xs font-semibold text-white"
+                        >
+                          Text them to book
+                        </button>
+                      </form>
+                      <a
+                        className="text-xs font-semibold text-slate-600 underline"
+                        href={`tel:${r.customer_phone}`}
+                      >
+                        Or ring {r.customer_phone}
+                      </a>
+                    </div>
                   )}
 
                   {r.status === "open" && (

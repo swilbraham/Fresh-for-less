@@ -96,6 +96,7 @@ import {
   officeQuoteResponse,
   resendQuoteRequestLink,
   closeQuoteRequest,
+  chaseQuoteBooking,
 } from "@/lib/marketplace/repo";
 
 function field(data: FormData, name: string, max = 200): string {
@@ -1850,4 +1851,18 @@ export async function closeQuoteRequestAction(data: FormData) {
   revalidatePath("/admin/quotes");
   if (!result.ok) fail("/admin/quotes", result.reason ?? "Couldn't close that request.");
   redirect(`/admin/quotes?added=${encodeURIComponent("Request closed.")}`);
+}
+
+/** Nudge a customer who chose a cleaner but never picked a date. */
+export async function chaseQuoteBookingAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const requestId = Number(field(data, "requestId", 12));
+  const result = await chaseQuoteBooking(requestId);
+  revalidatePath("/admin/quotes");
+  if (!result.ok) fail("/admin/quotes", result.reason ?? "Couldn't send that nudge.");
+  redirect(
+    `/admin/quotes?added=${encodeURIComponent(
+      "Texted them the link to pick a date."
+    )}#request-${requestId}`
+  );
 }
