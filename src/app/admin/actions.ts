@@ -98,6 +98,7 @@ import {
   closeQuoteRequest,
   chaseQuoteBooking,
   remindCleanerToBook,
+  withdrawAcceptedQuote,
 } from "@/lib/marketplace/repo";
 
 function field(data: FormData, name: string, max = 200): string {
@@ -1918,6 +1919,33 @@ export async function quietReassignJobAction(data: FormData) {
       `Taken off quietly and offered to ${result.offered} cleaner${
         result.offered === 1 ? "" : "s"
       }. Nobody was told it changed hands — the customer's slot and price stand, and the next cleaner to accept gets it as a normal job.`
+    )}`
+  );
+}
+
+/**
+ * The chosen cleaner has pulled out before any date was agreed. Their price
+ * comes down, the request goes back out, and the customer is told only that
+ * their cleaner is no longer available.
+ */
+export async function withdrawAcceptedQuoteAction(data: FormData) {
+  await requireAdmin("/admin/quotes");
+  const requestId = Number(field(data, "requestId", 12));
+  const quiet = field(data, "quiet", 5) === "on";
+
+  const result = await withdrawAcceptedQuote(requestId, {
+    tellCustomer: !quiet,
+    rebroadcast: true,
+  });
+  revalidatePath("/admin/quotes");
+  if (!result.ok) fail("/admin/quotes", result.reason ?? "Couldn't reopen that request.");
+  redirect(
+    `/admin/quotes?added=${encodeURIComponent(
+      `${result.cleaner}'s quote is down and the request is open again — ${
+        result.left ?? 0
+      } other quote${result.left === 1 ? "" : "s"} still standing, and cleaners in the area have been asked to price it.${
+        quiet ? " The customer wasn't told." : " The customer has been told their cleaner is no longer available."
+      }`
     )}`
   );
 }

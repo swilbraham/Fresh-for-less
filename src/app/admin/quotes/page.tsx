@@ -34,6 +34,7 @@ import {
   closeQuoteRequestAction,
   chaseQuoteBookingAction,
   remindCleanerToBookAction,
+  withdrawAcceptedQuoteAction,
 } from "@/app/admin/actions";
 import { gbpShort } from "@/lib/marketplace/money";
 import { gbp } from "@/lib/marketplace/money";
@@ -456,6 +457,28 @@ export default async function QuotesPage({
                       >
                         Or ring {r.customer_phone}
                       </a>
+                      <form
+                        action={withdrawAcceptedQuoteAction}
+                        className="w-full border-t border-slate-200 pt-3"
+                      >
+                        <input type="hidden" name="requestId" value={r.id} />
+                        <button
+                          type="submit"
+                          className="rounded-xl border border-red-300 bg-white px-4 py-1.5 text-xs font-semibold text-red-700"
+                        >
+                          Cleaner&rsquo;s pulled out — reopen it
+                        </button>
+                        <label className="ml-3 inline-flex items-center gap-2 text-xs text-slate-600">
+                          <input type="checkbox" name="quiet" />
+                          Don&rsquo;t text the customer
+                        </label>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Takes their price down, puts the request back out to
+                          cleaners in the area, and tells the customer only
+                          that their cleaner is no longer available. Any other
+                          quotes still stand.
+                        </p>
+                      </form>
                     </div>
                   )}
 

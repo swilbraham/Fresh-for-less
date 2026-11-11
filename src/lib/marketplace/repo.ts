@@ -8003,3 +8003,122 @@ export async function wonQuotesAwaitingDate(cleanerId: number): Promise<
     [cleanerId]
   );
 }
+
+/**
+ * The chosen cleaner pulls out before a date was ever agreed.
+ *
+ * There is no job yet, so there is nothing to re-offer — what has to happen
+ * is the request going back to where it was: their price off the board, the
+ * request open again, the other quotes still standing, and cleaners who
+ * haven't priced it told it's live. The customer is told their cleaner is no
+ * longer available, never why.
+ */
+export async function withdrawAcceptedQuote(
+  requestId: number,
+  options: { tellCustomer?: boolean; rebroadcast?: boolean } = {}
+): Promise<{ ok: boolean; reason?: string; cleaner?: string; left?: number }> {
+  const request = await queryOne<QuoteRequest>(
+    `SELECT * FROM quote_requests WHERE id = $1`,
+    [requestId]
+  );
+  if (!request) return { ok: false, reason: "That request no longer exists." };
+  if (request.booked_ref) {
+    return {
+      ok: false,
+      reason: "That one is booked — take it off the cleaner on the job page instead.",
+    };
+  }
+  if (request.status !== "accepted" || !request.accepted_response_id) {
+    return { ok: false, reason: "Nobody has been chosen on that request." };
+  }
+
+  const response = await queryOne<QuoteResponse>(
+    `SELECT * FROM quote_responses WHERE id = $1`,
+    [request.accepted_response_id]
+  );
+  const cleaner = response ? await getCleaner(response.cleaner_id) : null;
+  const who = cleaner ? cleaner.business_name || cleaner.name : "Your cleaner";
+
+  // Their price comes off: it can't be chosen again, and it stops holding one
+  // of the three places open to cleaners who would actually do the work.
+  await query(`DELETE FROM quote_responses WHERE id = $1`, [
+    request.accepted_response_id,
+  ]);
+  await query(
+    `UPDATE quote_requests
+        SET status = 'open', accepted_response_id = NULL, accepted_at = NULL,
+            booking_chased_at = NULL, booking_chases = 0,
+            cleaner_chased_at = NULL, updated_at = now()
+      WHERE id = $1`,
+    [requestId]
+  );
+
+  const left = (
+    await query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM quote_responses WHERE request_id = $1`,
+      [requestId]
+    )
+  )[0]?.n ?? 0;
+
+  if (options.tellCustomer !== false) {
+    await notifyCustomer(request, {
+      subject: `A change to your quote — ${describeRequestItems(request.items)}`,
+      body:
+        `${firstName(request.customer_name, "Hi")} — unfortunately ${who} is no ` +
+        `longer available for your clean, so we've taken their quote down.\n\n` +
+        (left > 0
+          ? `Your other ${left === 1 ? "quote is" : `${left} quotes are`} still ` +
+            `standing, and more cleaners may price it. Have another look and ` +
+            `pick whoever suits:\n${siteUrl()}/quotes/${request.token}`
+          : `We're getting you fresh prices from other local cleaners now — ` +
+            `they'll be on your page as they come in:\n` +
+            `${siteUrl()}/quotes/${request.token}`) +
+        `\n\nSorry for the shuffle — nothing else about your request has changed.`,
+      smsBody:
+        `Fresh For Less: unfortunately ${who} is no longer available. ` +
+        (left > 0
+          ? `Your other ${left === 1 ? "quote is" : "quotes are"} still live — `
+          : `We're getting you fresh prices now — `) +
+        `have a look and pick: ${siteUrl()}/quotes/${request.token}`,
+    });
+  }
+
+  let offered = 0;
+  if (options.rebroadcast !== false) {
+    const covering = await approvedCleanersCovering([request.outward]);
+    for (const c of covering) {
+      if (cleaner && c.id === cleaner.id) continue;
+      const pro = await getCleaner(c.id);
+      if (!pro || pro.paused_at) continue;
+      const already = await queryOne<{ id: number }>(
+        `SELECT id FROM quote_responses WHERE request_id = $1 AND cleaner_id = $2`,
+        [requestId, c.id]
+      );
+      if (already) continue;
+      await notifyCleaner(pro, {
+        subject: `Quote request open again in ${request.outward}`,
+        body:
+          `${firstName(pro.name)}, the ${describeRequestItems(request.items)} job ` +
+          `in ${request.outward} is open for prices again.\n\n` +
+          `Send yours from the dashboard — only the first ` +
+          `${MAX_QUOTE_RESPONSES} prices are shown to the customer, and they ` +
+          `book the one they like.\n\n${siteUrl()}/pro/dashboard`,
+        smsBody:
+          `FFL: the ${request.outward} job (${describeRequestItems(request.items)}) ` +
+          `is open for quotes again. Price it: ${siteUrl()}/pro/dashboard`,
+      });
+      offered += 1;
+    }
+  }
+
+  await notifyAdmin({
+    subject: `Quote reopened — ${request.outward}`,
+    smsBody:
+      `${who} pulled out of ${request.outward}. Request reopened with ${left} ` +
+      `quote${left === 1 ? "" : "s"} still standing; ${offered} cleaner${
+        offered === 1 ? "" : "s"
+      } told it's live again.`,
+  });
+
+  return { ok: true, cleaner: who, left };
+}
