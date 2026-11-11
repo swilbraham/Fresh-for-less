@@ -7446,15 +7446,17 @@ export async function acceptQuoteResponse(
             `${request.customer_name || "Customer"} — ${request.customer_phone}\n` +
             `Area: ${request.postcode}\n` +
             `${request.notes ? `They said: "${request.notes}"\n` : ""}` +
-            `\nThe job only reaches your diary once the date is in, so book it ` +
-            `here while you're on the phone — address, day and half-day:\n` +
-            `${siteUrl()}/quotes/${request.token}#book\n\n` +
+            `\nWHEN YOU'VE AGREED A DAY, PUT IT IN THE SYSTEM — address, day ` +
+            `and half-day:\n${siteUrl()}/quotes/${request.token}#book\n\n` +
+            `Until that's done the job doesn't exist on our side: it won't be ` +
+            `in your diary, the customer gets no confirmation, and nobody can ` +
+            `see it's covered. Takes a minute while you're on the phone. ` +
             `Commission is due on this one as normal, whoever puts the date in.`,
           smsBody:
             `FFL: your quote of ${gbpShort(response.price_pence)} in ` +
             `${request.outward} WON. Ring ${request.customer_name || "the customer"} ` +
-            `on ${request.customer_phone} and book the day in here: ` +
-            `${siteUrl()}/quotes/${request.token}#book`,
+            `on ${request.customer_phone}, then PUT THE DATE IN or the job ` +
+            `isn't booked: ${siteUrl()}/quotes/${request.token}#book`,
         });
       } else {
         await notifyCleaner(cleaner, {
@@ -7865,7 +7867,10 @@ export async function chaseQuoteBooking(
  * that it doesn't land while they're still on the page), the second a day
  * later. After that it's a phone call, not another text.
  */
-export async function chaseQuoteBookings(): Promise<{ chased: number }> {
+export async function chaseQuoteBookings(): Promise<{
+  chased: number;
+  cleanersReminded: number;
+}> {
   const waiting = await query<{ id: number }>(
     `SELECT id FROM quote_requests
       WHERE status = 'accepted'
@@ -7882,7 +7887,75 @@ export async function chaseQuoteBookings(): Promise<{ chased: number }> {
     const result = await chaseQuoteBooking(row.id);
     if (result.ok) chased += 1;
   }
-  return { chased };
+
+  // The cleaner has the customer's number from the moment they won, so after
+  // a day the job is often arranged and simply not entered. One reminder.
+  const stale = await query<{ id: number }>(
+    `SELECT r.id FROM quote_requests r
+      WHERE r.status = 'accepted'
+        AND r.booked_ref = ''
+        AND r.cleaner_chased_at IS NULL
+        AND r.accepted_at < now() - interval '24 hours'
+      ORDER BY r.accepted_at ASC
+      LIMIT 50`
+  );
+  let cleanersReminded = 0;
+  for (const row of stale) {
+    const reminded = await remindCleanerToBook(row.id);
+    if (reminded.ok) cleanersReminded += 1;
+  }
+
+  return { chased, cleanersReminded };
+}
+
+/**
+ * Nudge the cleaner who won, not the customer: put the date in.
+ *
+ * A quote that stays dateless for a day is usually one of two things — the
+ * customer went quiet, or the pair sorted it on the phone and nobody told
+ * the system. The second costs an invoice, so it is worth asking.
+ */
+export async function remindCleanerToBook(
+  requestId: number
+): Promise<{ ok: boolean; reason?: string }> {
+  const request = await queryOne<QuoteRequest>(
+    `SELECT * FROM quote_requests WHERE id = $1`,
+    [requestId]
+  );
+  if (!request || request.status !== "accepted" || request.booked_ref) {
+    return { ok: false, reason: "Nothing to remind about." };
+  }
+  const response = await queryOne<QuoteResponse>(
+    `SELECT * FROM quote_responses WHERE id = $1`,
+    [request.accepted_response_id]
+  );
+  const cleaner = response ? await getCleaner(response.cleaner_id) : null;
+  if (!cleaner) return { ok: false, reason: "No cleaner on that quote." };
+
+  await notifyCleaner(cleaner, {
+    subject: `Put the date in — ${request.outward}, ${gbpShort(response!.price_pence)}`,
+    body:
+      `${firstName(cleaner.name)}, you won ${describeRequestItems(request.items)} ` +
+      `in ${request.outward} at ${gbpShort(response!.price_pence)} yesterday, ` +
+      `and there's still no date on it.\n\n` +
+      `If you've spoken to ${request.customer_name || "them"} and agreed a day, ` +
+      `put it in now — until you do, the job isn't booked on our side, it's not ` +
+      `in your diary and the customer has had no confirmation:\n` +
+      `${siteUrl()}/quotes/${request.token}#book\n\n` +
+      `${request.customer_name || "Customer"} — ${request.customer_phone}\n\n` +
+      `If they've gone quiet, leave it with us and we'll chase them.`,
+    smsBody:
+      `FFL: you won ${request.outward} at ${gbpShort(response!.price_pence)} but ` +
+      `there's still no date on it. Agreed a day with ` +
+      `${request.customer_name || "the customer"} (${request.customer_phone})? ` +
+      `Put it in: ${siteUrl()}/quotes/${request.token}#book`,
+  });
+
+  await query(
+    `UPDATE quote_requests SET cleaner_chased_at = now() WHERE id = $1`,
+    [requestId]
+  );
+  return { ok: true };
 }
 
 

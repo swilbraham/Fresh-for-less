@@ -327,7 +327,7 @@ export default async function DashboardPage({
         {wonQuotes.length > 0 && (
           <Card
             title={`You won these — ring and book the day (${wonQuotes.length})`}
-            description="The customer picked your quote. It only reaches your diary once a date is in, so give them a ring, agree a day and put it in with the link. Your price stands; commission is the same whoever fills the form."
+            description="The customer picked your quote and their number is below. Ring them, agree a day — then PUT THE DATE IN here. Until you do, the job isn't booked on our side: it won't be in your diary, the customer has no confirmation, and nobody can see the job is covered. Your price stands either way, and so does commission."
             className="mb-6"
           >
             <ul className="mt-4 space-y-3">
@@ -371,8 +371,11 @@ export default async function DashboardPage({
                         href={`/quotes/${won.token}#book`}
                         className="mt-2 inline-block rounded-xl bg-accent-600 px-4 py-2 text-sm font-semibold text-white"
                       >
-                        Book the day in
+                        Put the date in
                       </a>
+                      <p className="mt-1 text-[11px] font-semibold text-accent-800">
+                        Not booked until you do
+                      </p>
                     </div>
                   </div>
                 </li>
