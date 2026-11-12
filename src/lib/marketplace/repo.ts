@@ -8200,6 +8200,26 @@ export async function pushOpenQuoteRequests(): Promise<{ pushed: number }> {
       [request.id]
     );
     if (told > 0) pushed += 1;
+
+    // A page with one price on it isn't a choice, and it converts like one.
+    // Flagged once, at the same moment the second push goes out, so there is
+    // time to ring round and add a price by hand before the customer gives up.
+    const have = (
+      await query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM quote_responses WHERE request_id = $1`,
+        [request.id]
+      )
+    )[0]?.n ?? 0;
+    if (have < 2) {
+      await notifyAdmin({
+        subject: `Thin quote page — ${request.outward}`,
+        smsBody:
+          `${request.outward} (${describeRequestItems(request.items)}) has ` +
+          `${have === 0 ? "NO quotes" : "only 1 quote"} and ${told} cleaner` +
+          `${told === 1 ? "" : "s"} just re-asked. Ring round and add one from ` +
+          `/admin/quotes if nothing lands.`,
+      });
+    }
   }
 
   return { pushed };
