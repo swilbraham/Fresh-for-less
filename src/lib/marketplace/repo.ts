@@ -5051,6 +5051,162 @@ export async function listSlaWarnings(limit = 20): Promise<SlaWarningRow[]> {
   );
 }
 
+export type LeaderRow = {
+  cleaner_id: number;
+  name: string;
+  completed: number;
+  offered: number;
+  accepted: number;
+  answered: number;
+  avg_response_mins: number | null;
+  late_drops: number;
+  no_shows: number;
+  coverage: string[];
+  preferred: string[];
+  backup: string[];
+};
+
+/**
+ * Every approved cleaner ranked by how they've actually performed — the
+ * shortlist for handing out patches. The window is recent (default 90 days)
+ * so an old lapse doesn't bury someone who has sharpened up, except completed
+ * jobs, which count for all time because experience doesn't expire.
+ *
+ * Ordered best first: share of answered offers accepted, then no-shows and
+ * short-notice drops against them, then completed jobs, then speed of the yes.
+ */
+export async function cleanerLeaderboard(days = 90): Promise<LeaderRow[]> {
+  const rows = await query<
+    Omit<LeaderRow, "coverage" | "preferred" | "backup"> & {
+      coverage: string | null;
+      preferred: string | null;
+      backup: string | null;
+    }
+  >(
+    `SELECT c.id AS cleaner_id, c.name,
+            (SELECT count(*)::int FROM jobs j
+              WHERE j.cleaner_id = c.id AND j.status = 'completed')   AS completed,
+            (SELECT count(*)::int FROM job_offers o
+              WHERE o.cleaner_id = c.id
+                AND o.sent_at > now() - ($1 || ' days')::interval)    AS offered,
+            (SELECT count(*)::int FROM job_offers o
+              WHERE o.cleaner_id = c.id AND o.response = 'accepted'
+                AND o.sent_at > now() - ($1 || ' days')::interval)    AS accepted,
+            (SELECT count(*)::int FROM job_offers o
+              WHERE o.cleaner_id = c.id AND o.response IS NOT NULL
+                AND o.sent_at > now() - ($1 || ' days')::interval)    AS answered,
+            (SELECT round(avg(EXTRACT(EPOCH FROM (o.responded_at - o.sent_at)) / 60))::int
+               FROM job_offers o
+              WHERE o.cleaner_id = c.id AND o.response = 'accepted'
+                AND o.responded_at IS NOT NULL
+                AND o.sent_at > now() - ($1 || ' days')::interval)    AS avg_response_mins,
+            (SELECT count(*)::int FROM job_drops d
+              WHERE d.cleaner_id = c.id AND d.dropped_by = 'cleaner'
+                AND d.hours_notice < ${SLA_DROP_NOTICE_HOURS}
+                AND d.dropped_at > now() - ($1 || ' days')::interval) AS late_drops,
+            (SELECT count(*)::int FROM jobs j
+              WHERE j.cleaner_id = c.id AND j.customer_confirmed = 'no'
+                AND j.slot_date > current_date - ($1 || ' days')::interval) AS no_shows,
+            (SELECT string_agg(a.outward, ',' ORDER BY a.outward)
+               FROM cleaner_areas a WHERE a.cleaner_id = c.id)        AS coverage,
+            (SELECT string_agg(a.outward, ',' ORDER BY a.outward)
+               FROM cleaner_areas a
+              WHERE a.cleaner_id = c.id AND a.preferred)              AS preferred,
+            (SELECT string_agg(a.outward, ',' ORDER BY a.outward)
+               FROM cleaner_areas a
+              WHERE a.cleaner_id = c.id AND a.backup)                 AS backup
+       FROM cleaners c
+      WHERE c.status = 'approved'
+      ORDER BY c.name`,
+    [String(days)]
+  );
+
+  const split = (value: string | null) => (value ? value.split(",") : []);
+  const scored = rows.map((row) => ({
+    ...row,
+    coverage: split(row.coverage),
+    preferred: split(row.preferred),
+    backup: split(row.backup),
+  }));
+
+  const acceptShare = (row: LeaderRow) =>
+    row.answered > 0 ? row.accepted / row.answered : -1;
+  scored.sort(
+    (a, b) =>
+      acceptShare(b) - acceptShare(a) ||
+      a.no_shows + a.late_drops - (b.no_shows + b.late_drops) ||
+      b.completed - a.completed ||
+      (a.avg_response_mins ?? Infinity) - (b.avg_response_mins ?? Infinity)
+  );
+  return scored;
+}
+
+/**
+ * The one-click promotion: hand a cleaner first refusal on everything they
+ * cover, skipping districts that are already someone else's patch rather than
+ * refusing the lot — the office is picking a winner, not drafting a treaty.
+ * Districts they already hold are kept.
+ */
+export async function promoteToAreaCleaner(
+  cleanerId: number
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  assigned: string[];
+  skipped: { outward: string; name: string }[];
+}> {
+  const coverage = await getCleanerAreas(cleanerId);
+  if (coverage.length === 0) {
+    return {
+      ok: false,
+      reason: "They have no coverage set — add their postcode areas first.",
+      assigned: [],
+      skipped: [],
+    };
+  }
+
+  const taken = await query<{ outward: string; name: string }>(
+    `SELECT a.outward, c.name
+       FROM cleaner_areas a JOIN cleaners c ON c.id = a.cleaner_id
+      WHERE a.preferred AND a.cleaner_id <> $1 AND a.outward = ANY($2::text[])
+      ORDER BY a.outward`,
+    [cleanerId, coverage]
+  );
+  const takenSet = new Set(taken.map((t) => t.outward));
+  const mine = await getPreferredAreas(cleanerId);
+  const codes = [
+    ...new Set([...mine, ...coverage.filter((o) => !takenSet.has(o))]),
+  ];
+  if (codes.length === 0) {
+    return {
+      ok: false,
+      reason: `Everything they cover is already someone else's patch: ${taken
+        .slice(0, 6)
+        .map((t) => `${t.outward} (${t.name})`)
+        .join(", ")}${taken.length > 6 ? "…" : ""}.`,
+      assigned: [],
+      skipped: taken,
+    };
+  }
+
+  const cleaner = await getCleaner(cleanerId);
+  const result = await setPreferredAreas(
+    cleanerId,
+    codes,
+    cleaner?.first_refusal_hours || 2
+  );
+  if (!result.ok) {
+    return { ok: false, reason: result.reason, assigned: [], skipped: taken };
+  }
+  // Second in line somewhere they're now first would be a loop — drop those.
+  await query(
+    `UPDATE cleaner_areas SET backup = false
+      WHERE cleaner_id = $1 AND backup AND outward = ANY($2::text[])`,
+    [cleanerId, codes]
+  );
+  return { ok: true, assigned: codes, skipped: taken };
+}
+
 
 // ------------------------------------------------------ invoice detail ----
 

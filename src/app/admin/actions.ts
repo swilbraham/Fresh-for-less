@@ -53,6 +53,7 @@ import {
   rejectLeadCredit,
   settleLeadFees,
   offerJobToCleaners,
+  promoteToAreaCleaner,
   releaseHold,
   recordSlaWarning,
   setBackupAreas,
@@ -1123,6 +1124,24 @@ export async function setBackupAreasAction(data: FormData) {
     fail("/admin/cleaners", result.reason ?? "Couldn't save that.");
   }
   redirect("/admin/cleaners?saved=1");
+}
+
+/** One click from the leaderboard: give them everything they cover. */
+export async function promoteToAreaCleanerAction(data: FormData) {
+  await requireAdmin("/admin/service-levels");
+  const cleanerId = Number(field(data, "id", 12));
+  const result = await promoteToAreaCleaner(cleanerId);
+  revalidatePath("/admin/service-levels");
+  revalidatePath("/admin/cleaners");
+  if (!result.ok) {
+    fail("/admin/service-levels", result.reason ?? "Couldn't promote them.");
+  }
+  const note =
+    `${result.assigned.length} district${result.assigned.length === 1 ? "" : "s"}` +
+    (result.skipped.length > 0
+      ? ` — ${result.skipped.length} skipped (already someone's patch)`
+      : "");
+  redirect(`/admin/service-levels?promoted=${encodeURIComponent(note)}`);
 }
 
 /** Send and record a written service-level notice to an area cleaner. */
