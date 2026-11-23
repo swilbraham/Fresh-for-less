@@ -17,9 +17,9 @@ export async function generateMetadata(): Promise<Metadata> {
     };
   }
   return {
-    title: "Christmas Carpet Cleaning — 3 Carpets for £150",
+    title: "Christmas Carpet Cleaning — 3 Carpets for £99",
     description:
-      "Get your carpets and sofas guest-ready for Christmas. 3 carpets cleaned for £150 — instant fixed price, nothing to pay upfront, vetted local cleaners across the UK. December books out fast.",
+      "Get your carpets and sofas guest-ready for Christmas. 3 carpets cleaned for £99 — instant fixed price, nothing to pay upfront, vetted local cleaners across the UK. December books out fast.",
     alternates: { canonical: "/christmas" },
   };
 }
@@ -88,7 +88,7 @@ export default async function ChristmasPage() {
             <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary-300">
               {quoteMode
                 ? "✦ Christmas — 3 quotes from local cleaners, you pick"
-                : "✦ Christmas offer — 3 carpets cleaned for £150"}
+                : "✦ Christmas offer — 3 carpets cleaned for £99"}
             </p>
             <h1 className="mt-6 text-4xl font-black leading-tight text-white md:text-5xl">
               Guest-ready carpets
@@ -155,9 +155,9 @@ export default async function ChristmasPage() {
                       The Christmas offer
                     </p>
                     <p className="mt-3 text-4xl font-black text-slate-900">
-                      3 carpets cleaned for £150
+                      3 carpets cleaned for £99
                       <span className="mt-1 block text-lg font-semibold text-slate-500">
-                        any three rooms or staircases — normally £177
+                        any three rooms or staircases — normally £168
                       </span>
                     </p>
                     <p className="mt-4 text-sm text-slate-600">
@@ -217,7 +217,7 @@ export default async function ChristmasPage() {
               >
                 {quoteMode
                   ? "Book before the rush — get my 3 quotes"
-                  : "Book before the rush — 3 carpets £150"}
+                  : "Book before the rush — 3 carpets £99"}
               </Link>
               <p className="mt-4 text-sm text-slate-500">
                 Vetted local cleaners across the UK · Fully insured · Pay when

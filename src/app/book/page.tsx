@@ -199,7 +199,7 @@ export default async function BookPage({
                 </p>
 
                 <p className="mx-auto mt-5 inline-flex max-w-xl flex-wrap items-center justify-center gap-2 rounded-full border border-amber-300/40 bg-amber-400/10 px-5 py-2 text-sm font-semibold text-amber-300">
-                  🎄 Christmas offer: 3 carpets cleaned for £150 — applied
+                  🎄 Christmas offer: 3 carpets cleaned for £99 — applied
                   automatically at checkout
                 </p>
 

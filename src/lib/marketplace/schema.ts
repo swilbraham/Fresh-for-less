@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 67;
+export const SCHEMA_VERSION = 68;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -707,6 +707,14 @@ export const STATEMENTS: string[] = [
   // mode goes off here; the /admin/prices tickbox stays in control afterwards,
   // exactly as the 9 Nov one-shot worked in the other direction.
   `UPDATE settings SET quote_mode = false WHERE id = 1`,
+
+  // ---- One-off, 23 Nov 2026 -------------------------------------------------
+  // Simon's call for the area-cleaner launch: the headline offer drops back to
+  // 3 for £99. Targeted and idempotent: only matches the £150 bundle, so a
+  // later manual reprice is never clobbered. The pages' copy moves with it.
+  `UPDATE price_bundles
+      SET price_pence = 9900, label = '3 carpets cleaned for £99'
+    WHERE label = '3 carpets cleaned for £150' AND price_pence = 15000`,
 
 ];
 
