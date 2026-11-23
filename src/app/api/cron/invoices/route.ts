@@ -6,7 +6,6 @@ import {
   notify,
   notifyAdmin,
   notifyInvoiceRaised,
-  pauseOverdueCleaners,
   siteUrl,
 } from "@/lib/marketplace/repo";
 import { gbpShort } from "@/lib/marketplace/money";
@@ -68,16 +67,10 @@ export async function GET(request: Request) {
 
   const raised = await generateCommissionInvoices(iso(today), iso(today));
 
-  // The agreement's enforcement step: commission unpaid past the grace period
-  // pauses new jobs automatically. Checked nightly alongside the run that
-  // raises the invoices, and lifted automatically the moment they're settled.
-  // A failure here must not cost the run its invoices.
-  let autoPaused: Awaited<ReturnType<typeof pauseOverdueCleaners>> = [];
-  try {
-    autoPaused = await pauseOverdueCleaners();
-  } catch (error) {
-    console.error("overdue pause failed", error);
-  }
+  // Overdue-commission pausing is deliberately NOT automated here. On
+  // 2026-11-23 the automatic run paused and texted cleaners whose old invoices
+  // had simply never been marked settled, in error. Pausing — and the text that
+  // goes with it — is now a manual decision on /admin/invoices only.
 
   // A cleaner whose invoice has no card link got bank details only, so the
   // office needs to know tonight rather than wonder in two days why they
@@ -132,7 +125,6 @@ export async function GET(request: Request) {
     autoCompleted: autoCompleted.length,
     invoicesRaised: raised.length,
     withoutPaymentLink: unlinked.length,
-    pausedForOverdue: autoPaused.length,
     totalPence: raised.reduce((sum, i) => sum + i.totalPence, 0),
   });
 }

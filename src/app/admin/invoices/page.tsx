@@ -12,6 +12,7 @@ import {
   chaseInvoiceAction,
   createManualInvoiceAction,
   generateInvoicesAction,
+  pauseOverdueCleanersAction,
   setInvoiceStatusAction,
 } from "../actions";
 import { Alert, Card, StatusPill } from "@/components/marketplace/shell";
@@ -42,11 +43,12 @@ export default async function AdminInvoicesPage({
     saved?: string;
     created?: string;
     chased?: string;
+    pausednote?: string;
     q?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect("/admin");
-  const { error, saved, created, chased, q } = await searchParams;
+  const { error, saved, created, chased, pausednote, q } = await searchParams;
 
   const [pending, allInvoices, concerns, cleaners] = await Promise.all([
     listUninvoicedCommission(),
@@ -84,6 +86,22 @@ export default async function AdminInvoicesPage({
               : `Raised ${created} commission invoice${created === "1" ? "" : "s"}.`}
           </Alert>
         )}
+        {pausednote && <Alert tone="success">{pausednote}</Alert>}
+
+        <Card
+          title="Overdue commission — pausing is manual now"
+          description="Nothing pauses or texts anyone automatically any more. This button pauses every cleaner with commission more than 7 days unpaid AND texts each one to say so — only press it once you've checked the invoice list below is right (a paid invoice still marked ‘issued’ counts as unpaid here). Settling an invoice lifts the pause automatically."
+          className="mb-6"
+        >
+          <form action={pauseOverdueCleanersAction} className="mt-3">
+            <button
+              type="submit"
+              className="rounded-xl border-2 border-amber-400 bg-amber-50 px-5 py-2.5 font-semibold text-amber-900 transition hover:bg-amber-100"
+            >
+              Pause &amp; text everyone 7+ days overdue
+            </button>
+          </form>
+        </Card>
 
         {concerns.length > 0 && (
           <Card

@@ -33,6 +33,8 @@ import {
   reinstateJob,
   sendManualReminder,
   setCleanerPaused,
+  sendPauseCorrection,
+  pauseOverdueCleaners,
   setCleanerStatus,
   setInvoiceStatus,
   setLeadStatus,
@@ -2002,6 +2004,47 @@ export async function withdrawAcceptedQuoteAction(data: FormData) {
       } other quote${result.left === 1 ? "" : "s"} still standing, and cleaners in the area have been asked to price it.${
         quiet ? " The customer wasn't told." : " The customer has been told their cleaner is no longer available."
       }`
+    )}`
+  );
+}
+
+/**
+ * Put right the erroneous 23 Nov overdue-pause texts: lift every automatic
+ * pause and send each cleaner who received the notice a "sent in error,
+ * please disregard" text and email. Idempotent — already-corrected cleaners
+ * are skipped, so a double click can't double-text anyone.
+ */
+export async function sendPauseCorrectionAction() {
+  await requireAdmin("/admin");
+  const result = await sendPauseCorrection();
+  revalidatePath("/admin");
+  redirect(
+    `/admin?corrected=${encodeURIComponent(
+      `Correction sent to ${result.sent} cleaner${result.sent === 1 ? "" : "s"}` +
+        (result.unpaused > 0
+          ? ` and ${result.unpaused} automatic pause${result.unpaused === 1 ? "" : "s"} lifted`
+          : "") +
+        `.`
+    )}`
+  );
+}
+
+/**
+ * The manual replacement for the removed nightly auto-pause: pauses every
+ * cleaner with commission 7+ days unpaid AND texts each one. Only ever runs
+ * from the clearly-labelled button on /admin/invoices.
+ */
+export async function pauseOverdueCleanersAction() {
+  await requireAdmin("/admin/invoices");
+  const paused = await pauseOverdueCleaners();
+  revalidatePath("/admin/invoices");
+  redirect(
+    `/admin/invoices?pausednote=${encodeURIComponent(
+      paused.length === 0
+        ? "Nobody is more than 7 days overdue — no one was paused or texted."
+        : `Paused and texted ${paused.length} cleaner${paused.length === 1 ? "" : "s"}: ${paused
+            .map((p) => p.name)
+            .join(", ")}.`
     )}`
   );
 }

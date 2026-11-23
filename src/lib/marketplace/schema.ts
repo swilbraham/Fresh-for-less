@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 68;
+export const SCHEMA_VERSION = 69;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -715,6 +715,14 @@ export const STATEMENTS: string[] = [
   `UPDATE price_bundles
       SET price_pence = 9900, label = '3 carpets cleaned for £99'
     WHERE label = '3 carpets cleaned for £150' AND price_pence = 15000`,
+
+  // ---- One-off, 23 Nov 2026 -------------------------------------------------
+  // The automatic overdue-commission pause fired in error (old invoices never
+  // marked settled) and texted cleaners who owed nothing outstanding. Lift
+  // every automatic pause the moment this deploys so nobody misses jobs; a
+  // hand-applied pause (no reason code) is untouched. The apology texts go out
+  // from the button on /admin.
+  `UPDATE cleaners SET paused_at = NULL, pause_reason = '' WHERE pause_reason = 'overdue'`,
 
 ];
 

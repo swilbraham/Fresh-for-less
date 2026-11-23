@@ -6522,10 +6522,12 @@ export async function setCleanerPaused(
 
 /**
  * Pause every approved cleaner with commission unpaid past the grace period —
- * the agreement's "commission unpaid after 7 days pauses new jobs". Runs from
- * the nightly invoice cron. The pause is tagged 'overdue' so settling the bill
- * lifts it automatically, and a pause the office chose by hand is never
- * touched.
+ * the agreement's "commission unpaid after 7 days pauses new jobs". MANUAL
+ * ONLY: this ran from the nightly invoice cron until 2026-11-23, when it
+ * paused and texted cleaners whose old invoices had never been marked settled.
+ * It is now a button on /admin/invoices and nothing else calls it. The pause
+ * is tagged 'overdue' so settling the bill lifts it automatically, and a pause
+ * the office chose by hand is never touched.
  */
 export async function pauseOverdueCleaners(): Promise<
   { id: number; name: string; owed_pence: number }[]
@@ -6575,6 +6577,96 @@ export async function pauseOverdueCleaners(): Promise<
     });
   }
   return paused;
+}
+
+const PAUSE_NOTICE_SUBJECT = "New jobs paused — commission overdue";
+const PAUSE_CORRECTION_SUBJECT = "Please ignore our last message — sent in error";
+
+/**
+ * Cleaners who were actually sent the overdue-pause notice (2026-11-23, in
+ * error), matched from the notifications log by phone/email, with whether each
+ * has already had the correction. Drives the apology card on /admin.
+ */
+export async function listPauseNoticeRecipients(): Promise<
+  { id: number; name: string; corrected: boolean; still_paused: boolean }[]
+> {
+  const sentTo = await query<{ recipient: string }>(
+    `SELECT DISTINCT recipient FROM notifications
+      WHERE direction = 'out' AND subject = $1 AND sent_at IS NOT NULL`,
+    [PAUSE_NOTICE_SUBJECT]
+  );
+  if (sentTo.length === 0) return [];
+
+  // Any logged correction row counts, sent or not — a failed send shows in the
+  // admin log for retry rather than being silently re-fired here.
+  const correctedTo = await query<{ recipient: string }>(
+    `SELECT DISTINCT recipient FROM notifications
+      WHERE direction = 'out' AND subject = $1`,
+    [PAUSE_CORRECTION_SUBJECT]
+  );
+  const got = new Set(sentTo.map((r) => r.recipient.toLowerCase()));
+  const fixed = new Set(correctedTo.map((r) => r.recipient.toLowerCase()));
+
+  const cleaners = await query<{
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    paused_at: string | null;
+    pause_reason: string;
+  }>(`SELECT id, name, email, phone, paused_at, pause_reason FROM cleaners`);
+
+  const out: { id: number; name: string; corrected: boolean; still_paused: boolean }[] = [];
+  for (const c of cleaners) {
+    const addresses = [c.email.toLowerCase(), (toE164(c.phone) ?? "").toLowerCase()].filter(
+      Boolean
+    );
+    if (!addresses.some((a) => got.has(a))) continue;
+    out.push({
+      id: c.id,
+      name: c.name,
+      corrected: addresses.some((a) => fixed.has(a)),
+      still_paused: c.paused_at !== null && c.pause_reason === "overdue",
+    });
+  }
+  return out;
+}
+
+/**
+ * Put right the erroneous overdue-pause messages of 2026-11-23: lift every
+ * automatic pause, then text (and email) each cleaner who received the notice
+ * to say it was sent in error and to disregard it. Safe to run twice — anyone
+ * already sent the correction is skipped.
+ */
+export async function sendPauseCorrection(): Promise<{ sent: number; unpaused: number }> {
+  // The pause itself was the error, so lift it before anything else.
+  const unpaused = await query<{ id: number }>(
+    `UPDATE cleaners SET paused_at = NULL, pause_reason = ''
+      WHERE pause_reason = 'overdue' RETURNING id`
+  );
+
+  let sent = 0;
+  for (const r of await listPauseNoticeRecipients()) {
+    if (r.corrected) continue;
+    const cleaner = await getCleaner(r.id);
+    if (!cleaner) continue;
+    await notifyCleaner(cleaner, {
+      subject: PAUSE_CORRECTION_SUBJECT,
+      body:
+        `${firstName(cleaner.name)}, please disregard the message we sent about new ` +
+        `jobs being paused for overdue commission — it went out in error and does ` +
+        `not apply to you.\n\n` +
+        `You are not paused and nothing has changed on your account. Jobs keep ` +
+        `coming through as normal, and there's nothing you need to do.\n\n` +
+        `Sorry for the confusion.`,
+      smsBody:
+        `Fresh For Less: please IGNORE our earlier text about new jobs being ` +
+        `paused for overdue commission — it was sent in error. You are not paused ` +
+        `and nothing has changed. Sorry for the confusion.`,
+    });
+    sent++;
+  }
+  return { sent, unpaused: unpaused.length };
 }
 
 /**

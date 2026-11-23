@@ -6,12 +6,14 @@ import {
   getSettings,
   listCoverageDemand,
   listNotifications,
+  listPauseNoticeRecipients,
 } from "@/lib/marketplace/repo";
 import { gbp } from "@/lib/marketplace/money";
 import {
   adminLoginAction,
   adminLogoutAction,
   retryNotificationAction,
+  sendPauseCorrectionAction,
 } from "./actions";
 import { Alert, Card } from "@/components/marketplace/shell";
 
@@ -25,9 +27,9 @@ export const metadata = {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; retried?: string }>;
+  searchParams: Promise<{ error?: string; retried?: string; corrected?: string }>;
 }) {
-  const { error, retried } = await searchParams;
+  const { error, retried, corrected } = await searchParams;
 
   if (!(await isAdmin())) {
     return (
@@ -68,14 +70,16 @@ export default async function AdminPage({
     );
   }
 
-  const [stats, settings, notifications, demand, attention] =
+  const [stats, settings, notifications, demand, attention, pauseRecipients] =
     await Promise.all([
       getAdminStats(),
       getSettings(),
       listNotifications(12),
       listCoverageDemand(12),
       getAttentionItems(),
+      listPauseNoticeRecipients(),
     ]);
+  const needsCorrection = pauseRecipients.filter((r) => !r.corrected);
 
   const attentionCount =
     attention.provisional.length +
@@ -88,6 +92,41 @@ export default async function AdminPage({
       <div className="mx-auto max-w-6xl px-4 py-8">
         {error && <Alert>{error}</Alert>}
         {retried && <Alert tone="success">Sent — it went through this time.</Alert>}
+        {corrected && <Alert tone="success">{corrected}</Alert>}
+
+        {needsCorrection.length > 0 && (
+          <Card
+            title={`Pause texts sent in error (${needsCorrection.length} to put right)`}
+            description="The automatic overdue-commission pause fired wrongly on 23 Nov and texted these cleaners. One click sends each of them a “sent in error — please disregard” text and email, and lifts any pause still in place. Already-corrected cleaners are skipped, so clicking twice can't text anyone twice."
+            className="mb-8 border-red-400"
+          >
+            <ul className="mt-4 flex flex-wrap gap-2 text-sm">
+              {pauseRecipients.map((r) => (
+                <li
+                  key={r.id}
+                  className={`rounded-full border px-3 py-1 font-semibold ${
+                    r.corrected
+                      ? "border-slate-200 text-slate-400 line-through"
+                      : "border-red-200 bg-red-50 text-red-800"
+                  }`}
+                >
+                  {r.name}
+                  {r.still_paused && !r.corrected && " · still paused"}
+                </li>
+              ))}
+            </ul>
+            <form action={sendPauseCorrectionAction} className="mt-4">
+              <button
+                type="submit"
+                className="rounded-xl bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-700"
+              >
+                Send “ignore that text — sent in error” to{" "}
+                {needsCorrection.length} cleaner
+                {needsCorrection.length === 1 ? "" : "s"}
+              </button>
+            </form>
+          </Card>
+        )}
 
         {attentionCount > 0 && (
           <Card
