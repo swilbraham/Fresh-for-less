@@ -23,7 +23,17 @@ export const metadata: Metadata = {
   },
 };
 
-const regionOrder = ["Wirral", "Liverpool", "Chester", "Warrington", "Runcorn", "North Wales"];
+const regionOrder = [
+  "Wirral",
+  "Liverpool",
+  "Chester",
+  "Warrington",
+  "Runcorn",
+  "Manchester",
+  "Stockport",
+  "East Cheshire",
+  "North Wales",
+];
 
 export default function AreasIndexPage() {
   const grouped = regionOrder.map((region) => ({

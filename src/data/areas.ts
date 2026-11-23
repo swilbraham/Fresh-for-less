@@ -13,6 +13,9 @@ const regionMeta: Record<string, { county: string; postcode: string }> = {
   Warrington: { county: "Cheshire", postcode: "WA" },
   Runcorn: { county: "Cheshire", postcode: "WA" },
   "North Wales": { county: "North Wales", postcode: "LL" },
+  Manchester: { county: "Greater Manchester", postcode: "M" },
+  Stockport: { county: "Greater Manchester", postcode: "SK" },
+  "East Cheshire": { county: "Cheshire", postcode: "SK" },
 };
 
 const slugPostcode: Record<string, string> = {
@@ -122,6 +125,61 @@ const slugPostcode: Record<string, string> = {
   denbigh: "LL16",
   abergele: "LL22",
   pwllheli: "LL53",
+  "manchester-city-centre": "M1",
+  "salford": "M6",
+  "eccles": "M30",
+  "irlam": "M44",
+  "partington": "M31",
+  "urmston": "M41",
+  "stretford": "M32",
+  "sale": "M33",
+  "altrincham": "WA14",
+  "timperley": "WA15",
+  "hale": "WA15",
+  "wythenshawe": "M22",
+  "northenden": "M22",
+  "didsbury": "M20",
+  "withington": "M20",
+  "chorlton": "M21",
+  "fallowfield": "M14",
+  "rusholme": "M14",
+  "burnage": "M19",
+  "levenshulme": "M19",
+  "gorton": "M18",
+  "denton": "M34",
+  "droylsden": "M43",
+  "failsworth": "M35",
+  "ashton-under-lyne": "OL6",
+  "mossley": "OL5",
+  "oldham": "OL1",
+  "royton": "OL2",
+  "middleton": "M24",
+  "prestwich": "M25",
+  "whitefield": "M45",
+  "bury": "BL9",
+  "radcliffe": "M26",
+  "swinton": "M27",
+  "worsley": "M28",
+  "walkden": "M28",
+  "stockport": "SK1",
+  "heaton-moor": "SK4",
+  "heaton-mersey": "SK4",
+  "reddish": "SK5",
+  "gatley": "SK8",
+  "cheadle": "SK8",
+  "cheadle-hulme": "SK8",
+  "bramhall": "SK7",
+  "hazel-grove": "SK7",
+  "marple": "SK6",
+  "romiley": "SK6",
+  "hyde": "SK14",
+  "dukinfield": "SK16",
+  "stalybridge": "SK15",
+  "wilmslow": "SK9",
+  "handforth": "SK9",
+  "poynton": "SK12",
+  "macclesfield": "SK10",
+  "bollington": "SK10",
 };
 
 export function getCountyForRegion(region: string): string {
@@ -991,6 +1049,450 @@ export const areas: Area[] = [
       "Looking for professional carpet cleaning in Pwllheli? Fresh For Less provides expert carpet and upholstery cleaning across Pwllheli and the Llyn Peninsula. Our dedicated team delivers thorough cleaning using eco-friendly solutions, ensuring your carpets are beautifully refreshed at honest, affordable prices.",
     nearbyAreas: ["caernarfon", "bangor", "llandudno", "conwy", "colwyn-bay", "wrexham", "mold"],
     region: "North Wales",
+  },
+
+  // ─── MANCHESTER ──────────────────────────────────────
+  {
+    name: "Manchester",
+    slug: "manchester-city-centre",
+    description:
+      "Looking for professional carpet cleaning in Manchester? Fresh For Less delivers thorough carpet and upholstery cleaning across Manchester, the city centre and Ancoats. Our vetted local cleaners use professional hot-water extraction equipment and eco-friendly solutions, with your fixed price shown online before you book.",
+    nearbyAreas: ["salford", "eccles", "irlam", "partington", "urmston", "stretford", "sale"],
+    region: "Manchester",
+  },
+  {
+    name: "Salford",
+    slug: "salford",
+    description:
+      "Need your carpets refreshed in Salford? Fresh For Less provides affordable carpet and upholstery cleaning throughout Salford, Salford Quays and the surrounding area. See your fixed price online in about a minute — no home visit needed — and pay nothing until the work is done.",
+    nearbyAreas: ["eccles", "irlam", "partington", "urmston", "stretford", "sale", "altrincham"],
+    region: "Manchester",
+  },
+  {
+    name: "Eccles",
+    slug: "eccles",
+    description:
+      "Fresh For Less brings professional carpet and upholstery cleaning to Eccles, Monton and Winton. Deep hot-water extraction cleaning, stain and pet-odour treatment and fast drying times, all at fixed prices you can see online before you book.",
+    nearbyAreas: ["irlam", "partington", "urmston", "stretford", "sale", "altrincham", "timperley"],
+    region: "Manchester",
+  },
+  {
+    name: "Irlam",
+    slug: "irlam",
+    description:
+      "Looking for a reliable carpet cleaner in Irlam? Fresh For Less serves Irlam, Cadishead and the surrounding area, with vetted, insured local cleaners. Fixed prices online, morning or afternoon slots, and nothing to pay upfront.",
+    nearbyAreas: ["partington", "urmston", "stretford", "sale", "altrincham", "timperley", "hale"],
+    region: "Manchester",
+  },
+  {
+    name: "Partington",
+    slug: "partington",
+    description:
+      "Fresh For Less offers expert carpet and upholstery cleaning across Partington, Carrington and the surrounding area. Our experienced local cleaners lift years of wear out of carpets using professional equipment and eco-friendly products, at honest fixed prices.",
+    nearbyAreas: ["urmston", "stretford", "sale", "altrincham", "timperley", "hale", "wythenshawe"],
+    region: "Manchester",
+  },
+  {
+    name: "Urmston",
+    slug: "urmston",
+    description:
+      "Want spotless carpets in Urmston? Fresh For Less covers Urmston, Flixton and Davyhulme, with professional carpet, rug and upholstery cleaning. Instant fixed prices online, vetted insured cleaners, and a satisfaction guarantee on every job.",
+    nearbyAreas: ["stretford", "sale", "altrincham", "timperley", "hale", "wythenshawe", "northenden"],
+    region: "Manchester",
+  },
+  {
+    name: "Stretford",
+    slug: "stretford",
+    description:
+      "Fresh For Less provides top-rated carpet and upholstery cleaning in Stretford, Old Trafford and Firswood. Our skilled local team delivers outstanding deep-cleaning results using eco-friendly products, with your price fixed online before you book.",
+    nearbyAreas: ["sale", "altrincham", "timperley", "hale", "wythenshawe", "northenden", "didsbury"],
+    region: "Manchester",
+  },
+  {
+    name: "Sale",
+    slug: "sale",
+    description:
+      "After a professional carpet clean in Sale? Fresh For Less works across Sale, Sale Moor and Brooklands, cleaning carpets, stairs, rugs and sofas at fixed online prices. Vetted local cleaners, fast drying and nothing to pay until the job is done.",
+    nearbyAreas: ["altrincham", "timperley", "hale", "wythenshawe", "northenden", "didsbury", "withington"],
+    region: "Manchester",
+  },
+  {
+    name: "Altrincham",
+    slug: "altrincham",
+    description:
+      "Looking for professional carpet cleaning in Altrincham? Fresh For Less delivers thorough carpet and upholstery cleaning across Altrincham, Bowdon and Broadheath. Our vetted local cleaners use professional hot-water extraction equipment and eco-friendly solutions, with your fixed price shown online before you book.",
+    nearbyAreas: ["timperley", "hale", "wythenshawe", "northenden", "didsbury", "withington", "chorlton"],
+    region: "Manchester",
+  },
+  {
+    name: "Timperley",
+    slug: "timperley",
+    description:
+      "Need your carpets refreshed in Timperley? Fresh For Less provides affordable carpet and upholstery cleaning throughout Timperley, Brooklands and the surrounding area. See your fixed price online in about a minute — no home visit needed — and pay nothing until the work is done.",
+    nearbyAreas: ["hale", "wythenshawe", "northenden", "didsbury", "withington", "chorlton", "fallowfield"],
+    region: "Manchester",
+  },
+  {
+    name: "Hale",
+    slug: "hale",
+    description:
+      "Fresh For Less brings professional carpet and upholstery cleaning to Hale, Hale Barns and Bowdon. Deep hot-water extraction cleaning, stain and pet-odour treatment and fast drying times, all at fixed prices you can see online before you book.",
+    nearbyAreas: ["wythenshawe", "northenden", "didsbury", "withington", "chorlton", "fallowfield", "rusholme"],
+    region: "Manchester",
+  },
+  {
+    name: "Wythenshawe",
+    slug: "wythenshawe",
+    description:
+      "Looking for a reliable carpet cleaner in Wythenshawe? Fresh For Less serves Wythenshawe, Sharston and Peel Hall, with vetted, insured local cleaners. Fixed prices online, morning or afternoon slots, and nothing to pay upfront.",
+    nearbyAreas: ["northenden", "didsbury", "withington", "chorlton", "fallowfield", "rusholme", "burnage"],
+    region: "Manchester",
+  },
+  {
+    name: "Northenden",
+    slug: "northenden",
+    description:
+      "Fresh For Less offers expert carpet and upholstery cleaning across Northenden, and the surrounding area. Our experienced local cleaners lift years of wear out of carpets using professional equipment and eco-friendly products, at honest fixed prices.",
+    nearbyAreas: ["didsbury", "withington", "chorlton", "fallowfield", "rusholme", "burnage", "levenshulme"],
+    region: "Manchester",
+  },
+  {
+    name: "Didsbury",
+    slug: "didsbury",
+    description:
+      "Want spotless carpets in Didsbury? Fresh For Less covers Didsbury, West Didsbury and East Didsbury, with professional carpet, rug and upholstery cleaning. Instant fixed prices online, vetted insured cleaners, and a satisfaction guarantee on every job.",
+    nearbyAreas: ["withington", "chorlton", "fallowfield", "rusholme", "burnage", "levenshulme", "gorton"],
+    region: "Manchester",
+  },
+  {
+    name: "Withington",
+    slug: "withington",
+    description:
+      "Fresh For Less provides top-rated carpet and upholstery cleaning in Withington, and the surrounding area. Our skilled local team delivers outstanding deep-cleaning results using eco-friendly products, with your price fixed online before you book.",
+    nearbyAreas: ["chorlton", "fallowfield", "rusholme", "burnage", "levenshulme", "gorton", "denton"],
+    region: "Manchester",
+  },
+  {
+    name: "Chorlton",
+    slug: "chorlton",
+    description:
+      "After a professional carpet clean in Chorlton? Fresh For Less works across Chorlton, Chorlton Green and Firswood, cleaning carpets, stairs, rugs and sofas at fixed online prices. Vetted local cleaners, fast drying and nothing to pay until the job is done.",
+    nearbyAreas: ["fallowfield", "rusholme", "burnage", "levenshulme", "gorton", "denton", "droylsden"],
+    region: "Manchester",
+  },
+  {
+    name: "Fallowfield",
+    slug: "fallowfield",
+    description:
+      "Looking for professional carpet cleaning in Fallowfield? Fresh For Less delivers thorough carpet and upholstery cleaning across Fallowfield, and the surrounding area. Our vetted local cleaners use professional hot-water extraction equipment and eco-friendly solutions, with your fixed price shown online before you book.",
+    nearbyAreas: ["rusholme", "burnage", "levenshulme", "gorton", "denton", "droylsden", "failsworth"],
+    region: "Manchester",
+  },
+  {
+    name: "Rusholme",
+    slug: "rusholme",
+    description:
+      "Need your carpets refreshed in Rusholme? Fresh For Less provides affordable carpet and upholstery cleaning throughout Rusholme, Victoria Park and the surrounding area. See your fixed price online in about a minute — no home visit needed — and pay nothing until the work is done.",
+    nearbyAreas: ["burnage", "levenshulme", "gorton", "denton", "droylsden", "failsworth", "ashton-under-lyne"],
+    region: "Manchester",
+  },
+  {
+    name: "Burnage",
+    slug: "burnage",
+    description:
+      "Fresh For Less brings professional carpet and upholstery cleaning to Burnage, and the surrounding area. Deep hot-water extraction cleaning, stain and pet-odour treatment and fast drying times, all at fixed prices you can see online before you book.",
+    nearbyAreas: ["levenshulme", "gorton", "denton", "droylsden", "failsworth", "ashton-under-lyne", "mossley"],
+    region: "Manchester",
+  },
+  {
+    name: "Levenshulme",
+    slug: "levenshulme",
+    description:
+      "Looking for a reliable carpet cleaner in Levenshulme? Fresh For Less serves Levenshulme, and the surrounding area, with vetted, insured local cleaners. Fixed prices online, morning or afternoon slots, and nothing to pay upfront.",
+    nearbyAreas: ["gorton", "denton", "droylsden", "failsworth", "ashton-under-lyne", "mossley", "oldham"],
+    region: "Manchester",
+  },
+  {
+    name: "Gorton",
+    slug: "gorton",
+    description:
+      "Fresh For Less offers expert carpet and upholstery cleaning across Gorton, Abbey Hey and the surrounding area. Our experienced local cleaners lift years of wear out of carpets using professional equipment and eco-friendly products, at honest fixed prices.",
+    nearbyAreas: ["denton", "droylsden", "failsworth", "ashton-under-lyne", "mossley", "oldham", "royton"],
+    region: "Manchester",
+  },
+  {
+    name: "Denton",
+    slug: "denton",
+    description:
+      "Want spotless carpets in Denton? Fresh For Less covers Denton, Audenshaw and Haughton Green, with professional carpet, rug and upholstery cleaning. Instant fixed prices online, vetted insured cleaners, and a satisfaction guarantee on every job.",
+    nearbyAreas: ["droylsden", "failsworth", "ashton-under-lyne", "mossley", "oldham", "royton", "middleton"],
+    region: "Manchester",
+  },
+  {
+    name: "Droylsden",
+    slug: "droylsden",
+    description:
+      "Fresh For Less provides top-rated carpet and upholstery cleaning in Droylsden, and the surrounding area. Our skilled local team delivers outstanding deep-cleaning results using eco-friendly products, with your price fixed online before you book.",
+    nearbyAreas: ["failsworth", "ashton-under-lyne", "mossley", "oldham", "royton", "middleton", "prestwich"],
+    region: "Manchester",
+  },
+  {
+    name: "Failsworth",
+    slug: "failsworth",
+    description:
+      "After a professional carpet clean in Failsworth? Fresh For Less works across Failsworth, and the surrounding area, cleaning carpets, stairs, rugs and sofas at fixed online prices. Vetted local cleaners, fast drying and nothing to pay until the job is done.",
+    nearbyAreas: ["ashton-under-lyne", "mossley", "oldham", "royton", "middleton", "prestwich", "whitefield"],
+    region: "Manchester",
+  },
+  {
+    name: "Ashton-under-Lyne",
+    slug: "ashton-under-lyne",
+    description:
+      "Looking for professional carpet cleaning in Ashton-under-Lyne? Fresh For Less delivers thorough carpet and upholstery cleaning across Ashton-under-Lyne, and the surrounding Tameside area. Our vetted local cleaners use professional hot-water extraction equipment and eco-friendly solutions, with your fixed price shown online before you book.",
+    nearbyAreas: ["mossley", "oldham", "royton", "middleton", "prestwich", "whitefield", "bury"],
+    region: "Manchester",
+  },
+  {
+    name: "Mossley",
+    slug: "mossley",
+    description:
+      "Need your carpets refreshed in Mossley? Fresh For Less provides affordable carpet and upholstery cleaning throughout Mossley, and the surrounding area. See your fixed price online in about a minute — no home visit needed — and pay nothing until the work is done.",
+    nearbyAreas: ["oldham", "royton", "middleton", "prestwich", "whitefield", "bury", "radcliffe"],
+    region: "Manchester",
+  },
+  {
+    name: "Oldham",
+    slug: "oldham",
+    description:
+      "Fresh For Less brings professional carpet and upholstery cleaning to Oldham, and the surrounding area. Deep hot-water extraction cleaning, stain and pet-odour treatment and fast drying times, all at fixed prices you can see online before you book.",
+    nearbyAreas: ["royton", "middleton", "prestwich", "whitefield", "bury", "radcliffe", "swinton"],
+    region: "Manchester",
+  },
+  {
+    name: "Royton",
+    slug: "royton",
+    description:
+      "Looking for a reliable carpet cleaner in Royton? Fresh For Less serves Royton, Shaw and the surrounding area, with vetted, insured local cleaners. Fixed prices online, morning or afternoon slots, and nothing to pay upfront.",
+    nearbyAreas: ["middleton", "prestwich", "whitefield", "bury", "radcliffe", "swinton", "worsley"],
+    region: "Manchester",
+  },
+  {
+    name: "Middleton",
+    slug: "middleton",
+    description:
+      "Fresh For Less offers expert carpet and upholstery cleaning across Middleton, Alkrington and the surrounding area. Our experienced local cleaners lift years of wear out of carpets using professional equipment and eco-friendly products, at honest fixed prices.",
+    nearbyAreas: ["prestwich", "whitefield", "bury", "radcliffe", "swinton", "worsley", "walkden"],
+    region: "Manchester",
+  },
+  {
+    name: "Prestwich",
+    slug: "prestwich",
+    description:
+      "Want spotless carpets in Prestwich? Fresh For Less covers Prestwich, and the surrounding area, with professional carpet, rug and upholstery cleaning. Instant fixed prices online, vetted insured cleaners, and a satisfaction guarantee on every job.",
+    nearbyAreas: ["whitefield", "bury", "radcliffe", "swinton", "worsley", "walkden", "manchester-city-centre"],
+    region: "Manchester",
+  },
+  {
+    name: "Whitefield",
+    slug: "whitefield",
+    description:
+      "Fresh For Less provides top-rated carpet and upholstery cleaning in Whitefield, and the surrounding area. Our skilled local team delivers outstanding deep-cleaning results using eco-friendly products, with your price fixed online before you book.",
+    nearbyAreas: ["bury", "radcliffe", "swinton", "worsley", "walkden", "manchester-city-centre", "salford"],
+    region: "Manchester",
+  },
+  {
+    name: "Bury",
+    slug: "bury",
+    description:
+      "After a professional carpet clean in Bury? Fresh For Less works across Bury, and the surrounding area, cleaning carpets, stairs, rugs and sofas at fixed online prices. Vetted local cleaners, fast drying and nothing to pay until the job is done.",
+    nearbyAreas: ["radcliffe", "swinton", "worsley", "walkden", "manchester-city-centre", "salford", "eccles"],
+    region: "Manchester",
+  },
+  {
+    name: "Radcliffe",
+    slug: "radcliffe",
+    description:
+      "Looking for professional carpet cleaning in Radcliffe? Fresh For Less delivers thorough carpet and upholstery cleaning across Radcliffe, and the surrounding area. Our vetted local cleaners use professional hot-water extraction equipment and eco-friendly solutions, with your fixed price shown online before you book.",
+    nearbyAreas: ["swinton", "worsley", "walkden", "manchester-city-centre", "salford", "eccles", "irlam"],
+    region: "Manchester",
+  },
+  {
+    name: "Swinton",
+    slug: "swinton",
+    description:
+      "Need your carpets refreshed in Swinton? Fresh For Less provides affordable carpet and upholstery cleaning throughout Swinton, Pendlebury and Clifton. See your fixed price online in about a minute — no home visit needed — and pay nothing until the work is done.",
+    nearbyAreas: ["worsley", "walkden", "manchester-city-centre", "salford", "eccles", "irlam", "partington"],
+    region: "Manchester",
+  },
+  {
+    name: "Worsley",
+    slug: "worsley",
+    description:
+      "Fresh For Less brings professional carpet and upholstery cleaning to Worsley, Boothstown and the surrounding area. Deep hot-water extraction cleaning, stain and pet-odour treatment and fast drying times, all at fixed prices you can see online before you book.",
+    nearbyAreas: ["walkden", "manchester-city-centre", "salford", "eccles", "irlam", "partington", "urmston"],
+    region: "Manchester",
+  },
+  {
+    name: "Walkden",
+    slug: "walkden",
+    description:
+      "Looking for a reliable carpet cleaner in Walkden? Fresh For Less serves Walkden, Little Hulton and the surrounding area, with vetted, insured local cleaners. Fixed prices online, morning or afternoon slots, and nothing to pay upfront.",
+    nearbyAreas: ["manchester-city-centre", "salford", "eccles", "irlam", "partington", "urmston", "stretford"],
+    region: "Manchester",
+  },
+  // ─── STOCKPORT ───────────────────────────────────────
+  {
+    name: "Stockport",
+    slug: "stockport",
+    description:
+      "Looking for professional carpet cleaning in Stockport? Fresh For Less delivers thorough carpet and upholstery cleaning across Stockport, Edgeley and Davenport. Our vetted local cleaners use professional hot-water extraction equipment and eco-friendly solutions, with your fixed price shown online before you book.",
+    nearbyAreas: ["heaton-moor", "heaton-mersey", "reddish", "gatley", "cheadle", "cheadle-hulme", "bramhall"],
+    region: "Stockport",
+  },
+  {
+    name: "Heaton Moor",
+    slug: "heaton-moor",
+    description:
+      "Need your carpets refreshed in Heaton Moor? Fresh For Less provides affordable carpet and upholstery cleaning throughout Heaton Moor, and the Four Heatons. See your fixed price online in about a minute — no home visit needed — and pay nothing until the work is done.",
+    nearbyAreas: ["heaton-mersey", "reddish", "gatley", "cheadle", "cheadle-hulme", "bramhall", "hazel-grove"],
+    region: "Stockport",
+  },
+  {
+    name: "Heaton Mersey",
+    slug: "heaton-mersey",
+    description:
+      "Fresh For Less brings professional carpet and upholstery cleaning to Heaton Mersey, Heaton Norris and the surrounding area. Deep hot-water extraction cleaning, stain and pet-odour treatment and fast drying times, all at fixed prices you can see online before you book.",
+    nearbyAreas: ["reddish", "gatley", "cheadle", "cheadle-hulme", "bramhall", "hazel-grove", "marple"],
+    region: "Stockport",
+  },
+  {
+    name: "Reddish",
+    slug: "reddish",
+    description:
+      "Looking for a reliable carpet cleaner in Reddish? Fresh For Less serves Reddish, and the surrounding area, with vetted, insured local cleaners. Fixed prices online, morning or afternoon slots, and nothing to pay upfront.",
+    nearbyAreas: ["gatley", "cheadle", "cheadle-hulme", "bramhall", "hazel-grove", "marple", "romiley"],
+    region: "Stockport",
+  },
+  {
+    name: "Gatley",
+    slug: "gatley",
+    description:
+      "Fresh For Less offers expert carpet and upholstery cleaning across Gatley, and the surrounding area. Our experienced local cleaners lift years of wear out of carpets using professional equipment and eco-friendly products, at honest fixed prices.",
+    nearbyAreas: ["cheadle", "cheadle-hulme", "bramhall", "hazel-grove", "marple", "romiley", "hyde"],
+    region: "Stockport",
+  },
+  {
+    name: "Cheadle",
+    slug: "cheadle",
+    description:
+      "Want spotless carpets in Cheadle? Fresh For Less covers Cheadle, and Cheadle Heath, with professional carpet, rug and upholstery cleaning. Instant fixed prices online, vetted insured cleaners, and a satisfaction guarantee on every job.",
+    nearbyAreas: ["cheadle-hulme", "bramhall", "hazel-grove", "marple", "romiley", "hyde", "dukinfield"],
+    region: "Stockport",
+  },
+  {
+    name: "Cheadle Hulme",
+    slug: "cheadle-hulme",
+    description:
+      "Fresh For Less provides top-rated carpet and upholstery cleaning in Cheadle Hulme, and the surrounding area. Our skilled local team delivers outstanding deep-cleaning results using eco-friendly products, with your price fixed online before you book.",
+    nearbyAreas: ["bramhall", "hazel-grove", "marple", "romiley", "hyde", "dukinfield", "stalybridge"],
+    region: "Stockport",
+  },
+  {
+    name: "Bramhall",
+    slug: "bramhall",
+    description:
+      "After a professional carpet clean in Bramhall? Fresh For Less works across Bramhall, Woodford and the surrounding area, cleaning carpets, stairs, rugs and sofas at fixed online prices. Vetted local cleaners, fast drying and nothing to pay until the job is done.",
+    nearbyAreas: ["hazel-grove", "marple", "romiley", "hyde", "dukinfield", "stalybridge", "stockport"],
+    region: "Stockport",
+  },
+  {
+    name: "Hazel Grove",
+    slug: "hazel-grove",
+    description:
+      "Looking for professional carpet cleaning in Hazel Grove? Fresh For Less delivers thorough carpet and upholstery cleaning across Hazel Grove, and the surrounding area. Our vetted local cleaners use professional hot-water extraction equipment and eco-friendly solutions, with your fixed price shown online before you book.",
+    nearbyAreas: ["marple", "romiley", "hyde", "dukinfield", "stalybridge", "stockport", "heaton-moor"],
+    region: "Stockport",
+  },
+  {
+    name: "Marple",
+    slug: "marple",
+    description:
+      "Need your carpets refreshed in Marple? Fresh For Less provides affordable carpet and upholstery cleaning throughout Marple, Marple Bridge and Mellor. See your fixed price online in about a minute — no home visit needed — and pay nothing until the work is done.",
+    nearbyAreas: ["romiley", "hyde", "dukinfield", "stalybridge", "stockport", "heaton-moor", "heaton-mersey"],
+    region: "Stockport",
+  },
+  {
+    name: "Romiley",
+    slug: "romiley",
+    description:
+      "Fresh For Less brings professional carpet and upholstery cleaning to Romiley, Woodley and Bredbury. Deep hot-water extraction cleaning, stain and pet-odour treatment and fast drying times, all at fixed prices you can see online before you book.",
+    nearbyAreas: ["hyde", "dukinfield", "stalybridge", "stockport", "heaton-moor", "heaton-mersey", "reddish"],
+    region: "Stockport",
+  },
+  {
+    name: "Hyde",
+    slug: "hyde",
+    description:
+      "Looking for a reliable carpet cleaner in Hyde? Fresh For Less serves Hyde, Gee Cross and the surrounding area, with vetted, insured local cleaners. Fixed prices online, morning or afternoon slots, and nothing to pay upfront.",
+    nearbyAreas: ["dukinfield", "stalybridge", "stockport", "heaton-moor", "heaton-mersey", "reddish", "gatley"],
+    region: "Stockport",
+  },
+  {
+    name: "Dukinfield",
+    slug: "dukinfield",
+    description:
+      "Fresh For Less offers expert carpet and upholstery cleaning across Dukinfield, and the surrounding area. Our experienced local cleaners lift years of wear out of carpets using professional equipment and eco-friendly products, at honest fixed prices.",
+    nearbyAreas: ["stalybridge", "stockport", "heaton-moor", "heaton-mersey", "reddish", "gatley", "cheadle"],
+    region: "Stockport",
+  },
+  {
+    name: "Stalybridge",
+    slug: "stalybridge",
+    description:
+      "Want spotless carpets in Stalybridge? Fresh For Less covers Stalybridge, and the surrounding area, with professional carpet, rug and upholstery cleaning. Instant fixed prices online, vetted insured cleaners, and a satisfaction guarantee on every job.",
+    nearbyAreas: ["stockport", "heaton-moor", "heaton-mersey", "reddish", "gatley", "cheadle", "cheadle-hulme"],
+    region: "Stockport",
+  },
+  // ─── EAST CHESHIRE ───────────────────────────────────
+  {
+    name: "Wilmslow",
+    slug: "wilmslow",
+    description:
+      "Looking for professional carpet cleaning in Wilmslow? Fresh For Less delivers thorough carpet and upholstery cleaning across Wilmslow, Alderley Edge and the surrounding area. Our vetted local cleaners use professional hot-water extraction equipment and eco-friendly solutions, with your fixed price shown online before you book.",
+    nearbyAreas: ["handforth", "poynton", "macclesfield", "bollington"],
+    region: "East Cheshire",
+  },
+  {
+    name: "Handforth",
+    slug: "handforth",
+    description:
+      "Need your carpets refreshed in Handforth? Fresh For Less provides affordable carpet and upholstery cleaning throughout Handforth, and the surrounding area. See your fixed price online in about a minute — no home visit needed — and pay nothing until the work is done.",
+    nearbyAreas: ["poynton", "macclesfield", "bollington", "wilmslow"],
+    region: "East Cheshire",
+  },
+  {
+    name: "Poynton",
+    slug: "poynton",
+    description:
+      "Fresh For Less brings professional carpet and upholstery cleaning to Poynton, and the surrounding area. Deep hot-water extraction cleaning, stain and pet-odour treatment and fast drying times, all at fixed prices you can see online before you book.",
+    nearbyAreas: ["macclesfield", "bollington", "wilmslow", "handforth"],
+    region: "East Cheshire",
+  },
+  {
+    name: "Macclesfield",
+    slug: "macclesfield",
+    description:
+      "Looking for a reliable carpet cleaner in Macclesfield? Fresh For Less serves Macclesfield, Tytherington and the surrounding area, with vetted, insured local cleaners. Fixed prices online, morning or afternoon slots, and nothing to pay upfront.",
+    nearbyAreas: ["bollington", "wilmslow", "handforth", "poynton"],
+    region: "East Cheshire",
+  },
+  {
+    name: "Bollington",
+    slug: "bollington",
+    description:
+      "Fresh For Less offers expert carpet and upholstery cleaning across Bollington, Prestbury and the surrounding area. Our experienced local cleaners lift years of wear out of carpets using professional equipment and eco-friendly products, at honest fixed prices.",
+    nearbyAreas: ["wilmslow", "handforth", "poynton", "macclesfield"],
+    region: "East Cheshire",
   },
 ];
 
