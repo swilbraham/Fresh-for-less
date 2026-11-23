@@ -26,10 +26,17 @@ export const COMMISSION_TERMS_LONG = [
  * cleaner can honestly say they never saw is not a sanction.
  */
 export const COMMISSION_ENFORCEMENT =
-  "Commission unpaid 48 hours after the clean suspends your account, and you stop being offered work until it is settled.";
+  "Commission unpaid 7 days after it is invoiced pauses new jobs automatically until it is settled.";
 
 /** The hours a cleaner has to settle, from completion. Stated once. */
 export const COMMISSION_DUE_HOURS = 48;
+
+/**
+ * The grace between an invoice being issued and new jobs pausing. Due in 48
+ * hours, paused after 7 days: late is chased, a week late stops the work. The
+ * pause is automatic, and so is the unpause the moment the invoice is settled.
+ */
+export const COMMISSION_PAUSE_DAYS = 7;
 
 /** When tonight's run goes out, for a dashboard line or an invoice page. */
 export function formatCommissionRun(from: Date = new Date()): string {

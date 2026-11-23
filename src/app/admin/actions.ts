@@ -54,6 +54,8 @@ import {
   settleLeadFees,
   offerJobToCleaners,
   releaseHold,
+  recordSlaWarning,
+  setBackupAreas,
   setPreferredAreas,
   transferJob,
   requestReferrals,
@@ -1103,6 +1105,41 @@ export async function setPreferredAreasAction(data: FormData) {
     fail("/admin/cleaners", result.reason ?? "Couldn't save that.");
   }
   redirect("/admin/cleaners?saved=1");
+}
+
+export async function setBackupAreasAction(data: FormData) {
+  await requireAdmin("/admin/cleaners");
+  const cleanerId = Number(field(data, "id", 12));
+
+  const raw = field(data, "backupAreas", 4000);
+  const parsed = parseOutwardList(raw);
+  if (parsed.invalid.length > 0) {
+    fail("/admin/cleaners", invalidCoverageMessage(parsed.invalid));
+  }
+
+  const result = await setBackupAreas(cleanerId, parsed.codes);
+  revalidatePath("/admin/cleaners");
+  if (!result.ok) {
+    fail("/admin/cleaners", result.reason ?? "Couldn't save that.");
+  }
+  redirect("/admin/cleaners?saved=1");
+}
+
+/** Send and record a written service-level notice to an area cleaner. */
+export async function sendSlaWarningAction(data: FormData) {
+  await requireAdmin("/admin/service-levels");
+  const cleanerId = Number(field(data, "id", 12));
+  const month = field(data, "month", 7);
+  const body = field(data, "body", 2000);
+  if (!body.trim()) {
+    fail("/admin/service-levels", "Write what was missed — the notice has to say.");
+  }
+  const result = await recordSlaWarning(cleanerId, month, body.trim());
+  revalidatePath("/admin/service-levels");
+  if (!result.ok) {
+    fail("/admin/service-levels", result.reason ?? "Couldn't send that.");
+  }
+  redirect("/admin/service-levels?sent=1");
 }
 
 /**

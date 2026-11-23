@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
+  acceptHeldJobBySms,
+  completeJobBySms,
   parseConfirmationReply,
   recordCustomerConfirmation,
   recordInboundSms,
@@ -76,6 +78,38 @@ export async function POST(request: Request) {
 
   // Twilio retries on any non-2xx, so a redelivery must not text again.
   if (duplicate) return twiml();
+
+  // A cleaner can run their day by text, as the agreement promises: YES
+  // accepts the job held for them, DONE marks today's job complete. Each acts
+  // only when it's unambiguous — one held job, one open job — and anything
+  // else falls through to the admin inbox exactly as before.
+  if (cleanerId) {
+    const word = body.toUpperCase().replace(/[^A-Z]/g, "");
+    if (["YES", "Y", "ACCEPT", "OK", "CONFIRM"].includes(word)) {
+      const result = await acceptHeldJobBySms(cleanerId);
+      if (result.acted) {
+        await notifyAdmin({
+          subject: "Cleaner accepted by text",
+          smsBody:
+            `${from} texted YES — ${result.note ?? "handled"}. ` +
+            `${siteUrl()}/admin/messages?cleaner=${cleanerId}`,
+        });
+        return twiml();
+      }
+    }
+    if (["DONE", "COMPLETE", "COMPLETED", "FINISHED"].includes(word)) {
+      const result = await completeJobBySms(cleanerId);
+      if (result.acted) {
+        await notifyAdmin({
+          subject: "Cleaner completed by text",
+          smsBody:
+            `${from} texted DONE — ${result.note ?? "handled"}. ` +
+            `${siteUrl()}/admin/messages?cleaner=${cleanerId}`,
+        });
+        return twiml();
+      }
+    }
+  }
 
   // Y/N is only read as an answer about a job when the sender isn't a cleaner:
   // a cleaner's "no" is a reply in their own thread, not a customer's verdict.

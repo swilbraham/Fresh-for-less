@@ -40,6 +40,10 @@
       "schedule": "0 20 * * *"
     },
     {
+      "path": "/api/cron/holds",
+      "schedule": "0 8-20 * * *"
+    },
+    {
       "path": "/api/cron/unfilled",
       "schedule": "0 8 * * *"
     },

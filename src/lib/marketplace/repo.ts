@@ -7,6 +7,7 @@ import { isMobile, toE164 } from "./phone";
 import { bookingUrl } from "./auth";
 import {
   COMMISSION_ENFORCEMENT,
+  COMMISSION_PAUSE_DAYS,
   COMMISSION_TERMS_SHORT,
   formatCommissionDueBy,
 } from "./terms";
@@ -1867,6 +1868,139 @@ async function confirmCleanerToCustomer(
 }
 
 /**
+ * A cleaner texting back YES: accept the job currently held for them, as the
+ * agreement promises ("confirm by text"). Only an unambiguous reply acts —
+ * exactly one live hold. Anything else lands in the admin inbox as before,
+ * because guessing which job a one-word text means is how the wrong house
+ * gets cleaned.
+ */
+export async function acceptHeldJobBySms(
+  cleanerId: number
+): Promise<{ acted: boolean; note?: string }> {
+  const held = await query<{ id: number }>(
+    `SELECT id FROM jobs
+      WHERE held_for_cleaner_id = $1 AND held_until > now()
+        AND cleaner_id IS NULL AND status = 'offered'`,
+    [cleanerId]
+  );
+  if (held.length !== 1) {
+    if (held.length > 1) {
+      const cleaner = await getCleaner(cleanerId);
+      if (cleaner) {
+        await notifyCleaner(cleaner, {
+          subject: "More than one job is waiting",
+          body:
+            `You have ${held.length} jobs waiting for a yes, so a text can't ` +
+            `tell us which one you mean. Accept them on your dashboard:\n` +
+            `${siteUrl()}/pro/dashboard`,
+          smsBody:
+            `Fresh For Less: you have ${held.length} jobs waiting, so YES by text ` +
+            `can't pick one. Accept on your dashboard: ${siteUrl()}/pro/dashboard`,
+        });
+        return { acted: true, note: "told them to use the dashboard" };
+      }
+    }
+    return { acted: false };
+  }
+
+  const result = await acceptJob(held[0].id, cleanerId);
+  const cleaner = await getCleaner(cleanerId);
+  if (!cleaner) return { acted: false };
+
+  if (!result.ok) {
+    await notifyCleaner(cleaner, {
+      jobId: held[0].id,
+      subject: "That job couldn't be confirmed",
+      body: `${result.reason ?? "The job has gone."}\n\nYour dashboard: ${siteUrl()}/pro/dashboard`,
+      smsBody: `Fresh For Less: ${result.reason ?? "that job has gone."} ${siteUrl()}/pro/dashboard`,
+    });
+    return { acted: true, note: result.reason };
+  }
+
+  // Accepted over text, so the full details have to come back the same way —
+  // there's no dashboard screen in this flow to show them.
+  const job = await getJob(held[0].id);
+  if (job) {
+    const items = job.items.map((line) => `${line.qty}x ${line.label}`).join(", ");
+    await notifyCleaner(cleaner, {
+      jobId: job.id,
+      subject: `Confirmed — ${job.ref} on ${job.slot_date}`,
+      body:
+        `${firstName(cleaner.name)}, the job is yours. The customer has been told.\n\n` +
+        `Date: ${job.slot_date} (${job.slot_window.toUpperCase()})\n` +
+        `Customer: ${job.customer_name}, ${job.customer_phone}\n` +
+        `Address: ${job.address_line}, ${job.town} ${job.postcode}\n` +
+        `Job: ${items}\n` +
+        (job.notes ? `Notes: ${job.notes}\n` : "") +
+        (job.parking ? `Parking: ${job.parking}\n` : "") +
+        `Collect: ${gbpShort(job.total_pence)} on the day. ` +
+        `Commission ${gbpShort(job.commission_pence)} — invoiced the evening you finish.\n\n` +
+        `Full details: ${siteUrl()}/pro/dashboard`,
+      smsBody:
+        `Fresh For Less CONFIRMED ${job.ref}: ${job.slot_date} ${job.slot_window.toUpperCase()}, ` +
+        `${job.customer_name}, ${job.address_line}, ${job.postcode}. ` +
+        `${job.customer_phone}. Collect ${gbpShort(job.total_pence)}. ` +
+        `Details: ${siteUrl()}/pro/dashboard`,
+    });
+  }
+  return { acted: true, note: "accepted by text" };
+}
+
+/**
+ * A cleaner texting DONE: mark today's job complete, per the agreement
+ * ("you text us the same day"). Acts only when exactly one accepted job has
+ * its slot today or earlier; two jobs in a day go through the dashboard.
+ */
+export async function completeJobBySms(
+  cleanerId: number
+): Promise<{ acted: boolean; note?: string }> {
+  const due = await query<{ id: number }>(
+    `SELECT id FROM jobs
+      WHERE cleaner_id = $1 AND status = 'accepted' AND slot_date <= CURRENT_DATE
+      ORDER BY slot_date DESC`,
+    [cleanerId]
+  );
+  if (due.length !== 1) {
+    if (due.length > 1) {
+      const cleaner = await getCleaner(cleanerId);
+      if (cleaner) {
+        await notifyCleaner(cleaner, {
+          subject: "Which job is done?",
+          body:
+            `You have ${due.length} open jobs, so DONE by text can't pick one. ` +
+            `Mark it complete on your dashboard:\n${siteUrl()}/pro/dashboard`,
+          smsBody:
+            `Fresh For Less: you have ${due.length} open jobs, so DONE by text can't ` +
+            `pick one. Mark it on your dashboard: ${siteUrl()}/pro/dashboard`,
+        });
+        return { acted: true, note: "told them to use the dashboard" };
+      }
+    }
+    return { acted: false };
+  }
+
+  const result = await completeJob(due[0].id, cleanerId);
+  if (!result.ok) return { acted: false };
+
+  const cleaner = await getCleaner(cleanerId);
+  const job = await getJob(due[0].id);
+  if (cleaner && job) {
+    await notifyCleaner(cleaner, {
+      jobId: job.id,
+      subject: `Marked complete — ${job.ref}`,
+      body:
+        `${job.ref} is marked complete. Commission of ${gbpShort(job.commission_pence)} ` +
+        `goes on tonight's 8pm invoice, payable within 48 hours.\n\n` +
+        `Your invoices: ${siteUrl()}/pro/invoices`,
+      smsBody:
+        `Fresh For Less: ${job.ref} marked complete. Commission ` +
+        `${gbpShort(job.commission_pence)} invoiced tonight at 8pm, payable in 48h.`,
+    });
+  }
+  return { acted: true, note: "completed by text" };
+}
+
+/**
  * Give a job straight to a named cleaner — the "I've just got off the phone
  * with someone who'll take it" case, and how a provisional booking becomes a
  * real one. Deliberately skips the coverage and availability checks: the office
@@ -2148,6 +2282,26 @@ export async function declineJob(
       WHERE job_id = $1 AND cleaner_id = $2 AND response IS NULL`,
     [jobId, cleanerId]
   );
+
+  // A held cleaner saying no frees the job right now — the customer's clock
+  // shouldn't keep running down a hold the holder has already given up on.
+  // The backup is next in line; everyone covering otherwise.
+  const job = await getJob(jobId);
+  if (job && !job.cleaner_id && job.held_for_cleaner_id === cleanerId) {
+    await releaseHold(jobId);
+    const passed = await passJobOn(jobId, cleanerId);
+    await notifyAdmin({
+      subject: `First refusal declined — job ${job.ref} in ${job.outward}`,
+      smsBody:
+        `DECLINED: the area cleaner passed on ${job.ref} (${job.outward}, ` +
+        `${job.slot_date} ${job.slot_window.toUpperCase()}). ` +
+        (passed.handedTo
+          ? `Now held for the backup, ${passed.handedTo}.`
+          : `Offered to ${passed.offered} cleaner${passed.offered === 1 ? "" : "s"}.`),
+      jobId,
+    });
+    return;
+  }
 
   // If every cleaner it went to has now declined, flag it for admin.
   const outstanding = await queryOne<{ n: number }>(
@@ -2877,6 +3031,12 @@ export async function markInvoicePaidBySquare(input: {
     [invoice.id, input.paymentId]
   );
 
+  // A card payment that clears the last overdue invoice lifts an automatic
+  // pause on the spot — the cleaner shouldn't wait for the office to notice.
+  if (paid.length > 0) {
+    await unpauseIfSettled(invoice.cleaner_id);
+  }
+
   return {
     found: true,
     alreadyPaid: paid.length === 0,
@@ -3014,12 +3174,17 @@ export async function setInvoiceStatus(
   id: number,
   status: "issued" | "paid" | "void"
 ): Promise<void> {
-  await query(
+  const row = await queryOne<{ cleaner_id: number }>(
     `UPDATE commission_invoices
         SET status = $2, paid_at = CASE WHEN $2 = 'paid' THEN now() ELSE NULL END
-      WHERE id = $1`,
+      WHERE id = $1
+      RETURNING cleaner_id`,
     [id, status]
   );
+  // Settling the last overdue invoice lifts an automatic pause on its own.
+  if (row && status !== "issued") {
+    await unpauseIfSettled(row.cleaner_id);
+  }
 }
 
 /**
@@ -3784,6 +3949,10 @@ export async function getOpenSlots(
   toDays: number,
   excludeJobId?: number
 ): Promise<OpenSlot[]> {
+  // Where a district has an area cleaner, the calendar is their diary (plus
+  // the backup's): a slot another company happens to be free for is not
+  // offered, because the job would never be theirs to take. Districts without
+  // an area cleaner keep the old rule — anyone covering counts.
   const available = (window: "am" | "pm") => `
     EXISTS (
       SELECT 1
@@ -3794,6 +3963,11 @@ export async function getOpenSlots(
          AND av.weekday = EXTRACT(DOW FROM d.day)
          AND av.${window}
        WHERE c.status = 'approved'
+         AND (
+           NOT EXISTS (SELECT 1 FROM cleaner_areas p
+                        WHERE p.outward = $1 AND p.preferred)
+           OR a.preferred OR a.backup
+         )
          AND NOT EXISTS (
            SELECT 1 FROM cleaner_blackouts b
             WHERE b.cleaner_id = c.id AND b.day = d.day AND b.${window}
@@ -4730,6 +4904,151 @@ export async function cleanerReliability(
     [cleanerId, LATE_DROP_HOURS, String(DROP_REVIEW_DAYS)]
   );
   return row ?? { completed: 0, drops: 0, late_drops: 0, recent_late_drops: 0 };
+}
+
+// ------------------------------------------------- area-cleaner service levels
+
+/** The standards the area-cleaner agreement sets, stated once. */
+export const SLA_ACCEPT_PCT = 90;
+export const SLA_RESPONSE_HOURS = 2;
+export const SLA_MAX_DROPS_PER_MONTH = 1;
+export const SLA_DROP_NOTICE_HOURS = 48;
+
+export type SlaMonth = {
+  cleaner_id: number;
+  name: string;
+  phone: string;
+  areas: string | null;
+  offered: number;
+  accepted: number;
+  declined: number;
+  expired: number;
+  avg_response_mins: number | null;
+  drops: number;
+  late_drops: number;
+  no_shows: number;
+  warnings_3m: number;
+};
+
+/**
+ * One month of each area cleaner against the agreement's standards: share of
+ * offers accepted, how fast they say yes, cancellations (and short-notice
+ * ones), and no-shows the customer reported. Only cleaners who hold a patch
+ * appear — the standards are the price of exclusivity, not a general league
+ * table.
+ */
+export async function slaForMonth(month: string): Promise<SlaMonth[]> {
+  const monthStart = `${month}-01`;
+  return query<SlaMonth>(
+    `SELECT c.id AS cleaner_id, c.name, c.phone,
+            (SELECT string_agg(a.outward, ', ' ORDER BY a.outward)
+               FROM cleaner_areas a
+              WHERE a.cleaner_id = c.id AND a.preferred)                 AS areas,
+            (SELECT count(*)::int FROM job_offers o
+              WHERE o.cleaner_id = c.id
+                AND o.sent_at >= $1::date
+                AND o.sent_at <  $1::date + interval '1 month')          AS offered,
+            (SELECT count(*)::int FROM job_offers o
+              WHERE o.cleaner_id = c.id AND o.response = 'accepted'
+                AND o.sent_at >= $1::date
+                AND o.sent_at <  $1::date + interval '1 month')          AS accepted,
+            (SELECT count(*)::int FROM job_offers o
+              WHERE o.cleaner_id = c.id AND o.response = 'declined'
+                AND o.sent_at >= $1::date
+                AND o.sent_at <  $1::date + interval '1 month')          AS declined,
+            (SELECT count(*)::int FROM job_offers o
+              WHERE o.cleaner_id = c.id AND o.response = 'expired'
+                AND o.sent_at >= $1::date
+                AND o.sent_at <  $1::date + interval '1 month')          AS expired,
+            (SELECT round(avg(EXTRACT(EPOCH FROM (o.responded_at - o.sent_at)) / 60))::int
+               FROM job_offers o
+              WHERE o.cleaner_id = c.id AND o.response = 'accepted'
+                AND o.responded_at IS NOT NULL
+                AND o.sent_at >= $1::date
+                AND o.sent_at <  $1::date + interval '1 month')          AS avg_response_mins,
+            (SELECT count(*)::int FROM job_drops d
+              WHERE d.cleaner_id = c.id AND d.dropped_by = 'cleaner'
+                AND d.dropped_at >= $1::date
+                AND d.dropped_at <  $1::date + interval '1 month')       AS drops,
+            (SELECT count(*)::int FROM job_drops d
+              WHERE d.cleaner_id = c.id AND d.dropped_by = 'cleaner'
+                AND d.hours_notice < ${SLA_DROP_NOTICE_HOURS}
+                AND d.dropped_at >= $1::date
+                AND d.dropped_at <  $1::date + interval '1 month')       AS late_drops,
+            (SELECT count(*)::int FROM jobs j
+              WHERE j.cleaner_id = c.id AND j.customer_confirmed = 'no'
+                AND j.slot_date >= $1::date
+                AND j.slot_date <  $1::date + interval '1 month')        AS no_shows,
+            (SELECT count(*)::int FROM sla_warnings w
+              WHERE w.cleaner_id = c.id
+                AND w.created_at > now() - interval '3 months')          AS warnings_3m
+       FROM cleaners c
+      WHERE c.status = 'approved'
+        AND EXISTS (SELECT 1 FROM cleaner_areas a
+                     WHERE a.cleaner_id = c.id AND a.preferred)
+      ORDER BY c.name`,
+    [monthStart]
+  );
+}
+
+/**
+ * Put a service-level miss in writing — the agreement's formal step. The
+ * record is what makes a second warning within three months count, so it is
+ * stored before it is sent.
+ */
+export async function recordSlaWarning(
+  cleanerId: number,
+  month: string,
+  body: string
+): Promise<{ ok: boolean; reason?: string; warnings_3m?: number }> {
+  const cleaner = await getCleaner(cleanerId);
+  if (!cleaner) return { ok: false, reason: "Cleaner not found." };
+
+  await query(
+    `INSERT INTO sla_warnings (cleaner_id, month, body) VALUES ($1,$2,$3)`,
+    [cleanerId, month, body]
+  );
+  const count = await queryOne<{ n: number }>(
+    `SELECT count(*)::int AS n FROM sla_warnings
+      WHERE cleaner_id = $1 AND created_at > now() - interval '3 months'`,
+    [cleanerId]
+  );
+
+  await notifyCleaner(cleaner, {
+    subject: `Service level notice — ${month}`,
+    body:
+      `${firstName(cleaner.name)}, this is a written notice under your area ` +
+      `cleaner agreement.\n\n${body}\n\n` +
+      `A second notice within three months means we can end exclusivity on ` +
+      `your patch or reassign it. If any of this is wrong, reply and we'll ` +
+      `look at it together.`,
+    smsBody:
+      `Fresh For Less: a written service-level notice for ${month} has been ` +
+      `emailed to you. Please read it — a second within 3 months affects your patch.`,
+  });
+
+  return { ok: true, warnings_3m: count?.n ?? 1 };
+}
+
+export type SlaWarningRow = {
+  id: number;
+  cleaner_id: number;
+  cleaner_name: string;
+  month: string;
+  body: string;
+  created_at: string;
+};
+
+/** Recent written notices, newest first, for the service-levels page. */
+export async function listSlaWarnings(limit = 20): Promise<SlaWarningRow[]> {
+  return query<SlaWarningRow>(
+    `SELECT w.id, w.cleaner_id, c.name AS cleaner_name, w.month, w.body,
+            to_char(w.created_at, 'YYYY-MM-DD HH24:MI') AS created_at
+       FROM sla_warnings w JOIN cleaners c ON c.id = w.cleaner_id
+      ORDER BY w.created_at DESC
+      LIMIT $1`,
+    [limit]
+  );
 }
 
 
@@ -6038,10 +6357,99 @@ export async function setCleanerPaused(
   id: number,
   paused: boolean
 ): Promise<void> {
+  // A manual pause has no reason code, so paying an invoice never undoes it.
   await query(
-    `UPDATE cleaners SET paused_at = ${paused ? "now()" : "NULL"} WHERE id = $1`,
+    `UPDATE cleaners SET paused_at = ${paused ? "now()" : "NULL"}, pause_reason = '' WHERE id = $1`,
     [id]
   );
+}
+
+/**
+ * Pause every approved cleaner with commission unpaid past the grace period —
+ * the agreement's "commission unpaid after 7 days pauses new jobs". Runs from
+ * the nightly invoice cron. The pause is tagged 'overdue' so settling the bill
+ * lifts it automatically, and a pause the office chose by hand is never
+ * touched.
+ */
+export async function pauseOverdueCleaners(): Promise<
+  { id: number; name: string; owed_pence: number }[]
+> {
+  const paused = await query<{ id: number; name: string; owed_pence: number }>(
+    `UPDATE cleaners c
+        SET paused_at = now(), pause_reason = 'overdue'
+      WHERE c.status = 'approved' AND c.paused_at IS NULL
+        AND EXISTS (
+          SELECT 1 FROM commission_invoices i
+           WHERE i.cleaner_id = c.id AND i.status = 'issued'
+             AND i.issued_at <= now() - ($1 || ' days')::interval
+        )
+      RETURNING c.id, c.name,
+                (SELECT COALESCE(sum(total_pence),0)::int FROM commission_invoices
+                  WHERE cleaner_id = c.id AND status = 'issued') AS owed_pence`,
+    [String(COMMISSION_PAUSE_DAYS)]
+  );
+
+  for (const row of paused) {
+    const cleaner = await getCleaner(row.id);
+    if (!cleaner) continue;
+    await notifyCleaner(cleaner, {
+      subject: "New jobs paused — commission overdue",
+      body:
+        `${firstName(cleaner.name)}, commission of ${gbpShort(row.owed_pence)} has been ` +
+        `unpaid for more than ${COMMISSION_PAUSE_DAYS} days, so new jobs are paused ` +
+        `for you from today.\n\n` +
+        `The moment it's settled you're back in — automatically, nothing to ask for.\n` +
+        `Pay here: ${siteUrl()}/pro/invoices\n\n` +
+        `Already paid? Bank transfers can take a day to be marked — reply to this ` +
+        `and we'll check.`,
+      smsBody:
+        `Fresh For Less: commission ${gbpShort(row.owed_pence)} is over ` +
+        `${COMMISSION_PAUSE_DAYS} days unpaid, so new jobs are paused. Settle it and ` +
+        `you're back on automatically: ${siteUrl()}/pro/invoices`,
+    });
+  }
+
+  if (paused.length > 0) {
+    await notifyAdmin({
+      subject: `${paused.length} cleaner${paused.length === 1 ? "" : "s"} paused for overdue commission`,
+      smsBody:
+        `AUTO-PAUSED for overdue commission:\n` +
+        paused.map((p) => `${p.name} — ${gbpShort(p.owed_pence)}`).join("\n") +
+        `\n${siteUrl()}/admin/invoices`,
+    });
+  }
+  return paused;
+}
+
+/**
+ * Lift an automatic overdue pause once nothing is left overdue. Called after
+ * any invoice is settled; a hand-applied pause (no reason code) stays put.
+ */
+export async function unpauseIfSettled(cleanerId: number): Promise<void> {
+  const lifted = await query<{ id: number }>(
+    `UPDATE cleaners c
+        SET paused_at = NULL, pause_reason = ''
+      WHERE c.id = $1 AND c.pause_reason = 'overdue'
+        AND NOT EXISTS (
+          SELECT 1 FROM commission_invoices i
+           WHERE i.cleaner_id = c.id AND i.status = 'issued'
+             AND i.issued_at <= now() - ($2 || ' days')::interval
+        )
+      RETURNING c.id`,
+    [cleanerId, String(COMMISSION_PAUSE_DAYS)]
+  );
+  if (lifted.length === 0) return;
+
+  const cleaner = await getCleaner(cleanerId);
+  if (cleaner) {
+    await notifyCleaner(cleaner, {
+      subject: "You're back on",
+      body:
+        `${firstName(cleaner.name)}, that commission is settled and new jobs are ` +
+        `switched back on for you. Thanks for sorting it.`,
+      smsBody: `Fresh For Less: commission settled — new jobs are back on for you.`,
+    });
+  }
 }
 
 /**
@@ -6234,10 +6642,26 @@ export async function holdJobForCleaner(
   }
 
   const window = Math.max(1, Math.min(72, Math.round(hours)));
+  // The clock only runs 8am-8pm UK time: a cleaner texted at 11pm shouldn't
+  // lose first refusal while asleep. A deadline that would land overnight
+  // moves to the next morning at 8am plus the full window.
   const updated = await query<{ held_until: string }>(
     `UPDATE jobs
         SET held_for_cleaner_id = $2,
-            held_until = now() + ($3 || ' hours')::interval,
+            held_until = (
+              SELECT CASE
+                WHEN EXTRACT(HOUR FROM t AT TIME ZONE 'Europe/London') >= 20
+                  THEN ((date_trunc('day', t AT TIME ZONE 'Europe/London')
+                          + interval '1 day 8 hours') AT TIME ZONE 'Europe/London')
+                       + ($3 || ' hours')::interval
+                WHEN EXTRACT(HOUR FROM t AT TIME ZONE 'Europe/London') < 8
+                  THEN ((date_trunc('day', t AT TIME ZONE 'Europe/London')
+                          + interval '8 hours') AT TIME ZONE 'Europe/London')
+                       + ($3 || ' hours')::interval
+                ELSE t
+              END
+              FROM (SELECT now() + ($3 || ' hours')::interval AS t) raw
+            ),
             status = CASE WHEN status IN ('provisional','unfilled') THEN 'offered' ELSE status END
       WHERE id = $1 AND cleaner_id IS NULL
       RETURNING to_char(held_until AT TIME ZONE 'Europe/London', 'HH24:MI on DD Mon') AS held_until`,
@@ -6264,12 +6688,13 @@ export async function holdJobForCleaner(
       `Job: ${items}\n` +
       `Job value: ${gbpShort(job.total_pence)}\n` +
       `Commission: ${gbpShort(job.commission_pence)} — you keep ${youKeep}\n\n` +
-      `Accept it on your dashboard: ${siteUrl()}/pro/dashboard\n` +
-      `After ${until} it goes out to everyone.`,
+      `Reply YES to this text to take it, or accept on your dashboard: ` +
+      `${siteUrl()}/pro/dashboard\n` +
+      `After ${until} it's passed on.`,
     smsBody:
       `Fresh For Less: first refusal on ${job.outward}, ${job.slot_date} ` +
       `${job.slot_window.toUpperCase()}, ${gbpShort(job.total_pence)} (you keep ${youKeep}). ` +
-      `Yours alone until ${until}: ${siteUrl()}/pro/dashboard`,
+      `Yours alone until ${until}. Reply YES to take it, or: ${siteUrl()}/pro/dashboard`,
   });
 
   return { ok: true, until };
@@ -6287,6 +6712,58 @@ export async function getPreferredCleanerFor(
         AND c.status = 'approved' AND c.paused_at IS NULL`,
     [outward]
   );
+}
+
+/** The backup company for an area — hears about a job only when the area
+ *  cleaner declines it or lets the hold lapse. */
+export async function getBackupCleanerFor(
+  outward: string
+): Promise<{ id: number; name: string; first_refusal_hours: number } | null> {
+  return queryOne<{ id: number; name: string; first_refusal_hours: number }>(
+    `SELECT c.id, c.name, c.first_refusal_hours
+       FROM cleaner_areas a
+       JOIN cleaners c ON c.id = a.cleaner_id
+      WHERE a.outward = $1 AND a.backup
+        AND c.status = 'approved' AND c.paused_at IS NULL`,
+    [outward]
+  );
+}
+
+/**
+ * Hand a job on after the held cleaner is out of it (declined, or the hold
+ * lapsed). The area's backup gets their own hold if they're free, haven't
+ * already said no, and aren't the one who just dropped it; failing that the
+ * job goes out to everyone covering. Returns what happened, for the admin text.
+ */
+export async function passJobOn(
+  jobId: number,
+  excludeCleanerId?: number
+): Promise<{ handedTo: string | null; offered: number }> {
+  const job = await getJob(jobId);
+  if (!job || job.cleaner_id || !["offered", "unfilled", "provisional"].includes(job.status)) {
+    return { handedTo: null, offered: 0 };
+  }
+
+  const backup = await getBackupCleanerFor(job.outward);
+  if (backup && backup.id !== excludeCleanerId) {
+    const alreadyAnswered = await queryOne<{ n: number }>(
+      `SELECT count(*)::int AS n FROM job_offers
+        WHERE job_id = $1 AND cleaner_id = $2 AND response IS NOT NULL`,
+      [jobId, backup.id]
+    );
+    const free =
+      (alreadyAnswered?.n ?? 0) === 0 &&
+      (
+        await findMatchingCleaners(job.outward, job.slot_date, job.slot_window)
+      ).some((c) => c.id === backup.id);
+    if (free) {
+      const hold = await holdJobForCleaner(jobId, backup.id, backup.first_refusal_hours);
+      if (hold.ok) return { handedTo: backup.name, offered: 1 };
+    }
+  }
+
+  const offered = await broadcastJob(jobId, job.outward, job.slot_date, job.slot_window);
+  return { handedTo: null, offered };
 }
 
 /**
@@ -6356,6 +6833,80 @@ export async function getPreferredAreas(cleanerId: number): Promise<string[]> {
   return rows.map((r) => r.outward);
 }
 
+/**
+ * Mark the districts where this company is the backup — second in line when
+ * the area cleaner declines or lets a hold lapse. One backup per district,
+ * clashes refused by name, exactly like the preferred patch.
+ */
+export async function setBackupAreas(
+  cleanerId: number,
+  outwards: string[]
+): Promise<{ ok: boolean; reason?: string }> {
+  if (outwards.length > 0) {
+    const clashes = await query<{ outward: string; name: string }>(
+      `SELECT a.outward, c.name
+         FROM cleaner_areas a JOIN cleaners c ON c.id = a.cleaner_id
+        WHERE a.backup AND a.cleaner_id <> $1 AND a.outward = ANY($2::text[])
+        ORDER BY a.outward`,
+      [cleanerId, outwards]
+    );
+    if (clashes.length > 0) {
+      const listed = clashes
+        .slice(0, 5)
+        .map((c) => `${c.outward} (${c.name})`)
+        .join(", ");
+      return {
+        ok: false,
+        reason: `Already someone's backup patch: ${listed}${clashes.length > 5 ? ` and ${clashes.length - 5} more` : ""}. Take it off them first.`,
+      };
+    }
+    // Being first and second in line in the same district is a loop, not a
+    // safety net — refuse it rather than quietly double-booking one company.
+    const own = await query<{ outward: string }>(
+      `SELECT outward FROM cleaner_areas
+        WHERE cleaner_id = $1 AND preferred AND outward = ANY($2::text[])
+        ORDER BY outward`,
+      [cleanerId, outwards]
+    );
+    if (own.length > 0) {
+      return {
+        ok: false,
+        reason: `They already hold ${own.map((r) => r.outward).join(", ")} as the area cleaner — a company can't be its own backup.`,
+      };
+    }
+  }
+
+  await query(`UPDATE cleaner_areas SET backup = false WHERE cleaner_id = $1`, [
+    cleanerId,
+  ]);
+  for (const outward of outwards) {
+    // Backup implies covered — add the district if they don't claim it yet.
+    await query(
+      `INSERT INTO cleaner_areas (cleaner_id, outward) VALUES ($1,$2)
+       ON CONFLICT (cleaner_id, outward) DO NOTHING`,
+      [cleanerId, outward]
+    );
+  }
+  if (outwards.length > 0) {
+    await query(
+      `UPDATE cleaner_areas SET backup = true
+        WHERE cleaner_id = $1 AND outward = ANY($2::text[])`,
+      [cleanerId, outwards]
+    );
+  }
+  return { ok: true };
+}
+
+/** A cleaner's districts where they stand backup, for their card. */
+export async function getBackupAreas(cleanerId: number): Promise<string[]> {
+  const rows = await query<{ outward: string }>(
+    `SELECT outward FROM cleaner_areas
+      WHERE cleaner_id = $1 AND backup ORDER BY outward`,
+    [cleanerId]
+  );
+  return rows.map((r) => r.outward);
+}
+
 /** Take the hold off a job early. Quiet — nobody is texted. */
 export async function releaseHold(jobId: number): Promise<void> {
   await query(
@@ -6365,22 +6916,53 @@ export async function releaseHold(jobId: number): Promise<void> {
 }
 
 /**
- * Holds that lapsed with the job still untaken: clear them and put the job
- * out to everyone covering it. Runs from the daily cron; acceptance was
- * already open to all from the moment each hold expired.
+ * Holds that lapsed with the job still untaken: clear them, mark the silence
+ * against the holder's service record, and pass the job on — the area's
+ * backup first, everyone covering otherwise. Runs hourly through the day;
+ * acceptance was already open to all from the moment each hold expired.
  */
 export async function releaseExpiredHolds(): Promise<number> {
-  const lapsed = await query<{ id: number; outward: string; slot_date: string; slot_window: SlotWindow }>(
-    `UPDATE jobs
+  const lapsed = await query<{
+    id: number;
+    was_held_for: number;
+    outward: string;
+    slot_date: string;
+    slot_window: SlotWindow;
+  }>(
+    `WITH lapsed AS (
+       SELECT id, held_for_cleaner_id AS was_held_for
+         FROM jobs
+        WHERE cleaner_id IS NULL
+          AND held_for_cleaner_id IS NOT NULL
+          AND held_until <= now()
+          AND status IN ('offered', 'unfilled')
+     )
+     UPDATE jobs j
         SET held_for_cleaner_id = NULL, held_until = NULL
-      WHERE cleaner_id IS NULL
-        AND held_for_cleaner_id IS NOT NULL
-        AND held_until <= now()
-        AND status IN ('offered', 'unfilled')
-      RETURNING id, outward, to_char(slot_date, 'YYYY-MM-DD') AS slot_date, slot_window`
+       FROM lapsed l
+      WHERE j.id = l.id
+      RETURNING j.id, l.was_held_for, j.outward,
+                to_char(j.slot_date, 'YYYY-MM-DD') AS slot_date, j.slot_window`
   );
   for (const job of lapsed) {
-    await broadcastJob(job.id, job.outward, job.slot_date, job.slot_window);
+    // A hold that ran out unanswered counts against the acceptance rate the
+    // same way a decline does — silence is how most jobs are actually lost.
+    await query(
+      `UPDATE job_offers SET response = 'expired', responded_at = now()
+        WHERE job_id = $1 AND cleaner_id = $2 AND response IS NULL`,
+      [job.id, job.was_held_for]
+    );
+    const passed = await passJobOn(job.id, job.was_held_for);
+    await notifyAdmin({
+      subject: `First refusal lapsed — job ${job.id} in ${job.outward}`,
+      smsBody:
+        `HOLD LAPSED: ${job.outward} on ${job.slot_date} ${job.slot_window.toUpperCase()} ` +
+        `went unanswered. ` +
+        (passed.handedTo
+          ? `Now held for the backup, ${passed.handedTo}.`
+          : `Offered to ${passed.offered} cleaner${passed.offered === 1 ? "" : "s"}.`),
+      jobId: job.id,
+    });
   }
   return lapsed.length;
 }

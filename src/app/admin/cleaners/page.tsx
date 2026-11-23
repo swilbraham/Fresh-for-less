@@ -7,6 +7,7 @@ import {
   DROP_REVIEW_LIMIT,
   getAllCleanerAreas,
   getAvailability,
+  getBackupAreas,
   getCleanerThread,
   getPreferredAreas,
   listCleaners,
@@ -14,6 +15,7 @@ import {
 import {
   createCleanerAction,
   issueResetLinkAction,
+  setBackupAreasAction,
   setPreferredAreasAction,
   textCleanerAction,
   setCleanerPausedAction,
@@ -127,6 +129,14 @@ export default async function AdminCleanersPage({
       cleaners.map(
         async (cleaner) =>
           [cleaner.id, await getPreferredAreas(cleaner.id)] as const
+      )
+    )
+  );
+  const backupByCleaner = new Map(
+    await Promise.all(
+      cleaners.map(
+        async (cleaner) =>
+          [cleaner.id, await getBackupAreas(cleaner.id)] as const
       )
     )
   );
@@ -694,6 +704,40 @@ export default async function AdminCleanersPage({
                         Save first refusal
                       </button>
                     </div>
+                  </form>
+
+                  <form
+                    action={setBackupAreasAction}
+                    className="mt-6 space-y-3 border-t border-slate-100 pt-6"
+                  >
+                    <input type="hidden" name="id" value={cleaner.id} />
+                    <label
+                      htmlFor={`backup-${cleaner.id}`}
+                      className="block text-sm font-semibold text-slate-700"
+                    >
+                      Backup patch
+                    </label>
+                    <p className="-mt-1 text-xs text-slate-500">
+                      Second in line: when the area cleaner declines a job or
+                      lets the hold lapse, this company gets their own hold
+                      before anyone else hears about it. One backup per
+                      district, and a company can&apos;t back up its own patch.
+                      Leave empty for none.
+                    </p>
+                    <textarea
+                      id={`backup-${cleaner.id}`}
+                      name="backupAreas"
+                      rows={2}
+                      defaultValue={(backupByCleaner.get(cleaner.id) ?? []).join(", ")}
+                      placeholder="CH41 CH42"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-2.5 uppercase tracking-wide"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-slate-900 px-5 py-2.5 font-semibold text-white"
+                    >
+                      Save backup patch
+                    </button>
                   </form>
 
                   <form

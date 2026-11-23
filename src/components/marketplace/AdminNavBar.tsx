@@ -34,6 +34,7 @@ const GROUPS: { label: string; links: { href: string; label: string }[] }[] = [
     links: [
       { href: "/admin/cleaners", label: "Network" },
       { href: "/admin/coverage", label: "Coverage" },
+      { href: "/admin/service-levels", label: "Service levels" },
       { href: "/admin/training", label: "Training" },
     ],
   },

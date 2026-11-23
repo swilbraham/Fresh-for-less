@@ -9,7 +9,7 @@
  * Bump whenever STATEMENTS or SEED change. Lets a cold start skip the whole
  * migration with a single query instead of replaying every statement.
  */
-export const SCHEMA_VERSION = 66;
+export const SCHEMA_VERSION = 67;
 
 export const STATEMENTS: string[] = [
   // ---- Platform settings (single row) -------------------------------------
@@ -675,13 +675,38 @@ export const STATEMENTS: string[] = [
   // One second push of an open request to cleaners who haven't priced it.
   `ALTER TABLE quote_requests ADD COLUMN IF NOT EXISTS requote_pushed_at timestamptz`,
 
+  // ---- Area cleaner model ---------------------------------------------------
+  // One backup company per district: when the area (preferred) cleaner
+  // declines a job or lets the hold lapse, it is held for the backup before
+  // anyone else hears about it. Same one-per-district rule as preferred.
+  `ALTER TABLE cleaner_areas ADD COLUMN IF NOT EXISTS backup boolean NOT NULL DEFAULT false`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS cleaner_areas_one_backup
+     ON cleaner_areas (outward) WHERE backup`,
+
+  // Why a cleaner is paused: '' is a manual office pause, 'overdue' was put on
+  // automatically for unpaid commission and comes off automatically when the
+  // last overdue invoice is settled. Kept apart so paying a bill never
+  // silently undoes a pause the office chose.
+  `ALTER TABLE cleaners ADD COLUMN IF NOT EXISTS pause_reason text NOT NULL DEFAULT ''`,
+
+  // Written service-level warnings under the area-cleaner agreement: a miss
+  // gets a warning in writing, and a second warning within three months lets
+  // the office end exclusivity. The record is what makes the second one count.
+  `CREATE TABLE IF NOT EXISTS sla_warnings (
+     id         serial PRIMARY KEY,
+     cleaner_id int NOT NULL REFERENCES cleaners(id) ON DELETE CASCADE,
+     month      text NOT NULL,
+     body       text NOT NULL DEFAULT '',
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS sla_warnings_cleaner ON sla_warnings (cleaner_id)`,
+
   // ==== ONE-OFF DATA CHANGES — always the last entries in this array ========
-  // ---- One-off, 2026-08-26 ------------------------------------------------
-  // Nothing outstanding. Two attempts at trimming coverage from here matched
-  // no rows: the wide claim isn't one record with hundreds of areas, so it
-  // can't be found by name or by count. Coverage is edited per cleaner in
-  // /admin/cleaners, and /admin/coverage now shows the per-cleaner counts
-  // needed to see who claims what.
+  // ---- One-off, 2026-11-23 --------------------------------------------------
+  // The area-cleaner agreement: back to instant fixed prices. Quote-request
+  // mode goes off here; the /admin/prices tickbox stays in control afterwards,
+  // exactly as the 9 Nov one-shot worked in the other direction.
+  `UPDATE settings SET quote_mode = false WHERE id = 1`,
 
 ];
 
